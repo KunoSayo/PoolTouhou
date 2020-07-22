@@ -12,7 +12,11 @@ env:
 jobs:
   build:
 
-    runs-on: macos-latest
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
 
     steps:
     - uses: actions/checkout@v2
@@ -25,3 +29,8 @@ jobs:
       run: cargo build --verbose -Z unstable-options --out-dir artifacts
     - name: Run tests
       run: cargo test --verbose
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v1
+      with:
+        path: ${{ github.workspace }}/artifacts
+        name: ${{ matrix.os }}-${{ github.run_number }}
