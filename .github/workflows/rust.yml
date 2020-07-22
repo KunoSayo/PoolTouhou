@@ -16,7 +16,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Install latest nightly toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
     - name: Build
-      run: cargo build --verbose --out-dir artifacts
+      run: cargo build --verbose -Z unstable-options --out-dir artifacts
     - name: Run tests
       run: cargo test --verbose
