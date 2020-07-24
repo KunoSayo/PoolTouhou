@@ -31,8 +31,6 @@ jobs:
       - name: Build for macos
         if: matrix.os == 'macos-latest'
         run: cargo build --verbose -Z unstable-options --out-dir artifacts --no-default-features --features "metal"
-      - name: Run tests
-        run: cargo test --verbose
       - name: Upload artifacts
         uses: actions/upload-artifact@v1
         with:
