@@ -8,3 +8,12 @@ edition = "2018"
 
 [dependencies]
 rand = "0.6.0"
+amethyst = "0.15.0"
+
+# https://amethyst.rs/doc
+
+[features]
+default = ["vulkan"]
+empty = ["amethyst/empty"]
+metal = ["amethyst/metal"]
+vulkan = ["amethyst/vulkan"]

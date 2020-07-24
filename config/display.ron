@@ -1,0 +1,5 @@
+(
+  title: "PoolTouhou!",
+  resizable: false,
+  dimensions: Some((1600, 900)),
+)
