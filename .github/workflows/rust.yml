@@ -32,18 +32,15 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v1
         with:
-          path:
-            - ${{ github.workspace }}/artifacts
+          path: ${{ github.workspace }}/artifacts
           name: ${{ matrix.os }}-${{ github.run_number }}
       - name: Upload config
         uses: actions/upload-artifact@v1
         with:
-          path:
-            - ${{ github.workspace }}/config
+          path: ${{ github.workspace }}/config
           name: ${{ matrix.os }}-${{ github.run_number }}
       - name: Upload assets
         uses: actions/upload-artifact@v1
         with:
-          path:
-            - ${{ github.workspace }}/assets
+          path: ${{ github.workspace }}/assets
           name: ${{ matrix.os }}-${{ github.run_number }}
