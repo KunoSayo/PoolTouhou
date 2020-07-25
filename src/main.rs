@@ -37,8 +37,9 @@ fn main() -> amethyst::Result<()> {
     amethyst::start_logger(Default::default());
 
     let app_root = application_root_dir()?;
-    let display_config_path = app_root.join("config").join("display.ron");
-    let assets_dir = app_root.join("assets");
+    let res_root = if app_root.join("res").exists() { app_root.join("res") } else { app_root };
+    let display_config_path = res_root.join("config").join("display.ron");
+    let assets_dir = res_root.join("assets");
     let game_data = GameDataBuilder::default()
         .with_bundle(RenderingBundle::<DefaultBackend>::new()
             .with_plugin(

@@ -27,22 +27,17 @@ jobs:
           override: true
       - name: Build for window
         if: matrix.os == 'windows-latest'
-        run: cargo build --verbose -Z unstable-options --out-dir artifacts --no-default-features --features "vulkan"
+        run: cargo build --release --verbose -Z unstable-options --out-dir artifacts --no-default-features --features "vulkan"
       - name: Build for macos
         if: matrix.os == 'macos-latest'
-        run: cargo build --verbose -Z unstable-options --out-dir artifacts --no-default-features --features "metal"
+        run: cargo build --release --verbose -Z unstable-options --out-dir artifacts --no-default-features --features "metal"
       - name: Upload artifacts
         uses: actions/upload-artifact@v1
         with:
           path: ${{ github.workspace }}/artifacts
           name: ${{ matrix.os }}-${{ github.run_number }}
-      - name: Upload config
+      - name: Upload res
         uses: actions/upload-artifact@v1
         with:
-          path: ${{ github.workspace }}/config
-          name: ${{ matrix.os }}-${{ github.run_number }}
-      - name: Upload assets
-        uses: actions/upload-artifact@v1
-        with:
-          path: ${{ github.workspace }}/assets
+          path: ${{ github.workspace }}/res
           name: ${{ matrix.os }}-${{ github.run_number }}

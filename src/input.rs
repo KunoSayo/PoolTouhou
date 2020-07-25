@@ -23,6 +23,25 @@ impl InputData {
             pressing: HashSet::new(),
         }
     }
+
+    pub fn get_move(&self, base_speed: f32) -> (f32, f32) {
+        let up = self.pressing.contains(&VirtualKeyCode::Up);
+        let down = self.pressing.contains(&VirtualKeyCode::Down);
+        let left = self.pressing.contains(&VirtualKeyCode::Left);
+        let right = self.pressing.contains(&VirtualKeyCode::Right);
+        if !(up ^ down) && !(left ^ right) {
+            (0.0, 0.0)
+        } else if up ^ down {
+            if left ^ right {
+                let corner_speed = base_speed * 2.0_f32.sqrt() * 0.5;
+                (if left { -corner_speed } else { corner_speed }, if up { corner_speed } else { -corner_speed })
+            } else {
+                (0.0, if up { base_speed } else { -base_speed })
+            }
+        } else {
+            (if left { -base_speed } else if right { base_speed } else { 0.0 }, 0.0)
+        }
+    }
 }
 
 impl Clone for InputData {

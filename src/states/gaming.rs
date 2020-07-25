@@ -2,7 +2,6 @@ use amethyst::{
     assets::*,
     core::*,
     ecs::Entity,
-    input::VirtualKeyCode,
     prelude::*,
     renderer::*,
 };
@@ -24,27 +23,16 @@ impl SimpleState for Gaming {
         init_camera(world);
     }
 
-    fn update(&mut self, data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
+    fn fixed_update(&mut self, data: StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
         let core_storage = data.world.read_resource::<CoreStorage>();
         let mut transform = data.world.write_component::<Transform>();
         let input = core_storage.cur_input.as_ref().unwrap();
-        const MOVE_SPEED: f32 = 2.5;
-        if input.pressing.contains(&VirtualKeyCode::Up) {
-            let pos = transform.get_mut(core_storage.player.unwrap()).expect("Where is my sheep");
-            pos.set_translation_y((pos.translation().y + MOVE_SPEED).min(850.0));
-        }
-        if input.pressing.contains(&VirtualKeyCode::Down) {
-            let pos = transform.get_mut(core_storage.player.unwrap()).expect("Where is my sheep");
-            pos.set_translation_y((pos.translation().y - MOVE_SPEED).max(50.0));
-        }
-        if input.pressing.contains(&VirtualKeyCode::Left) {
-            let pos = transform.get_mut(core_storage.player.unwrap()).expect("Where is my sheep");
-            pos.set_translation_x((pos.translation().x - MOVE_SPEED).max(50.0));
-        }
-        if input.pressing.contains(&VirtualKeyCode::Right) {
-            let pos = transform.get_mut(core_storage.player.unwrap()).expect("Where is my sheep");
-            pos.set_translation_x((pos.translation().x + MOVE_SPEED).min(1550.0));
-        }
+        const MOVE_SPEED: f32 = 5.0;
+        let (mov_x, mov_y) = input.get_move(MOVE_SPEED);
+        let pos = transform.get_mut(core_storage.player.unwrap()).expect("Where is my sheep");
+        let (raw_x, raw_y) = (pos.translation().x, pos.translation().y);
+        pos.set_translation_x((mov_x + raw_x).max(50.0).min(1550.0))
+            .set_translation_y((mov_y + raw_y).max(50.0).min(850.0));
         Trans::None
     }
 }
