@@ -1,15 +1,13 @@
 use amethyst::{
-    ecs::prelude::{Component, DenseVecStorage},
+    ecs::prelude::{Component, FlaggedStorage},
+    renderer::SpriteRender
 };
 
-pub struct Sheep;
-
-impl Sheep {
-    pub fn new() -> Self {
-        Self {}
-    }
+#[derive(Default)]
+pub struct Sheep {
+    pub sprite_render: Option<SpriteRender>,
 }
 
 impl Component for Sheep {
-    type Storage = DenseVecStorage<Self>;
+    type Storage = FlaggedStorage<Self>;
 }

@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 rand = "0.6.0"
 amethyst = "0.15.0"
+nalgebra = "0.19"
 
 # https://amethyst.rs/doc
 
