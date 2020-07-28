@@ -2,7 +2,7 @@ use amethyst::{
     audio::AudioBundle,
     core::TransformBundle,
     ecs::Entity,
-    input::{InputBundle, StringBindings},
+    input::{InputBundle, StringBindings, VirtualKeyCode},
     prelude::*,
     renderer::{
         plugins::{RenderFlat2D, RenderToWindow},
@@ -12,15 +12,22 @@ use amethyst::{
     utils::application_root_dir,
 };
 
-// https://doc.rust-lang.org/book/
+mod handles;
+mod systems;
 mod states;
 mod entities;
 mod input;
+
+// https://doc.rust-lang.org/book/
+
 
 pub struct CoreStorage {
     player: Option<Entity>,
     last_input: input::InputData,
     cur_input: Option<input::InputData>,
+    temp_input: Option<input::InputData>,
+    tick: u128,
+    tick_sign: bool,
 }
 
 impl Default for CoreStorage {
@@ -29,7 +36,29 @@ impl Default for CoreStorage {
             player: None,
             last_input: input::InputData::empty(),
             cur_input: Some(input::InputData::empty()),
+            temp_input: Some(input::InputData::empty()),
+            tick: 0,
+            tick_sign: false,
         }
+    }
+}
+
+impl CoreStorage {
+    pub fn swap_input(&mut self) {
+        if self.temp_input.is_some() {
+            self.last_input = self.cur_input.take().unwrap();
+            self.cur_input.replace(self.temp_input.take().unwrap());
+        }
+    }
+
+    pub fn is_press(&self, keys: Box<[VirtualKeyCode]>) -> bool {
+        let last_input = &self.last_input;
+        let cur_input = self.cur_input.as_ref().unwrap();
+
+        let any_last_not_input = keys.iter().any(|key| !last_input.pressing.contains(key));
+        let all_cur_input = keys.iter().all(|key| cur_input.pressing.contains(key));
+
+        return any_last_not_input && all_cur_input;
     }
 }
 
@@ -51,7 +80,8 @@ fn main() -> amethyst::Result<()> {
         .with_bundle(TransformBundle::new())?
         .with_bundle(InputBundle::<StringBindings>::new())?
         .with_bundle(AudioBundle::default())?
-        .with(input::InputDataSystem, "main_input_system", &["input_system"]);
+        .with(input::InputDataSystem, "main_input_system", &["input_system"])
+        .with(systems::GameSystem, "main_game_system", &["main_input_system"]);
     let mut game = Application::new(assets_dir, states::Gaming, game_data)?;
     game.run();
     Ok(())

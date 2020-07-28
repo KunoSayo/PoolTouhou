@@ -1,6 +1,6 @@
 use amethyst::{
     ecs::prelude::{Component, FlaggedStorage},
-    renderer::SpriteRender
+    renderer::SpriteRender,
 };
 
 #[derive(Default)]

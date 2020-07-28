@@ -69,7 +69,6 @@ impl<'s> System<'s> for InputDataSystem {
         Write<'s, CoreStorage>
     );
     fn run(&mut self, (data, mut core): Self::SystemData) {
-        core.last_input = core.cur_input.take().unwrap();
         let mut cur = InputData::empty();
         for key in data.keys_that_are_down() {
             cur.pressing.insert(key);
@@ -78,6 +77,6 @@ impl<'s> System<'s> for InputDataSystem {
             cur.x = x;
             cur.y = y;
         }
-        core.cur_input = Some(cur);
+        core.temp_input.replace(cur);
     }
 }
