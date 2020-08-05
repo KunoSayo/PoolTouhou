@@ -2,7 +2,6 @@ use amethyst::{
     renderer::*,
 };
 
-
 pub struct TextureHandles {
     pub player_bullet: Option<SpriteRender>
 }
