@@ -1,7 +1,7 @@
 use amethyst::{
     assets::*,
     core::{
-        components::Transform,
+        components::Transform
     },
     ecs::Entity,
     input::VirtualKeyCode,
@@ -15,6 +15,7 @@ use crate::handles::TextureHandles;
 use crate::states::pausing::Pausing;
 use crate::systems::Player;
 
+#[derive(Default)]
 pub struct Gaming;
 
 impl SimpleState for Gaming {
@@ -90,7 +91,10 @@ fn setup_sheep(world: &mut World) -> Entity {
     world.create_entity()
         .with(sprite_render)
         .with(pos.clone())
+        .with(Transparent)
         .build();
+    pos.set_translation_xyz(ARENA_WIDTH * 0.5, ARENA_HEIGHT * 0.5, 0.0);
+    // pos.set_scale(Vector3::new(1.0, 1.0, 1.0));
     let sprite_sheet_handle = load_sprite_sheet(world, "texture/sheep.png", "texture/sheep.ron");
     let sprite_render = SpriteRender {
         sprite_sheet: sprite_sheet_handle,
@@ -109,6 +113,7 @@ fn setup_sheep(world: &mut World) -> Entity {
             sprite_render: None
         })
         .with(Player::new(5.0))
+        .with(Transparent)
         .with(pos)
         .build()
 }

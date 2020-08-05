@@ -5,7 +5,7 @@ use amethyst::{
     input::{InputBundle, StringBindings, VirtualKeyCode},
     prelude::*,
     renderer::{
-        plugins::{RenderFlat2D, RenderToWindow},
+        plugins::{RenderFlat2D, RenderFlat3D, RenderToWindow},
         RenderingBundle,
         types::DefaultBackend,
     },
@@ -73,16 +73,19 @@ fn main() -> amethyst::Result<()> {
         .with_bundle(RenderingBundle::<DefaultBackend>::new()
             .with_plugin(
                 RenderToWindow::from_config_path(display_config_path)?
-                    .with_clear([0, 0, 0, 1])
+                    .with_clear([0.0, 0.0, 0.0, 1.0])
             )
             .with_plugin(RenderFlat2D::default())
+            .with_plugin(RenderFlat3D::default())
         )?
         .with_bundle(TransformBundle::new())?
         .with_bundle(InputBundle::<StringBindings>::new())?
         .with_bundle(AudioBundle::default())?
         .with(input::InputDataSystem, "main_input_system", &["input_system"])
         .with(systems::GameSystem, "main_game_system", &["main_input_system"]);
-    let mut game = Application::new(assets_dir, states::Gaming, game_data)?;
+    let mut game = Application::build(assets_dir, states::Gaming::default())?
+        .build(game_data)?;
+
     game.run();
     Ok(())
 }

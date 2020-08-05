@@ -4,7 +4,7 @@ use amethyst::{
     ecs::{Entities, Read, System, SystemData, Write, WriteStorage},
     ecs::prelude::{Component, DenseVecStorage, Join},
     input::VirtualKeyCode,
-    renderer::SpriteRender,
+    renderer::{SpriteRender, Transparent},
 };
 use nalgebra::Vector3;
 
@@ -39,18 +39,19 @@ impl<'a> System<'a> for GameSystem {
         WriteStorage<'a, Transform>,
         WriteStorage<'a, PlayerBullet>,
         WriteStorage<'a, SpriteRender>,
+        WriteStorage<'a, Transparent>,
         WriteStorage<'a, Player>,
         Read<'a, TextureHandles>,
         Write<'a, CoreStorage>,
         Entities<'a>
     );
-    fn run(&mut self, (mut transforms, mut player_bullets, mut sprite_renders, mut player, texture_handles, mut core, entities): Self::SystemData) {
+    fn run(&mut self, (mut transforms, mut player_bullets, mut sprite_renders, mut transparents, mut player, texture_handles, mut core, entities): Self::SystemData) {
         if core.tick_sign {
             core.tick_sign = false;
             core.tick += 1;
             let mut should_delete = vec![];
             for (pos, _, entity) in (&mut transforms, &player_bullets, &entities).join() {
-                pos.prepend_translation_y(5.0);
+                pos.prepend_translation_y(30.0);
                 if pos.translation().y > 900.0 {
                     should_delete.push(entity);
                 }
@@ -65,7 +66,7 @@ impl<'a> System<'a> for GameSystem {
                 pos.set_translation_x((mov_x + raw_x).max(0.0).min(1600.0))
                     .set_translation_y((mov_y + raw_y).max(0.0).min(900.0));
                 if p.shoot_cooldown == 0 {
-                    p.shoot_cooldown = 5;
+                    p.shoot_cooldown = 2;
                     if cur_input.pressing.contains(&VirtualKeyCode::Z) {
                         let mut pos = (*pos).clone();
                         pos.prepend_translation_z(1.0);
@@ -74,6 +75,7 @@ impl<'a> System<'a> for GameSystem {
                             .with(pos, &mut transforms)
                             .with(PlayerBullet, &mut player_bullets)
                             .with(texture_handles.player_bullet.clone().unwrap(), &mut sprite_renders)
+                            .with(Transparent, &mut transparents)
                             .build();
                         break;
                     }
