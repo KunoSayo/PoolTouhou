@@ -9,9 +9,11 @@ use amethyst::{
         RenderingBundle,
         types::DefaultBackend,
     },
+    ui::{RenderUi, UiBundle},
     utils::application_root_dir,
 };
 
+mod ui;
 mod handles;
 mod systems;
 mod states;
@@ -77,12 +79,15 @@ fn main() -> amethyst::Result<()> {
             )
             .with_plugin(RenderFlat2D::default())
             .with_plugin(RenderFlat3D::default())
+            .with_plugin(RenderUi::default())
         )?
         .with_bundle(TransformBundle::new())?
         .with_bundle(InputBundle::<StringBindings>::new())?
+        .with_bundle(UiBundle::<StringBindings>::new())?
         .with_bundle(AudioBundle::default())?
         .with(input::InputDataSystem, "main_input_system", &["input_system"])
-        .with(systems::GameSystem, "main_game_system", &["main_input_system"]);
+        .with(systems::GameSystem, "main_game_system", &["main_input_system"])
+        .with(systems::DebugSystem, "debug_system", &[]);
     let mut game = Application::build(assets_dir, states::Gaming::default())?
         .build(game_data)?;
 

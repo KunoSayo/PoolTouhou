@@ -10,7 +10,7 @@ use amethyst::{
 };
 
 use crate::CoreStorage;
-use crate::entities::{EnemyBullet, PlayerBullet, Sheep};
+use crate::entities::{EnemyBullet, PlayerBullet, Sheep, Enemy};
 use crate::handles::TextureHandles;
 use crate::states::pausing::Pausing;
 use crate::systems::Player;
@@ -22,6 +22,7 @@ impl SimpleState for Gaming {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         let world = data.world;
         world.register::<Sheep>();
+        world.register::<Enemy>();
         world.register::<PlayerBullet>();
         world.register::<EnemyBullet>();
         world.insert(TextureHandles::default());
@@ -32,6 +33,8 @@ impl SimpleState for Gaming {
             core_storage.player = Some(player);
         }
         setup_camera(world);
+
+        crate::ui::debug::setup_debug_text(world);
     }
 
     fn fixed_update(&mut self, data: StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
@@ -72,7 +75,7 @@ fn setup_camera(world: &mut World) {
     ::new(ARENA_WIDTH / ARENA_HEIGHT,
           std::f32::consts::FRAC_PI_6,
           0.1,
-          2000.0)));
+          3200.0)));
     world
         .create_entity()
         .with(camera)
@@ -91,6 +94,7 @@ fn setup_sheep(world: &mut World) -> Entity {
     world.create_entity()
         .with(sprite_render)
         .with(pos.clone())
+        .with(Enemy::new(5000.0, 30. * 30.))
         .with(Transparent)
         .build();
     pos.set_translation_xyz(ARENA_WIDTH * 0.5, ARENA_HEIGHT * 0.5, 0.0);
