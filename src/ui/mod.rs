@@ -1,3 +1,4 @@
+pub use debug::DebugText;
+
 pub mod debug;
 
-pub use debug::DebugText;

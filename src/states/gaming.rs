@@ -10,7 +10,7 @@ use amethyst::{
 };
 
 use crate::CoreStorage;
-use crate::entities::{EnemyBullet, PlayerBullet, Sheep, Enemy};
+use crate::entities::{Enemy, EnemyBullet, PlayerBullet, Sheep};
 use crate::handles::TextureHandles;
 use crate::states::pausing::Pausing;
 use crate::systems::Player;

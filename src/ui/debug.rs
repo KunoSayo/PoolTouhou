@@ -1,10 +1,9 @@
 use amethyst::{
-    assets::{Loader},
-    ecs::{Entity, World, prelude::Join},
+    assets::Loader,
+    ecs::{Entity, prelude::Join, World},
     prelude::{Builder, WorldExt},
     ui::{Anchor, TtfFormat, UiText, UiTransform},
 };
-
 
 pub struct DebugText {
     pub entity_count: Entity

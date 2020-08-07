@@ -1,6 +1,6 @@
 use amethyst::{
+    core::components::Transform,
     ecs::prelude::{Component, DenseVecStorage},
-    core::components::Transform
 };
 
 #[derive(Default)]
@@ -12,7 +12,7 @@ pub struct EnemyBullet {
     pub tick: u32,
     pub v: f32,
     pub a: f32,
-    pub ai: fn(&mut Self, transform: &mut Transform)
+    pub ai: fn(&mut Self, transform: &mut Transform),
 }
 
 fn normal_ai(enemy_bullet: &mut EnemyBullet, transform: &mut Transform) {
@@ -27,7 +27,7 @@ impl EnemyBullet {
             tick: 0,
             v,
             a: 0.0,
-            ai: normal_ai
+            ai: normal_ai,
         }
     }
 }
@@ -38,7 +38,7 @@ impl Default for EnemyBullet {
             tick: 0,
             v: 0.0,
             a: 0.0,
-            ai: normal_ai
+            ai: normal_ai,
         }
     }
 }
