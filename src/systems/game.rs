@@ -1,7 +1,7 @@
 use amethyst::{
     core::{components::Transform},
     derive::SystemDesc,
-    ecs::{Entities, Read, System, SystemData, World, Write, WriteStorage},
+    ecs::{Entities, Read, RunningTime, System, SystemData, World, Write, WriteStorage},
     ecs::prelude::{Component, DenseVecStorage, Join},
     input::VirtualKeyCode,
     renderer::{SpriteRender, Transparent},
@@ -52,6 +52,8 @@ pub struct GameSystem;
 
 impl<'a> System<'a> for GameSystem {
     type SystemData = GameSystemData<'a>;
+
+
     fn run(&mut self, mut data: Self::SystemData) {
         if data.core.tick_sign {
             data.core.tick_sign = false;
@@ -61,6 +63,10 @@ impl<'a> System<'a> for GameSystem {
                 {
                     let bullet_pos = data.transforms.get(bullet_entity).unwrap().translation();
                     for (enemy, enemy_entity) in (&mut data.enemies, &data.entities).join() {
+                        if enemy.hp <= 0.0 {
+                            continue;
+                        }
+
                         let enemy_pos = data.transforms.get(enemy_entity).unwrap().translation();
                         let x_distance = (enemy_pos.x - bullet_pos.x).abs();
                         let y_distance = enemy_pos.y - bullet_pos.y;
@@ -72,6 +78,10 @@ impl<'a> System<'a> for GameSystem {
                         };
                         if distance_p2 <= enemy.rad_p2 {
                             enemy.hp -= bullet.damage;
+                            if enemy.hp <= 0.0 {
+                                should_delete.push(enemy_entity);
+                            }
+
                             println!("Anye hp left: {}", enemy.hp);
                             should_delete.push(bullet_entity);
                             continue 'bullet_for;
@@ -85,7 +95,7 @@ impl<'a> System<'a> for GameSystem {
                 }
             }
             for entity in should_delete {
-                data.entities.delete(entity).expect("Where is this sheep bullet?");
+                data.entities.delete(entity).expect("Where is this entity?");
             }
             if let Some(entity) = data.core.player {
                 let p = data.players.get_mut(entity).unwrap();
@@ -117,5 +127,9 @@ impl<'a> System<'a> for GameSystem {
                 }
             }
         }
+    }
+
+    fn running_time(&self) -> RunningTime {
+        RunningTime::Long
     }
 }

@@ -13,6 +13,8 @@ use amethyst::{
     utils::application_root_dir,
 };
 
+mod graphics;
+
 mod ui;
 mod handles;
 mod systems;
@@ -80,6 +82,7 @@ fn main() -> amethyst::Result<()> {
             .with_plugin(RenderFlat2D::default())
             .with_plugin(RenderFlat3D::default())
             .with_plugin(RenderUi::default())
+            .with_plugin(graphics::RenderInverseColorCircle::default())
         )?
         .with_bundle(TransformBundle::new())?
         .with_bundle(InputBundle::<StringBindings>::new())?
@@ -90,7 +93,6 @@ fn main() -> amethyst::Result<()> {
         .with(systems::DebugSystem, "debug_system", &[]);
     let mut game = Application::build(assets_dir, states::Gaming::default())?
         .build(game_data)?;
-
     game.run();
     Ok(())
 }
