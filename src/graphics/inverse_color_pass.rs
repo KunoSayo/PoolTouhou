@@ -49,13 +49,11 @@ lazy_static::lazy_static! {
 }
 
 
-/// Draw triangles.
 #[derive(Clone, Debug, PartialEq, Derivative)]
 #[derivative(Default(bound = ""))]
 pub struct InverseColorDesc;
 
 impl InverseColorDesc {
-    /// Create instance of `DrawCustomDesc` render group
     pub fn new() -> Self {
         Default::default()
     }
@@ -91,7 +89,7 @@ impl<B: Backend> RenderGroupDesc<B, World> for InverseColorDesc {
             pipeline_layout,
             env,
             vertex,
-            index,
+            indices: index,
             vertex_count: 0,
             change: Default::default(),
         }))
@@ -102,9 +100,9 @@ impl<B: Backend> RenderGroupDesc<B, World> for InverseColorDesc {
 pub struct DrawInverseColor<B: Backend> {
     pipeline: B::GraphicsPipeline,
     pipeline_layout: B::PipelineLayout,
-    env: DynamicUniform<B, InverseColorUniformArgs>,
+    env: DynamicUniform<B, CameraUniformArgs>,
     vertex: DynamicVertexBuffer<B, InverseColorVertexArg>,
-    index: DynamicIndexBuffer<B, u32>,
+    indices: DynamicIndexBuffer<B, u32>,
     vertex_count: usize,
     change: ChangeDetection,
 }
@@ -118,10 +116,9 @@ impl<B: Backend> RenderGroup<B, World> for DrawInverseColor<B> {
         _subpass: hal::pass::Subpass<'_, B>,
         world: &World,
     ) -> PrepareResult {
-        let inverse_color_circles = <ReadStorage<'_, InverseCircle>>::fetch(world);
+        let (inverse_color_circles, ) = <(ReadStorage<'_, InverseCircle>, )>::fetch(world);
 
-        // Get our scale value
-        let uniform_args = world.read_resource::<InverseColorUniformArgs>();
+        let uniform_args = world.read_resource::<CameraUniformArgs>();
 
         // Write to our DynamicUniform
         self.env.write(factory, index, uniform_args.std140());
@@ -131,14 +128,14 @@ impl<B: Backend> RenderGroup<B, World> for DrawInverseColor<B> {
         //4个顶点画圆
         self.vertex_count = (inverse_color_circles.count() * 4) as usize;
         let changed = old_vertex_count != self.vertex_count;
-
-        let vertex_data_iter = inverse_color_circles.join().map(InverseCircle::get_args);
+        let vertex_data_iter = inverse_color_circles.join().flat_map(|circle| { circle.get_args() });
         self.vertex.write(
             factory,
             index,
             self.vertex_count as u64,
-            vertex_data_iter,
+            Some(vertex_data_iter.collect::<Box<[InverseColorVertexArg]>>()),
         );
+
         let mut index_vec: Vec<u32> = Vec::new();
         let mut cur = 0;
         while cur + 3 <= self.vertex_count {
@@ -149,8 +146,9 @@ impl<B: Backend> RenderGroup<B, World> for DrawInverseColor<B> {
             index_vec.push(cur as u32);
             index_vec.push((cur + 1) as u32);
             index_vec.push((cur + 2) as u32);
+            cur += 3;
         }
-        self.index.write(factory, index, 6, Some(index_vec));
+        self.indices.write(factory, index, (self.vertex_count + self.vertex_count / 2) as u64, Some(index_vec));
         // Return with we can reuse the draw buffers using the utility struct ChangeDetection
         self.change.prepare_result(index, changed)
     }
@@ -170,12 +168,18 @@ impl<B: Backend> RenderGroup<B, World> for DrawInverseColor<B> {
 
         self.env.bind(index, &self.pipeline_layout, 0, &mut encoder);
 
+        self.indices.bind(index, 0, &mut encoder);
         self.vertex.bind(index, 0, 0, &mut encoder);
-        self.index.bind(index, 0, &mut encoder);
         // Draw the vertices
         unsafe {
-            encoder.draw_indexed(0..(self.vertex_count + self.vertex_count / 2) as u32, 0, 0..1);
-            // encoder.draw(0..self.vertex_count as u32, 0..1);
+            // encoder.draw_indexed(0..(self.vertex_count + self.vertex_count / 2) as u32, 0, 0..1);
+            let mut cur: u32 = 0;
+            while cur + 3 <= self.vertex_count as u32 {
+                encoder.draw(cur..(cur + 3), 0..1);
+                cur += 1;
+                encoder.draw(cur..(cur + 3), 0..1);
+                cur += 3;
+            }
         }
     }
 
@@ -201,10 +205,10 @@ fn build_custom_pipeline<B: Backend>(
             .device()
             .create_pipeline_layout(layouts, None as Option<(_, _)>)
     }?;
-
     // Load the shaders
     let shader_vertex = unsafe { VERTEX.module(factory).unwrap() };
     let shader_fragment = unsafe { FRAGMENT.module(factory).unwrap() };
+
 
     // Build the pipeline
     let pipes = PipelinesBuilder::new()
@@ -225,7 +229,7 @@ fn build_custom_pipeline<B: Backend>(
                 .with_blend_targets(vec![pso::ColorBlendDesc {
                     mask: pso::ColorMask::ALL,
                     blend: Some(pso::BlendState {
-                        color: BlendOp::Sub { src: Factor::Zero, dst: Factor::One },
+                        color: BlendOp::Sub { src: Factor::One, dst: Factor::One },
                         alpha: BlendOp::Add { src: Factor::Zero, dst: Factor::One },
                     }),
                 }]),
@@ -262,7 +266,13 @@ impl<B: Backend> RenderPlugin<B> for RenderInverseColorCircle {
     ) -> Result<(), Error> {
         // Add the required components to the world ECS
         world.register::<InverseCircle>();
-        world.insert(InverseColorUniformArgs { projection: Default::default(), view: Default::default(), model: Default::default() });
+        world.insert(CameraUniformArgs {
+            projection: [[1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0]].into(),
+            view: Default::default(),
+        });
         Ok(())
     }
 
@@ -301,11 +311,10 @@ impl AsVertex for InverseColorVertexArg {
 
 
 #[derive(Clone, Copy, Debug, AsStd140)]
-#[repr(C, align(4))]
-pub struct InverseColorUniformArgs {
+#[repr(C, align(64))]
+pub struct CameraUniformArgs {
     pub projection: mat4,
     pub view: mat4,
-    pub model: mat4,
 }
 
 #[derive(Debug, Default)]
@@ -321,14 +330,18 @@ impl Component for InverseCircle {
 impl InverseCircle {
     pub fn get_args(&self) -> Vec<InverseColorVertexArg> {
         let mut vec = Vec::new();
-        vec.extend((0..3).map(|i| InverseColorVertexArg {
-            pos: match i {
-                0 => [-self.radius, self.radius, 0.0].into(),
-                1 => [self.radius, self.radius, 0.0].into(),
-                2 => [-self.radius, -self.radius, 0.0].into(),
-                3 => [self.radius, -self.radius, 0.0].into(),
-                _ => panic!("?")
-            },
+        let tran = self.pos.translation();
+        vec.extend((0..4).map(|i| InverseColorVertexArg {
+            pos: {
+                match i {
+                    0 => [-self.radius + tran.x, self.radius + tran.y, tran.z].into(),
+                    1 => [self.radius + tran.x, self.radius + tran.y, tran.z].into(),
+                    2 => [-self.radius + tran.x, -self.radius + tran.y, tran.z].into(),
+                    3 => [self.radius + tran.x, -self.radius + tran.y, tran.z].into(),
+                    _ => panic!("?")
+                }
+            }
+            ,
             coord: match i {
                 0 => [0.0, 1.0].into(),
                 1 => [1.0, 1.0].into(),

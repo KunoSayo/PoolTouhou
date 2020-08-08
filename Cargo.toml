@@ -24,4 +24,4 @@ empty = ["amethyst/empty"]
 metal = ["amethyst/metal"]
 vulkan = ["amethyst/vulkan"]
 
-shader-compiler = ["amethyst_rendy/shader-compiler"]
+shader-compiler = ["amethyst/shader-compiler"]

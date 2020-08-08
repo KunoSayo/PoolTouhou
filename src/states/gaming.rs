@@ -8,9 +8,11 @@ use amethyst::{
     prelude::*,
     renderer::*,
 };
+use amethyst::core::ecs::Join;
 
 use crate::CoreStorage;
 use crate::entities::{Enemy, EnemyBullet, PlayerBullet, Sheep};
+use crate::graphics::inverse_color_pass::InverseCircle;
 use crate::handles::TextureHandles;
 use crate::states::pausing::Pausing;
 use crate::systems::Player;
@@ -45,10 +47,10 @@ impl SimpleState for Gaming {
             core_storage.tick_sign = true;
             let player = core_storage.player.unwrap();
 
-            let mut transform = world.write_component::<Transform>();
+            let mut transforms = world.write_component::<Transform>();
             let input = core_storage.cur_input.as_ref().unwrap();
 
-            if let Some(pos) = transform.get_mut(player) {
+            if let Some(pos) = transforms.get_mut(player) {
                 if input.pressing.contains(&VirtualKeyCode::Q) {
                     pos.prepend_rotation_x_axis(std::f32::consts::FRAC_1_PI * 15.0 / 180.0);
                 }
@@ -60,7 +62,23 @@ impl SimpleState for Gaming {
             if core_storage.is_press(Box::from([VirtualKeyCode::Escape])) {
                 return Trans::Push(Box::new(Pausing {}));
             }
+
+            let cameras = world.read_component::<Camera>();
+            if let Some((camera, transform, _)) = (&cameras, &transforms, &world.entities()).join().next() {
+                let mut inverse_args = world.write_resource::<crate::graphics::CameraUniformArgs>();
+                let projection = camera.projection().as_matrix();
+                let view = &transform.view_matrix();
+                inverse_args.projection = [[projection.m11, projection.m21, projection.m31, projection.m41],
+                    [projection.m12, projection.m22, projection.m32, projection.m42],
+                    [projection.m13, projection.m23, projection.m33, projection.m43],
+                    [projection.m14, projection.m24, projection.m34, projection.m44]].into();
+                inverse_args.view = [[view.m11, view.m21, view.m31, view.m41],
+                    [view.m12, view.m22, view.m32, view.m42],
+                    [view.m13, view.m23, view.m33, view.m43],
+                    [view.m14, view.m24, view.m34, view.m44]].into();
+            }
         }
+
         Trans::None
     }
 }
@@ -97,6 +115,14 @@ fn setup_sheep(world: &mut World) -> Entity {
         .with(Enemy::new(5000.0, 30. * 30.))
         .with(Transparent)
         .build();
+
+    world.create_entity()
+        .with(InverseCircle {
+            pos: pos.clone(),
+            radius: 50.0,
+        })
+        .build();
+
     pos.set_translation_xyz(ARENA_WIDTH * 0.5, ARENA_HEIGHT * 0.5, 0.0);
     // pos.set_scale(Vector3::new(1.0, 1.0, 1.0));
     let sprite_sheet_handle = load_sprite_sheet(world, "texture/sheep.png", "texture/sheep.ron");
