@@ -34,14 +34,14 @@ use glsl_layout::*;
 
 lazy_static::lazy_static! {
     static ref VERTEX: SpirvShader = PathBufShaderInfo::new(
-        PathBuf::from(std::env::current_dir().unwrap().to_str().unwrap().to_owned() + "/assets/shaders/circle.vert"),
+        PathBuf::from(std::env::current_dir().unwrap().to_str().unwrap().to_owned() + "/res/assets/shaders/circle.vert"),
         ShaderKind::Vertex,
         SourceLanguage::GLSL,
        "main",
     ).precompile().unwrap();
 
     static ref FRAGMENT: SpirvShader = PathBufShaderInfo::new(
-        PathBuf::from(std::env::current_dir().unwrap().to_str().unwrap().to_owned() + "/assets/shaders/circle.frag"),
+        PathBuf::from(std::env::current_dir().unwrap().to_str().unwrap().to_owned() + "/res/assets/shaders/circle.frag"),
         ShaderKind::Fragment,
         SourceLanguage::GLSL,
         "main",
