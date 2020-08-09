@@ -10,9 +10,8 @@ use amethyst::{
 };
 use amethyst::core::ecs::Join;
 
+use crate::component::{Enemy, EnemyBullet, PlayerBullet, Sheep};
 use crate::CoreStorage;
-use crate::entities::{Enemy, EnemyBullet, PlayerBullet, Sheep};
-use crate::graphics::inverse_color_pass::InverseCircle;
 use crate::handles::TextureHandles;
 use crate::states::pausing::Pausing;
 use crate::systems::Player;
@@ -65,7 +64,7 @@ impl SimpleState for Gaming {
 
             let cameras = world.read_component::<Camera>();
             if let Some((camera, transform, _)) = (&cameras, &transforms, &world.entities()).join().next() {
-                let mut inverse_args = world.write_resource::<crate::graphics::CameraUniformArgs>();
+                let mut inverse_args = world.write_resource::<crate::render::CameraUniformArgs>();
                 let projection = camera.projection().as_matrix();
                 let view = &transform.view_matrix();
                 inverse_args.projection = [[projection.m11, projection.m21, projection.m31, projection.m41],
@@ -112,15 +111,8 @@ fn setup_sheep(world: &mut World) -> Entity {
     world.create_entity()
         .with(sprite_render)
         .with(pos.clone())
-        .with(Enemy::new(5000.0, 30. * 30.))
+        .with(Enemy::new(2000.0, 30. * 30.))
         .with(Transparent)
-        .build();
-
-    world.create_entity()
-        .with(InverseCircle {
-            pos: pos.clone(),
-            radius: 50.0,
-        })
         .build();
 
     pos.set_translation_xyz(ARENA_WIDTH * 0.5, ARENA_HEIGHT * 0.5, 0.0);

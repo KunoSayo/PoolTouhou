@@ -13,13 +13,12 @@ use amethyst::{
     utils::application_root_dir,
 };
 
-mod graphics;
-
+mod render;
 mod ui;
 mod handles;
 mod systems;
 mod states;
-mod entities;
+mod component;
 mod input;
 
 // https://doc.rust-lang.org/book/
@@ -82,7 +81,7 @@ fn main() -> amethyst::Result<()> {
             .with_plugin(RenderFlat2D::default())
             .with_plugin(RenderFlat3D::default())
             .with_plugin(RenderUi::default())
-            .with_plugin(graphics::RenderInverseColorCircle::default())
+            .with_plugin(render::RenderInvertColorCircle::default())
         )?
         .with_bundle(TransformBundle::new())?
         .with_bundle(InputBundle::<StringBindings>::new())?
@@ -90,6 +89,7 @@ fn main() -> amethyst::Result<()> {
         .with_bundle(AudioBundle::default())?
         .with(input::InputDataSystem, "main_input_system", &["input_system"])
         .with(systems::GameSystem, "main_game_system", &["main_input_system"])
+        .with(systems::AnimationSystem, "main_anime_system", &[])
         .with(systems::DebugSystem, "debug_system", &[]);
     let mut game = Application::build(assets_dir, states::Gaming::default())?
         .build(game_data)?;

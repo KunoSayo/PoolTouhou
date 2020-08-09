@@ -16,7 +16,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest]
+        os: [windows-latest, macos-latest]
 
     steps:
       - uses: actions/checkout@v2
@@ -32,6 +32,11 @@ jobs:
         with:
           toolchain: nightly
           override: true
+      - name: Install dependencies for Windows
+        if: matrix.os == 'windows-latest'
+        uses: crazy-max/ghaction-chocolatey@v1
+        with:
+          args: install ninja
       - name: Build for window
         if: matrix.os == 'windows-latest'
         run: cargo build --release --verbose -Z unstable-options --out-dir artifacts --no-default-features --features "vulkan shader-compiler"

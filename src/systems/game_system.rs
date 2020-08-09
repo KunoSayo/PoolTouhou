@@ -9,9 +9,10 @@ use amethyst::{
 };
 use nalgebra::Vector3;
 
+use crate::component::{EnemyBullet, InvertColorAnimation, PlayerBullet};
 use crate::CoreStorage;
-use crate::entities::{EnemyBullet, PlayerBullet};
 use crate::handles::TextureHandles;
+use crate::render::InvertColorCircle;
 
 #[derive(Default)]
 pub struct Player {
@@ -42,8 +43,9 @@ pub struct GameSystemData<'a> {
     texture_handles: Read<'a, TextureHandles>,
     core: Write<'a, CoreStorage>,
     entities: Entities<'a>,
-    enemies: WriteStorage<'a, crate::entities::Enemy>,
+    enemies: WriteStorage<'a, crate::component::Enemy>,
     enemy_bullets: WriteStorage<'a, EnemyBullet>,
+    animations: (WriteStorage<'a, InvertColorCircle>, WriteStorage<'a, InvertColorAnimation>),
 }
 
 
@@ -58,7 +60,6 @@ impl<'a> System<'a> for GameSystem {
         if data.core.tick_sign {
             data.core.tick_sign = false;
             data.core.tick += 1;
-            let mut should_delete = vec![];
             'bullet_for: for (bullet, bullet_entity) in (&data.player_bullets, &data.entities).join() {
                 {
                     let bullet_pos = data.transforms.get(bullet_entity).unwrap().translation();
@@ -79,11 +80,14 @@ impl<'a> System<'a> for GameSystem {
                         if distance_p2 <= enemy.rad_p2 {
                             enemy.hp -= bullet.damage;
                             if enemy.hp <= 0.0 {
-                                should_delete.push(enemy_entity);
+                                println!("Anye hp left: 0.0");
+                                data.entities.delete(enemy_entity).expect("delete enemy entity failed");
+                                boss_die_anime(&data.entities, (&mut data.animations.0, &mut data.animations.1), enemy_pos);
+                            } else {
+                                println!("Anye hp left: {}", enemy.hp);
                             }
+                            data.entities.delete(bullet_entity).expect("delete bullet entity failed");
 
-                            println!("Anye hp left: {}", enemy.hp);
-                            should_delete.push(bullet_entity);
                             continue 'bullet_for;
                         }
                     }
@@ -91,11 +95,8 @@ impl<'a> System<'a> for GameSystem {
                 let pos = data.transforms.get_mut(bullet_entity).unwrap();
                 pos.move_up(30.0);
                 if pos.translation().y > 900.0 {
-                    should_delete.push(bullet_entity);
+                    data.entities.delete(bullet_entity).expect("delete bullet entity failed");
                 }
-            }
-            for entity in should_delete {
-                data.entities.delete(entity).expect("Where is this entity?");
             }
             if let Some(entity) = data.core.player {
                 let p = data.players.get_mut(entity).unwrap();
@@ -132,4 +133,83 @@ impl<'a> System<'a> for GameSystem {
     fn running_time(&self) -> RunningTime {
         RunningTime::Long
     }
+}
+
+#[inline]
+fn boss_die_anime<'a>(entities: &Entities<'a>,
+                      mut animations: (&mut WriteStorage<'a, InvertColorCircle>, &mut WriteStorage<'a, InvertColorAnimation>),
+                      enemy_pos: &Vector3<f32>) {
+    let last_seconds = 5.0;
+    let spread_per_second = 300.0;
+    let delay_second = 0.0;
+    let mut transform = Transform::default();
+    transform.set_translation_x(enemy_pos.x);
+    transform.set_translation_y(enemy_pos.y);
+    transform.set_translation_z(enemy_pos.z);
+    entities.build_entity()
+        .with(InvertColorCircle {
+            pos: Transform::from(transform.clone()),
+            radius: 0.0,
+        }, &mut animations.0)
+        .with(InvertColorAnimation {
+            last_seconds,
+            spread_per_second,
+            delay_second,
+            transform: None,
+        }, &mut animations.1)
+        .build();
+    let last_seconds = 4.75;
+    let spread_per_second = 375.0;
+    let delay_second = 0.25;
+    transform.set_translation_x(enemy_pos.x - 50.0);
+    transform.set_translation_y(enemy_pos.y + 50.0);
+    entities.build_entity()
+        .with(InvertColorAnimation {
+            last_seconds,
+            spread_per_second,
+            delay_second,
+            transform: Some(transform.clone()),
+        }, &mut animations.1)
+        .build();
+    transform.set_translation_x(enemy_pos.x + 50.0);
+    entities.build_entity()
+        .with(InvertColorAnimation {
+            last_seconds,
+            spread_per_second,
+            delay_second,
+            transform: Some(transform.clone()),
+        }, &mut animations.1)
+        .build();
+    transform.set_translation_y(enemy_pos.y - 50.0);
+    entities.build_entity()
+        .with(InvertColorAnimation {
+            last_seconds,
+            spread_per_second,
+            delay_second,
+            transform: Some(transform.clone()),
+        }, &mut animations.1)
+        .build();
+    transform.set_translation_x(enemy_pos.x - 50.0);
+    entities.build_entity()
+        .with(InvertColorAnimation {
+            last_seconds,
+            spread_per_second,
+            delay_second,
+            transform: Some(transform.clone()),
+        }, &mut animations.1)
+        .build();
+
+    let last_seconds = 4.0;
+    let spread_per_second = 500.0;
+    let delay_second = 1.0;
+    transform.set_translation_x(enemy_pos.x);
+    transform.set_translation_y(enemy_pos.y);
+    entities.build_entity()
+        .with(InvertColorAnimation {
+            last_seconds,
+            spread_per_second,
+            delay_second,
+            transform: Some(transform),
+        }, &mut animations.1)
+        .build();
 }

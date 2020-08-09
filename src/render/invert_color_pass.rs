@@ -51,15 +51,15 @@ lazy_static::lazy_static! {
 
 #[derive(Clone, Debug, PartialEq, Derivative)]
 #[derivative(Default(bound = ""))]
-pub struct InverseColorDesc;
+pub struct InvertColorDesc;
 
-impl InverseColorDesc {
+impl InvertColorDesc {
     pub fn new() -> Self {
         Default::default()
     }
 }
 
-impl<B: Backend> RenderGroupDesc<B, World> for InverseColorDesc {
+impl<B: Backend> RenderGroupDesc<B, World> for InvertColorDesc {
     fn build(
         self,
         _ctx: &GraphContext<B>,
@@ -84,7 +84,7 @@ impl<B: Backend> RenderGroupDesc<B, World> for InverseColorDesc {
             vec![env.raw_layout()],
         )?;
 
-        Ok(Box::new(DrawInverseColor::<B> {
+        Ok(Box::new(DrawInvertColor::<B> {
             pipeline,
             pipeline_layout,
             env,
@@ -97,17 +97,17 @@ impl<B: Backend> RenderGroupDesc<B, World> for InverseColorDesc {
 }
 
 #[derive(Debug)]
-pub struct DrawInverseColor<B: Backend> {
+pub struct DrawInvertColor<B: Backend> {
     pipeline: B::GraphicsPipeline,
     pipeline_layout: B::PipelineLayout,
     env: DynamicUniform<B, CameraUniformArgs>,
-    vertex: DynamicVertexBuffer<B, InverseColorVertexArg>,
+    vertex: DynamicVertexBuffer<B, InvertColorVertexArg>,
     indices: DynamicIndexBuffer<B, u32>,
     vertex_count: usize,
     change: ChangeDetection,
 }
 
-impl<B: Backend> RenderGroup<B, World> for DrawInverseColor<B> {
+impl<B: Backend> RenderGroup<B, World> for DrawInvertColor<B> {
     fn prepare(
         &mut self,
         factory: &Factory<B>,
@@ -116,7 +116,7 @@ impl<B: Backend> RenderGroup<B, World> for DrawInverseColor<B> {
         _subpass: hal::pass::Subpass<'_, B>,
         world: &World,
     ) -> PrepareResult {
-        let (inverse_color_circles, ) = <(ReadStorage<'_, InverseCircle>, )>::fetch(world);
+        let (inverse_color_circles, ) = <(ReadStorage<'_, InvertColorCircle>, )>::fetch(world);
 
         let uniform_args = world.read_resource::<CameraUniformArgs>();
 
@@ -128,12 +128,12 @@ impl<B: Backend> RenderGroup<B, World> for DrawInverseColor<B> {
         //4个顶点画圆
         self.vertex_count = (inverse_color_circles.count() * 4) as usize;
         let changed = old_vertex_count != self.vertex_count;
-        let vertex_data_iter = inverse_color_circles.join().flat_map(|circle| { circle.get_args() });
+        let vertex_data_iter = (&inverse_color_circles).join().flat_map(|circle| { circle.get_args() });
         self.vertex.write(
             factory,
             index,
             self.vertex_count as u64,
-            Some(vertex_data_iter.collect::<Box<[InverseColorVertexArg]>>()),
+            Some(vertex_data_iter.collect::<Box<[InvertColorVertexArg]>>()),
         );
 
         let mut index_vec: Vec<u32> = Vec::new();
@@ -215,7 +215,7 @@ fn build_custom_pipeline<B: Backend>(
         .with_pipeline(
             PipelineDescBuilder::new()
                 // This Pipeline uses our custom vertex description and does not use instancing
-                .with_vertex_desc(&[(InverseColorVertexArg::vertex(), pso::VertexInputRate::Vertex)])
+                .with_vertex_desc(&[(InvertColorVertexArg::vertex(), pso::VertexInputRate::Vertex)])
                 .with_input_assembler(pso::InputAssemblerDesc::new(hal::Primitive::TriangleList))
                 // Add the shaders
                 .with_shaders(util::simple_shader_set(
@@ -256,16 +256,16 @@ fn build_custom_pipeline<B: Backend>(
 
 /// A [RenderPlugin] for our custom plugin
 #[derive(Default, Debug)]
-pub struct RenderInverseColorCircle {}
+pub struct RenderInvertColorCircle {}
 
-impl<B: Backend> RenderPlugin<B> for RenderInverseColorCircle {
+impl<B: Backend> RenderPlugin<B> for RenderInvertColorCircle {
     fn on_build<'a, 'b>(
         &mut self,
         world: &mut World,
         _builder: &mut DispatcherBuilder<'a, 'b>,
     ) -> Result<(), Error> {
         // Add the required components to the world ECS
-        world.register::<InverseCircle>();
+        world.register::<InvertColorCircle>();
         world.insert(CameraUniformArgs {
             projection: [[1.0, 0.0, 0.0, 0.0],
                 [0.0, 1.0, 0.0, 0.0],
@@ -284,7 +284,7 @@ impl<B: Backend> RenderPlugin<B> for RenderInverseColorCircle {
     ) -> Result<(), Error> {
         plan.extend_target(Target::Main, |ctx| {
             // Add our Description
-            ctx.add(RenderOrder::DisplayPostEffects, InverseColorDesc::new().builder())?;
+            ctx.add(RenderOrder::DisplayPostEffects, InvertColorDesc::new().builder())?;
             Ok(())
         });
         Ok(())
@@ -293,14 +293,14 @@ impl<B: Backend> RenderPlugin<B> for RenderInverseColorCircle {
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, AsStd140)]
 #[repr(C, align(4))]
-pub struct InverseColorVertexArg {
+pub struct InvertColorVertexArg {
     pub pos: vec3,
     pub coord: vec2,
 }
 
 /// Required to send data into the shader.
 /// These names must match the shader.
-impl AsVertex for InverseColorVertexArg {
+impl AsVertex for InvertColorVertexArg {
     fn vertex() -> VertexFormat {
         VertexFormat::new((
             (Format::Rgb32Sfloat, "pos"),
@@ -318,20 +318,20 @@ pub struct CameraUniformArgs {
 }
 
 #[derive(Debug, Default)]
-pub struct InverseCircle {
+pub struct InvertColorCircle {
     pub pos: Transform,
     pub radius: f32,
 }
 
-impl Component for InverseCircle {
+impl Component for InvertColorCircle {
     type Storage = DenseVecStorage<Self>;
 }
 
-impl InverseCircle {
-    pub fn get_args(&self) -> Vec<InverseColorVertexArg> {
+impl InvertColorCircle {
+    pub fn get_args(&self) -> Vec<InvertColorVertexArg> {
         let mut vec = Vec::new();
         let tran = self.pos.translation();
-        vec.extend((0..4).map(|i| InverseColorVertexArg {
+        vec.extend((0..4).map(|i| InvertColorVertexArg {
             pos: {
                 match i {
                     0 => [-self.radius + tran.x, self.radius + tran.y, tran.z].into(),

@@ -1,7 +1,8 @@
-pub use debug::DebugSystem;
-pub use game::GameSystem;
-pub use game::Player;
+pub use animation_system::AnimationSystem;
+pub use debug_system::DebugSystem;
+pub use game_system::GameSystem;
+pub use game_system::Player;
 
-pub mod debug;
-
-pub mod game;
+pub mod debug_system;
+pub mod animation_system;
+pub mod game_system;

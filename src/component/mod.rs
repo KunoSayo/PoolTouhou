@@ -5,10 +5,12 @@ use amethyst::{
 
 pub use bullet::EnemyBullet;
 pub use bullet::PlayerBullet;
+pub use invert_color_anime::InvertColorAnimation;
 pub use sheep::Sheep;
 
 pub mod bullet;
 pub mod sheep;
+pub mod invert_color_anime;
 
 #[derive(Default)]
 pub struct Enemy {
