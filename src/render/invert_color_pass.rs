@@ -90,7 +90,7 @@ impl<B: Backend> RenderGroupDesc<B, World> for InvertColorDesc {
             env,
             vertex,
             indices: index,
-            vertex_count: 0,
+            index_count: 0,
             change: Default::default(),
         }))
     }
@@ -102,8 +102,8 @@ pub struct DrawInvertColor<B: Backend> {
     pipeline_layout: B::PipelineLayout,
     env: DynamicUniform<B, CameraUniformArgs>,
     vertex: DynamicVertexBuffer<B, InvertColorVertexArg>,
-    indices: DynamicIndexBuffer<B, u32>,
-    vertex_count: usize,
+    indices: DynamicIndexBuffer<B, u16>,
+    index_count: usize,
     change: ChangeDetection,
 }
 
@@ -124,31 +124,31 @@ impl<B: Backend> RenderGroup<B, World> for DrawInvertColor<B> {
         self.env.write(factory, index, uniform_args.std140());
 
         //Update vertex count and see if it has changed
-        let old_vertex_count = self.vertex_count;
+        let old_index_count = self.index_count;
         //4个顶点画圆
-        self.vertex_count = (inverse_color_circles.count() * 4) as usize;
-        let changed = old_vertex_count != self.vertex_count;
+        let vertex_count = (inverse_color_circles.count() * 4) as usize;
+        self.index_count = vertex_count + vertex_count / 2;
+        let changed = old_index_count != self.index_count;
         let vertex_data_iter = (&inverse_color_circles).join().flat_map(|circle| { circle.get_args() });
+
         self.vertex.write(
             factory,
             index,
-            self.vertex_count as u64,
+            self.index_count as u64,
             Some(vertex_data_iter.collect::<Box<[InvertColorVertexArg]>>()),
         );
-
-        let mut index_vec: Vec<u32> = Vec::new();
+        let mut index_vec: Vec<u16> = Vec::with_capacity(self.index_count.min(65532));
         let mut cur = 0;
-        while cur + 3 <= self.vertex_count {
-            index_vec.push(cur as u32);
-            index_vec.push((cur + 1) as u32);
-            index_vec.push((cur + 2) as u32);
-            cur += 1;
-            index_vec.push(cur as u32);
-            index_vec.push((cur + 1) as u32);
-            index_vec.push((cur + 2) as u32);
-            cur += 3;
+        while cur + 4 <= vertex_count && cur + 3 <= 65532 {
+            index_vec.push(cur as u16);
+            index_vec.push((cur + 1) as u16);
+            index_vec.push((cur + 2) as u16);
+            index_vec.push((cur + 1) as u16);
+            index_vec.push((cur + 2) as u16);
+            index_vec.push((cur + 3) as u16);
+            cur += 4;
         }
-        self.indices.write(factory, index, (self.vertex_count + self.vertex_count / 2) as u64, Some(index_vec));
+        self.indices.write(factory, index, index_vec.len() as u64, Some(index_vec));
         // Return with we can reuse the draw buffers using the utility struct ChangeDetection
         self.change.prepare_result(index, changed)
     }
@@ -160,7 +160,7 @@ impl<B: Backend> RenderGroup<B, World> for DrawInvertColor<B> {
         _subpass: hal::pass::Subpass<'_, B>,
         _world: &World,
     ) {
-        if self.vertex_count == 0 {
+        if self.index_count == 0 {
             return;
         }
 
@@ -172,13 +172,13 @@ impl<B: Backend> RenderGroup<B, World> for DrawInvertColor<B> {
         self.vertex.bind(index, 0, 0, &mut encoder);
         // Draw the vertices
         unsafe {
-            // encoder.draw_indexed(0..(self.vertex_count + self.vertex_count / 2) as u32, 0, 0..1);
-            let mut cur: u32 = 0;
-            while cur + 3 <= self.vertex_count as u32 {
-                encoder.draw(cur..(cur + 3), 0..1);
-                cur += 1;
-                encoder.draw(cur..(cur + 3), 0..1);
-                cur += 3;
+            let mut vertex_offset = 0;
+            let mut left = self.index_count;
+            while left > 0 {
+                let rendered_indices_count = left.min(65532 as usize);
+                encoder.draw_indexed(0..rendered_indices_count as u32, vertex_offset, 0..1);
+                left -= rendered_indices_count;
+                vertex_offset += rendered_indices_count as i32 * 4 / 6;
             }
         }
     }
@@ -311,7 +311,7 @@ impl AsVertex for InvertColorVertexArg {
 
 
 #[derive(Clone, Copy, Debug, AsStd140)]
-#[repr(C, align(64))]
+#[repr(C, align(4))]
 pub struct CameraUniformArgs {
     pub projection: mat4,
     pub view: mat4,
