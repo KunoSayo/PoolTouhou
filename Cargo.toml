@@ -1,5 +1,5 @@
 [package]
-name = "test_rust"
+name = "pooltouhou"
 version = "0.1.0"
 authors = ["euOnmyoji <1418780411@qq.com>"]
 edition = "2018"

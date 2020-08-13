@@ -16,7 +16,9 @@ use crate::render::InvertColorCircle;
 
 #[derive(Default)]
 pub struct Player {
-    pub move_speed: f32,
+    move_speed: f32,
+    walk_speed: f32,
+    radius: f32,
     shoot_cooldown: u8,
 }
 
@@ -24,6 +26,8 @@ impl Player {
     pub fn new(speed: f32) -> Self {
         Self {
             move_speed: speed,
+            walk_speed: speed * 0.6,
+            radius: 5.0,
             shoot_cooldown: 0,
         }
     }
@@ -98,35 +102,8 @@ impl<'a> System<'a> for GameSystem {
                     data.entities.delete(bullet_entity).expect("delete bullet entity failed");
                 }
             }
-            if let Some(entity) = data.core.player {
-                let p = data.players.get_mut(entity).unwrap();
-                let pos = data.transforms.get_mut(entity).unwrap();
-                let cur_input = data.core.cur_input.as_ref().unwrap();
-                let (mov_x, mov_y) = cur_input.get_move(p.move_speed);
-                let (raw_x, raw_y) = (pos.translation().x, pos.translation().y);
-                pos.set_translation_x((mov_x + raw_x).max(0.0).min(1600.0))
-                    .set_translation_y((mov_y + raw_y).max(0.0).min(900.0));
-                if p.shoot_cooldown == 0 {
-                    if cur_input.pressing.contains(&VirtualKeyCode::Z) {
-                        p.shoot_cooldown = 2;
-                        let mut pos = (*pos).clone();
-                        pos.prepend_translation_z(-1.0);
-                        pos.set_scale(Vector3::new(0.5, 0.5, 1.0));
-                        data.entities.build_entity()
-                            .with(pos, &mut data.transforms)
-                            .with(PlayerBullet { damage: 10.0 }, &mut data.player_bullets)
-                            .with(data.texture_handles.player_bullet.clone().unwrap(), &mut data.sprite_renders)
-                            .with(Transparent, &mut data.transparent)
-                            .build();
-                    }
-                } else {
-                    p.shoot_cooldown -= 1;
-                }
-
-                for (bullet, bullet_pos) in (&mut data.enemy_bullets, &mut data.transforms).join() {
-                    (bullet.ai)(bullet, bullet_pos);
-                }
-            }
+            process_player(&mut data);
+            //tick if end
         }
     }
 
@@ -135,7 +112,54 @@ impl<'a> System<'a> for GameSystem {
     }
 }
 
-#[inline]
+fn process_player(data: &mut GameSystemData) {
+    if let Some(entity) = data.core.player {
+        let player = data.players.get_mut(entity).unwrap();
+        let pos = data.transforms.get_mut(entity).unwrap();
+        let input = data.core.cur_input.as_ref().unwrap();
+        let is_walk = input.pressing.contains(&VirtualKeyCode::LShift);
+        let (mov_x, mov_y) = input.get_move(if is_walk {
+            player.walk_speed
+        } else {
+            player.move_speed
+        });
+        let (raw_x, raw_y) = (pos.translation().x, pos.translation().y);
+        pos.set_translation_x((mov_x + raw_x).max(0.0).min(1600.0))
+            .set_translation_y((mov_y + raw_y).max(0.0).min(900.0));
+
+        if is_walk {
+            data.animations.0.insert(entity, InvertColorCircle {
+                pos: (*pos).clone(),
+                radius: player.radius,
+            }).expect("Insert error");
+        } else {
+            data.animations.0.remove(entity);
+        }
+
+        if player.shoot_cooldown == 0 {
+            if input.pressing.contains(&VirtualKeyCode::Z) {
+                player.shoot_cooldown = 2;
+                let mut pos = (*pos).clone();
+                pos.prepend_translation_z(-1.0);
+                pos.set_scale(Vector3::new(0.5, 0.5, 1.0));
+                data.entities.build_entity()
+                    .with(pos, &mut data.transforms)
+                    .with(PlayerBullet { damage: 10.0 }, &mut data.player_bullets)
+                    .with(data.texture_handles.player_bullet.clone().unwrap(), &mut data.sprite_renders)
+                    .with(Transparent, &mut data.transparent)
+                    .build();
+            }
+        } else {
+            player.shoot_cooldown -= 1;
+        }
+
+
+        for (bullet, bullet_pos) in (&mut data.enemy_bullets, &mut data.transforms).join() {
+            bullet.ai.tick(bullet_pos);
+        }
+    }
+}
+
 fn boss_die_anime<'a>(entities: &Entities<'a>,
                       mut animations: (&mut WriteStorage<'a, InvertColorCircle>, &mut WriteStorage<'a, InvertColorAnimation>),
                       enemy_pos: &Vector3<f32>) {
@@ -212,4 +236,9 @@ fn boss_die_anime<'a>(entities: &Entities<'a>,
             transform: Some(transform),
         }, &mut animations.1)
         .build();
+}
+
+pub fn is_out_of_game(tran: &Transform) -> bool {
+    let tran = tran.translation();
+    tran.x < 0.0 || tran.x > 1600.0 || tran.y > 900.0 || tran.y < 0.0
 }

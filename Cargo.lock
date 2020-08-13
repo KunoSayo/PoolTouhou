@@ -2315,6 +2315,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pooltouhou"
+version = "0.1.0"
+dependencies = [
+ "amethyst",
+ "amethyst_rendy",
+ "derivative 2.1.1",
+ "failure",
+ "glsl-layout",
+ "lazy_static",
+ "nalgebra",
+ "rand 0.6.5",
+]
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3483,20 +3497,6 @@ dependencies = [
  "quote 1.0.7",
  "syn 1.0.35",
  "unicode-xid 0.2.1",
-]
-
-[[package]]
-name = "test_rust"
-version = "0.1.0"
-dependencies = [
- "amethyst",
- "amethyst_rendy",
- "derivative 2.1.1",
- "failure",
- "glsl-layout",
- "lazy_static",
- "nalgebra",
- "rand 0.6.5",
 ]
 
 [[package]]
