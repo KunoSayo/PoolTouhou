@@ -1,8 +1,15 @@
 use std::collections::HashMap;
-use std::io::{BufRead, Error, ErrorKind};
+use std::convert::TryFrom;
+use std::fs::File;
+use std::io::{BufRead, BufWriter, Error, ErrorKind, Write};
 
 use crate::context::Context;
-use crate::expression::{Compile, ExpressionElement, try_parse_expression};
+use crate::expression::{ExpressionElement, try_parse_expression};
+use crate::game_data::GameData;
+
+pub trait Compile {
+    fn flush(&self, binary: &mut Vec<u8>) -> Result<(), Error>;
+}
 
 pub struct PoolScript {
     version: u32,
@@ -41,6 +48,16 @@ impl PoolScript {
             functions,
         })
     }
+
+    pub fn save(&self, writer: &mut BufWriter<File>) -> Result<(), Error> {
+        writer.write(&self.version.to_be_bytes())?;
+        writer.write(&[self.data.len() as u8])?;
+        for x in self.functions.values() {
+            writer.write(x)?;
+        }
+        writer.flush()?;
+        Ok(())
+    }
 }
 
 fn parse_data(reader: &mut Box<dyn BufRead>, data: &mut HashMap<String, u8>) -> Result<(), Error> {
@@ -72,6 +89,7 @@ fn parse_function(name: &str, reader: &mut Box<dyn BufRead>, context: &mut Conte
         binary.push(byte);
     }
 
+    let mut loops = 0;
     loop {
         let mut raw_line = String::new();
         let size = reader.read_line(&mut raw_line).unwrap();
@@ -79,35 +97,60 @@ fn parse_function(name: &str, reader: &mut Box<dyn BufRead>, context: &mut Conte
             break;
         }
         let line: Vec<&str> = raw_line.trim().splitn(2, " ").collect();
+        if line[0].starts_with("//") {
+            continue;
+        }
         match line[0] {
             "end" => {
                 binary.push(0);
-                break;
+                if loops > 0 {
+                    loops -= 1;
+                    context.pop_stack();
+                } else {
+                    break;
+                }
             }
             "move_up" => {
                 binary.push(10);
                 let value = context.parse_value(line[1])?;
                 value.flush(&mut binary)?;
             }
-            "summon_e" => {
-                binary.push(11);
+            "break" => {
+                binary.push(5);
+                let value = context.parse_value(line[1])?;
+                value.flush(&mut binary)?;
             }
-            "summon_b" => {
-                binary.push(12);
+            "loop" => {
+                loops += 1;
+                context.push_stack();
+                binary.push(1);
             }
+            "summon_e" => summon_e(line[1], &context, &mut binary)?,
+            "summon_b" => summon_b(line[1], &context, &mut binary)?,
             "let" => {
                 let expression: Vec<&str> = line[1].split("=").collect();
                 let name = expression[0].trim();
-                context.push_name(name);
-                if expression.len() > 1 {
+                if let Ok(index) = context.find_index(name) {
+                    if expression.len() < 2 {
+                        return Err(Error::new(ErrorKind::InvalidData, "[parse function]where is the expression? : ".to_owned() + &*raw_line));
+                    }
                     let exp = try_parse_expression(expression[1].trim(), context)?;
                     exp.flush(&mut binary)?;
                     binary.push(20);
-                    binary.push(3);
-                    if let ExpressionElement::STACK(idx) = context.find_index(name)? {
-                        binary.push(idx);
-                    } else {
-                        return Err(Error::new(ErrorKind::InvalidData, "[parse function]unknown reason: ".to_owned() + &*raw_line));
+                    index.flush(&mut binary)?;
+                } else {
+                    binary.push(4);
+                    context.push_name(name);
+                    if expression.len() > 1 {
+                        let exp = try_parse_expression(expression[1].trim(), context)?;
+                        exp.flush(&mut binary)?;
+                        binary.push(20);
+                        binary.push(3);
+                        if let ExpressionElement::STACK(idx) = context.find_index(name)? {
+                            binary.push(idx);
+                        } else {
+                            return Err(Error::new(ErrorKind::InvalidData, "[parse function]unknown reason: ".to_owned() + &*raw_line));
+                        }
                     }
                 }
             }
@@ -116,9 +159,73 @@ fn parse_function(name: &str, reader: &mut Box<dyn BufRead>, context: &mut Conte
             }
         }
     }
-    Ok(binary)
+    if loops > 0 {
+        Err(Error::new(ErrorKind::InvalidData, "[loops not end!] ".to_owned() + &*loops.to_string()))
+    } else {
+        Ok(binary)
+    }
 }
 
-fn summon_e(args: &str, binary: &mut Vec<u8>) {}
+fn summon_e(raw_args: &str, context: &Context, binary: &mut Vec<u8>) -> Result<(), Error> {
+    binary.push(11);
+    let args: Vec<&str> = raw_args.split(" ").collect();
+    if args.len() < 5 {
+        return Err(Error::new(ErrorKind::InvalidData, "[parse function]command args is not good (require 5..): ".to_owned() + raw_args));
+    }
 
-fn summon_b(args: &str, binary: &mut Vec<u8>) {}
+    // name x y hp ai_name
+    args[0].flush(binary)?;
+    context.parse_value(args[1])?.flush(binary)?;
+    context.parse_value(args[2])?.flush(binary)?;
+    context.parse_value(args[3])?.flush(binary)?;
+    args[4].flush(binary)?;
+    for x in args[5..].iter() {
+        if let Ok(value) = context.parse_value(x) {
+            value.flush(binary)?;
+        } else {
+            x.flush(binary)?;
+        }
+    }
+    Ok(())
+}
+
+fn summon_b(raw_args: &str, context: &Context, binary: &mut Vec<u8>) -> Result<(), Error> {
+    binary.push(12);
+    let args: Vec<&str> = raw_args.split(" ").collect();
+    if args.len() < 7 {
+        return Err(Error::new(ErrorKind::InvalidData, "[parse function]command args is not good (require 7..): ".to_owned() + raw_args));
+    }
+
+    args[0].flush(binary)?;
+    context.parse_value(args[1])?.flush(binary)?;
+    context.parse_value(args[2])?.flush(binary)?;
+    context.parse_value(args[3])?.flush(binary)?;
+    context.parse_value(args[4])?.flush(binary)?;
+
+    let collide_rule = GameData::try_from(args[5])?;
+    let read = collide_rule.get_args(&args[6..], context, binary)?;
+    let index = 6 + read;
+    args[index].flush(binary)?;
+    for x in args[index + 1..].iter() {
+        if let Ok(value) = context.parse_value(x) {
+            value.flush(binary)?;
+        } else {
+            x.flush(binary)?;
+        }
+    }
+    Ok(())
+}
+
+impl Compile for &str {
+    fn flush(&self, binary: &mut Vec<u8>) -> Result<(), Error> {
+        let bytes = self.bytes();
+        let len = bytes.len() as u16;
+        for byte in len.to_be_bytes().iter() {
+            binary.push(*byte);
+        }
+        for byte in bytes.into_iter() {
+            binary.push(byte);
+        }
+        Ok(())
+    }
+}

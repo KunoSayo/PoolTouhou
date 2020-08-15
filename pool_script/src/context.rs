@@ -1,8 +1,10 @@
 use std::collections::{HashMap, LinkedList};
+use std::convert::TryFrom;
 use std::io::{Error, ErrorKind};
 use std::str::FromStr;
 
 use crate::expression::ExpressionElement;
+use crate::game_data::GameData;
 
 pub struct Context<'a> {
     heap: &'a HashMap<String, u8>,
@@ -29,7 +31,9 @@ impl<'a> Context<'a> {
     }
 
     pub fn find_index(&self, name: &str) -> Result<ExpressionElement, Error> {
-        if let Some(value) = self.heap.get(name) {
+        if let Ok(value) = GameData::try_from(name) {
+            return Ok(ExpressionElement::GAME(value as u8));
+        } else if let Some(value) = self.heap.get(name) {
             return Ok(ExpressionElement::DATA(*value));
         } else if self.stack_index > 0 {
             let mut index = self.stack_index - 1;

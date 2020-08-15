@@ -1,7 +1,9 @@
 use std::ffi::OsString;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter};
 use std::path::Path;
+
+mod game_data;
 
 mod context;
 mod expression;
@@ -17,7 +19,18 @@ fn compile(name: OsString, file: File) {
         return;
     }
     let output_name = OsString::from(name.to_str().unwrap().to_owned() + "b");
-    println!("compiled file {:?} into {:?}", name, output_name);
+    let output_file = File::create(&output_name);
+    if output_file.is_err() {
+        eprintln!("open output file failed: {}", script.err().expect("save failed: Unknown"));
+        return;
+    }
+
+    let result = script.unwrap().save(&mut BufWriter::new(output_file.unwrap()));
+    if result.is_err() {
+        eprintln!("save output file failed: {}", result.err().expect("save failed: Unknown"));
+    } else {
+        println!("compiled file {:?} into {:?}", name, output_name);
+    }
 }
 
 //https://doc.rust-lang.org/book/

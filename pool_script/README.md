@@ -1,12 +1,5 @@
 # PoolScript
 
-### Begin Pointer Data
-* B0: const value
-* B1: game value
-* B2: script data value
-* B3: script stack value
-* B4: push expr
-* B5: pop expr
 
 ### Begin Game Data
 * B0: pos_x
@@ -15,17 +8,27 @@
 * B3: player_x
 * B4: player_y
 * B5: player_z
+* B10: circle collide
+
+### Begin Pointer Data
+* B0: const value
+* B1: game value
+* B2: script data value
+* B3: script stack value
+* B4: push expr
+* B5: pop expr
 
 ### Begin File Data
 * 4B : Version  
 * 1B : f32 Data Count  
 * 2B : Function Name Bytes
 * Function Data
-* B0: end declare
-* B1: loop_begin (i32 as times)
+* B0: end
+* B1: loop
 * B2: ret
 * B3: push_to_stack_top (pointer)
 * B4: allocate f32
+* B5: break f32
 
 * B10: move_up (f32)
 * B11: summon_e (name, xyz, hp, 1B sp_count, n...sp_name)

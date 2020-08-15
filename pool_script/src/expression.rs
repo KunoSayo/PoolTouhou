@@ -1,7 +1,8 @@
-use std::io::{Error, ErrorKind, Write};
-use std::str::FromStr;
+use std::io::{Error, ErrorKind};
 
 use crate::context::Context;
+use crate::pool_script::Compile;
+use std::convert::TryFrom;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Operator {
@@ -17,6 +18,7 @@ pub enum Operator {
     LeftB,
     RightB,
 }
+
 
 impl Operator {
     fn get_priority(&self) -> u8 {
@@ -50,9 +52,6 @@ pub enum ExpressionElement {
 }
 
 
-pub trait Compile {
-    fn flush(&self, binary: &mut Vec<u8>) -> Result<(), Error>;
-}
 
 impl Compile for Operator {
     fn flush(&self, binary: &mut Vec<u8>) -> Result<(), Error> {
@@ -152,6 +151,7 @@ impl Compile for Expression {
     fn flush(&self, binary: &mut Vec<u8>) -> Result<(), Error> {
         for value in &self.tree {
             if let ExpressionElement::OP(_) = value {
+            } else {
                 binary.push(3);
             }
             value.flush(binary)?
@@ -171,7 +171,7 @@ pub fn try_parse_expression(raw_str: &str, context: &Context) -> Result<Expressi
     let mut index = 0;
     let mut parsing_value = true;
     while index < s.len() {
-        if let Ok(op) = get_operator(&s[index..index + 1]) {
+        if let Ok(op) = Operator::try_from(&s[index..index + 1]) {
             if parsing_value && index == begin && op == Operator::SUB {
                 index += 1;
                 while s[index..index + 1].chars().next().unwrap().is_ascii_digit() {
@@ -209,14 +209,18 @@ pub fn try_parse_expression(raw_str: &str, context: &Context) -> Result<Expressi
     Ok(expression)
 }
 
-fn get_operator(str: &str) -> Result<Operator, Error> {
-    match str {
-        "+" => Ok(Operator::ADD),
-        "-" => Ok(Operator::SUB),
-        "*" => Ok(Operator::MUL),
-        "(" => Ok(Operator::LeftB),
-        ")" => Ok(Operator::RightB),
-        _ => Err(Error::new(ErrorKind::InvalidData, "[parse expression]expected operator but found : ".to_owned() + str))
+impl TryFrom<&str> for Operator {
+    type Error = Error;
+
+    fn try_from(str: &str) -> Result<Self, Self::Error> {
+        match str {
+            "+" => Ok(Operator::ADD),
+            "-" => Ok(Operator::SUB),
+            "*" => Ok(Operator::MUL),
+            "(" => Ok(Operator::LeftB),
+            ")" => Ok(Operator::RightB),
+            _ => Err(Error::new(ErrorKind::InvalidData, "[parse expression]expected operator but found : ".to_owned() + str))
+        }
     }
 }
 

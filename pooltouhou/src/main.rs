@@ -13,6 +13,8 @@ use amethyst::{
     utils::application_root_dir,
 };
 
+mod script;
+
 mod render;
 mod ui;
 mod handles;
