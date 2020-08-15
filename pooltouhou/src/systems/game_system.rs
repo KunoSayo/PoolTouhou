@@ -152,11 +152,6 @@ fn process_player(data: &mut GameSystemData) {
         } else {
             player.shoot_cooldown -= 1;
         }
-
-
-        for (bullet, bullet_pos) in (&mut data.enemy_bullets, &mut data.transforms).join() {
-            bullet.ai.tick(bullet_pos);
-        }
     }
 }
 
