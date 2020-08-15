@@ -51,5 +51,5 @@ jobs:
       - name: Upload res
         uses: actions/upload-artifact@v1
         with:
-          path: ${{ github.workspace }}/res
+          path: ${{ github.workspace }}/pooltouhou/res
           name: ${{ matrix.os }}-${{ github.run_number }}
