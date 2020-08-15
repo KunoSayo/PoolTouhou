@@ -1,3 +1,6 @@
+use std::convert::TryFrom;
+use std::io::{Error, ErrorKind};
+
 use amethyst::{
     core::{components::Transform},
     derive::SystemDesc,
@@ -13,6 +16,7 @@ use crate::component::{EnemyBullet, InvertColorAnimation, PlayerBullet};
 use crate::CoreStorage;
 use crate::handles::TextureHandles;
 use crate::render::InvertColorCircle;
+use crate::script::{ScriptGameData, ScriptManager};
 
 #[derive(Default)]
 pub struct Player {
@@ -20,6 +24,31 @@ pub struct Player {
     walk_speed: f32,
     radius: f32,
     shoot_cooldown: u8,
+}
+
+#[derive(Debug)]
+pub enum CollideType {
+    Circle(f32)
+}
+
+impl TryFrom<(u8, Vec<f32>)> for CollideType {
+    type Error = Error;
+
+    fn try_from((value, args): (u8, Vec<f32>)) -> Result<Self, Self::Error> {
+        match value {
+            10 => Ok(CollideType::Circle(args[0])),
+            _ => Err(Error::new(ErrorKind::InvalidData, "No such value for CollideType: ".to_owned() + &*value.to_string()))
+        }
+    }
+}
+
+impl CollideType {
+    pub fn get_arg_count(byte: u8) -> usize {
+        match byte {
+            10 => 1,
+            _ => panic!("Not collide byte: {}", byte)
+        }
+    }
 }
 
 impl Player {
@@ -50,6 +79,7 @@ pub struct GameSystemData<'a> {
     enemies: WriteStorage<'a, crate::component::Enemy>,
     enemy_bullets: WriteStorage<'a, EnemyBullet>,
     animations: (WriteStorage<'a, InvertColorCircle>, WriteStorage<'a, InvertColorAnimation>),
+    script_manager: Write<'a, ScriptManager>,
 }
 
 
@@ -135,6 +165,13 @@ fn process_player(data: &mut GameSystemData) {
         } else {
             data.animations.0.remove(entity);
         }
+
+        let mut game_data = ScriptGameData {
+            tran: None,
+            player_tran: Some((*pos).clone()),
+            submit_command: vec![],
+            script_manager: &mut data.script_manager,
+        };
 
         if player.shoot_cooldown == 0 {
             if input.pressing.contains(&VirtualKeyCode::Z) {

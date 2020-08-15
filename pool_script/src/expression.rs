@@ -1,8 +1,8 @@
+use std::convert::TryFrom;
 use std::io::{Error, ErrorKind};
 
 use crate::context::Context;
 use crate::pool_script::Compile;
-use std::convert::TryFrom;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Operator {
@@ -50,7 +50,6 @@ pub enum ExpressionElement {
     STACK(u8),
     OP(Operator),
 }
-
 
 
 impl Compile for Operator {
@@ -150,8 +149,7 @@ impl Expression {
 impl Compile for Expression {
     fn flush(&self, binary: &mut Vec<u8>) -> Result<(), Error> {
         for value in &self.tree {
-            if let ExpressionElement::OP(_) = value {
-            } else {
+            if let ExpressionElement::OP(_) = value {} else {
                 binary.push(3);
             }
             value.flush(binary)?

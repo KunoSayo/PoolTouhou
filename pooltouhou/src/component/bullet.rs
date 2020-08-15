@@ -1,14 +1,19 @@
 use amethyst::{
-    core::components::Transform,
     ecs::prelude::{Component, DenseVecStorage},
 };
+
+use crate::script::script_context::ScriptContext;
+use crate::systems::game_system::CollideType;
 
 #[derive(Default)]
 pub struct PlayerBullet {
     pub damage: f32
 }
 
-pub struct EnemyBullet {}
+pub struct EnemyBullet {
+    collide: CollideType,
+    script: ScriptContext,
+}
 
 impl Component for PlayerBullet {
     type Storage = DenseVecStorage<Self>;

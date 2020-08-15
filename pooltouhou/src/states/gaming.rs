@@ -13,6 +13,8 @@ use amethyst::core::ecs::Join;
 use crate::component::{Enemy, EnemyBullet, PlayerBullet, Sheep};
 use crate::CoreStorage;
 use crate::handles::TextureHandles;
+use crate::script::{ScriptGameData, ScriptManager};
+use crate::script::script_context::ScriptContext;
 use crate::states::pausing::Pausing;
 use crate::systems::Player;
 
@@ -27,6 +29,7 @@ impl SimpleState for Gaming {
         world.register::<PlayerBullet>();
         world.register::<EnemyBullet>();
         world.insert(TextureHandles::default());
+
         let player = setup_sheep(world);
         {
             //immutable borrow
@@ -36,6 +39,27 @@ impl SimpleState for Gaming {
         setup_camera(world);
 
         crate::ui::debug::setup_debug_text(world);
+
+        let mut script_manager = ScriptManager::default();
+        let script = script_manager.load_script(&"main".to_string()).unwrap();
+
+        let mut context = ScriptContext {
+            desc: script.clone(),
+            data: vec![],
+        };
+        let mut game = ScriptGameData {
+            tran: None,
+            player_tran: None,
+            submit_command: vec![],
+            script_manager: &mut script_manager,
+        };
+
+        context.execute_function(&"start".to_string(), &mut game);
+
+        for x in game.submit_command {
+            println!("{:?}", x)
+        }
+        world.insert(script_manager);
     }
 
     fn fixed_update(&mut self, data: StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
