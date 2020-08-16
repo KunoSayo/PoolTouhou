@@ -44,7 +44,7 @@ impl SimpleState for Gaming {
         let mut script_manager = ScriptManager::default();
         let script = script_manager.load_script(&"main".to_string()).unwrap();
 
-        let mut context = ScriptContext::new(&script);
+        let mut context = ScriptContext::new(&script, vec![]);
         let mut game = ScriptGameData {
             tran: None,
             player_tran: None,
@@ -168,26 +168,19 @@ fn setup_enemy(world: &mut World, script_manager: &mut ScriptManager, (name, x, 
         sprite_number: 0,
     };
 
+    let ctx;
     if let Some(script) = script_manager.get_script(&script_name) {
-        let mut script_context = ScriptContext::new(script);
-        script_context.data = args;
-        world.create_entity()
-            .with(sprite_render)
-            .with(pos.clone())
-            .with(Enemy::new(hp, collide, script_context))
-            .with(Transparent)
-            .build();
+        ctx = ScriptContext::new(script, args);
     } else {
         let script = script_manager.load_script(&script_name).unwrap();
-        let mut script_context = ScriptContext::new(script);
-        script_context.data = args;
-        world.create_entity()
-            .with(sprite_render)
-            .with(pos.clone())
-            .with(Enemy::new(hp, collide, script_context))
-            .with(Transparent)
-            .build();
+        ctx = ScriptContext::new(script, args);
     }
+    world.create_entity()
+        .with(sprite_render)
+        .with(pos.clone())
+        .with(Enemy::new(hp, collide, ctx))
+        .with(Transparent)
+        .build();
 }
 
 fn load_sprite_sheet(world: &mut World, name: &str, ron_name: &str) -> Handle<SpriteSheet> {

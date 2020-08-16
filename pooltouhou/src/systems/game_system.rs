@@ -188,14 +188,13 @@ impl<'a> System<'a> for GameSystem {
                 while let Some(x) = game_data.submit_command.pop() {
                     match x {
                         crate::script::ScriptGameCommand::SummonBullet(name, x, y, z, angle, collide, script, args) => {
-                            let mut script_context;
+                            let script_context;
                             if let Some(script) = game_data.script_manager.as_mut().unwrap().get_script(&script) {
-                                script_context = ScriptContext::new(script);
+                                script_context = ScriptContext::new(script, args);
                             } else {
                                 let script = game_data.script_manager.as_mut().unwrap().load_script(&script).unwrap();
-                                script_context = ScriptContext::new(script);
+                                script_context = ScriptContext::new(script, args);
                             }
-                            script_context.data = args;
                             let mut pos = Transform::default();
                             pos.set_translation_xyz(x, y, z);
                             pos.set_rotation_z_axis(angle / 180.0 * PI);

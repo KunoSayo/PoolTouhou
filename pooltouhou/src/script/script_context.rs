@@ -11,10 +11,10 @@ pub struct ScriptContext {
 }
 
 impl ScriptContext {
-    pub fn new(desc: &ScriptDesc) -> Self {
+    pub fn new(desc: &ScriptDesc, args: Vec<f32>) -> Self {
         Self {
             desc: desc.clone(),
-            data: Vec::with_capacity(desc.data_count as usize),
+            data: args,
             function_context: HashMap::new(),
         }
     }
@@ -53,10 +53,10 @@ struct FunctionContext {
 impl Default for FunctionContext {
     fn default() -> Self {
         Self {
-            var_stack: vec![],
+            var_stack: Vec::with_capacity(4),
             var_per_stack: vec![0],
-            calc_stack: vec![],
-            loop_start: vec![],
+            calc_stack: Vec::with_capacity(4),
+            loop_start: Vec::with_capacity(2),
             pointer: 0,
         }
     }
