@@ -16,6 +16,7 @@ use crate::handles::TextureHandles;
 use crate::script::{ScriptGameData, ScriptManager};
 use crate::script::script_context::ScriptContext;
 use crate::states::pausing::Pausing;
+use crate::systems::game_system::CollideType;
 use crate::systems::Player;
 
 #[derive(Default)]
@@ -43,21 +44,22 @@ impl SimpleState for Gaming {
         let mut script_manager = ScriptManager::default();
         let script = script_manager.load_script(&"main".to_string()).unwrap();
 
-        let mut context = ScriptContext {
-            desc: script.clone(),
-            data: vec![],
-        };
+        let mut context = ScriptContext::new(&script);
         let mut game = ScriptGameData {
             tran: None,
             player_tran: None,
             submit_command: vec![],
-            script_manager: &mut script_manager,
+            script_manager: Some(&mut script_manager),
         };
 
         context.execute_function(&"start".to_string(), &mut game);
-
         for x in game.submit_command {
-            println!("{:?}", x)
+            match x {
+                crate::script::ScriptGameCommand::SummonEnemy(name, x, y, hp, collide, script_name, args) => {
+                    setup_enemy(world, &mut script_manager, (name, x, y, hp, collide, script_name, args))
+                }
+                _ => panic!("没实现哪里来的命令（大声）")
+            }
         }
         world.insert(script_manager);
     }
@@ -68,17 +70,17 @@ impl SimpleState for Gaming {
         if !core_storage.tick_sign {
             core_storage.swap_input();
             core_storage.tick_sign = true;
-            let player = core_storage.player.unwrap();
-
             let mut transforms = world.write_component::<Transform>();
-            let input = core_storage.cur_input.as_ref().unwrap();
+            if let Some(player) = core_storage.player {
+                let input = core_storage.cur_input.as_ref().unwrap();
 
-            if let Some(pos) = transforms.get_mut(player) {
-                if input.pressing.contains(&VirtualKeyCode::Q) {
-                    pos.prepend_rotation_x_axis(std::f32::consts::FRAC_1_PI * 15.0 / 180.0);
-                }
-                if input.pressing.contains(&VirtualKeyCode::E) {
-                    pos.prepend_rotation_x_axis(-std::f32::consts::FRAC_1_PI * 15.0 / 180.0);
+                if let Some(pos) = transforms.get_mut(player) {
+                    if input.pressing.contains(&VirtualKeyCode::Q) {
+                        pos.prepend_rotation_x_axis(std::f32::consts::FRAC_1_PI * 15.0 / 180.0);
+                    }
+                    if input.pressing.contains(&VirtualKeyCode::E) {
+                        pos.prepend_rotation_x_axis(-std::f32::consts::FRAC_1_PI * 15.0 / 180.0);
+                    }
                 }
             }
 
@@ -126,18 +128,6 @@ fn setup_camera(world: &mut World) {
 
 fn setup_sheep(world: &mut World) -> Entity {
     let mut pos = Transform::default();
-    pos.set_translation_xyz(ARENA_WIDTH * 0.5, ARENA_HEIGHT * 0.5, 0.0);
-    let sprite_sheet_handle = load_sprite_sheet(world, "texture/暗夜.png", "texture/sheep.ron");
-    let sprite_render = SpriteRender {
-        sprite_sheet: sprite_sheet_handle,
-        sprite_number: 0,
-    };
-    world.create_entity()
-        .with(sprite_render)
-        .with(pos.clone())
-        .with(Enemy::new(2000.0, 30. * 30.))
-        .with(Transparent)
-        .build();
 
     pos.set_translation_xyz(ARENA_WIDTH * 0.5, ARENA_HEIGHT * 0.5, 0.0);
     // pos.set_scale(Vector3::new(1.0, 1.0, 1.0));
@@ -148,9 +138,12 @@ fn setup_sheep(world: &mut World) -> Entity {
     };
 
     let sprite_sheet_handle = load_sprite_sheet(world, "texture/sheepBullet.png", "texture/sheepBullet.ron");
+    let bullet = load_sprite_sheet(world, "texture/bullet.png", "texture/bullet.ron");
+
     {
         let mut texture_handle = world.try_fetch_mut::<TextureHandles>().unwrap();
         texture_handle.player_bullet = Some(SpriteRender { sprite_sheet: sprite_sheet_handle, sprite_number: 0 });
+        texture_handle.bullets.insert("bullet".to_string(), SpriteRender { sprite_sheet: bullet, sprite_number: 0 });
     }
 
     world.create_entity()
@@ -162,6 +155,39 @@ fn setup_sheep(world: &mut World) -> Entity {
         .with(Transparent)
         .with(pos)
         .build()
+}
+
+fn setup_enemy(world: &mut World, script_manager: &mut ScriptManager, (name, x, y, hp, collide, script_name, args): (String, f32, f32, f32, CollideType, String, Vec<f32>)) {
+    let mut pos = Transform::default();
+    pos.set_translation_xyz(x, y, 0.0);
+    let sprite_sheet_handle = load_sprite_sheet(world,
+                                                &*("texture/".to_owned() + &*name + ".png"),
+                                                &*("texture/".to_owned() + &*name + ".ron"));
+    let sprite_render = SpriteRender {
+        sprite_sheet: sprite_sheet_handle,
+        sprite_number: 0,
+    };
+
+    if let Some(script) = script_manager.get_script(&script_name) {
+        let mut script_context = ScriptContext::new(script);
+        script_context.data = args;
+        world.create_entity()
+            .with(sprite_render)
+            .with(pos.clone())
+            .with(Enemy::new(hp, collide, script_context))
+            .with(Transparent)
+            .build();
+    } else {
+        let script = script_manager.load_script(&script_name).unwrap();
+        let mut script_context = ScriptContext::new(script);
+        script_context.data = args;
+        world.create_entity()
+            .with(sprite_render)
+            .with(pos.clone())
+            .with(Enemy::new(hp, collide, script_context))
+            .with(Transparent)
+            .build();
+    }
 }
 
 fn load_sprite_sheet(world: &mut World, name: &str, ron_name: &str) -> Handle<SpriteSheet> {

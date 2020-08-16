@@ -40,6 +40,10 @@ impl ScriptManager {
         }
     }
 
+    pub fn get_script(&mut self, name: &String) -> Option<&ScriptDesc> {
+        self.scripts.get(name)
+    }
+
     pub fn load_script(&mut self, name: &String) -> Option<&ScriptDesc> {
         let path = PathBuf::from(std::env::current_dir().unwrap().to_str().unwrap().to_owned() + "/script/" + name + ".pthpsb");
         if let Ok(file) = File::open(&path) {
@@ -55,7 +59,7 @@ impl ScriptManager {
             let mut functions = HashMap::new();
 
             loop {
-                let mut binary = Vec::with_capacity(16);
+                let mut binary = Vec::with_capacity(128);
                 let mut loop_exit = Vec::new();
                 let function_name = read_str(&mut reader, &mut binary, false);
                 if function_name.is_empty() {
@@ -94,6 +98,12 @@ impl ScriptManager {
                             read_f32(&mut binary, &mut reader);
                             read_f32(&mut binary, &mut reader);
                             read_f32(&mut binary, &mut reader);
+                            //collide & args
+                            reader.read(&mut buf[0..1]).unwrap();
+                            binary.push(buf[0]);
+                            for _ in 0..CollideType::get_arg_count(buf[0]) {
+                                read_f32(&mut binary, &mut reader);
+                            }
                             //ai & args
                             let script_name = read_str(&mut reader, &mut binary, true);
                             let ai_args_count;
@@ -158,7 +168,7 @@ impl ScriptManager {
 #[derive(Debug)]
 pub enum ScriptGameCommand {
     MoveUp(f32),
-    SummonEnemy(String, f32, f32, f32, String, Vec<f32>),
+    SummonEnemy(String, f32, f32, f32, CollideType, String, Vec<f32>),
     SummonBullet(String, f32, f32, f32, f32, CollideType, String, Vec<f32>),
 }
 
@@ -167,7 +177,7 @@ pub struct ScriptGameData<'a> {
     pub(crate) tran: Option<Transform>,
     pub(crate) player_tran: Option<Transform>,
     pub(crate) submit_command: Vec<ScriptGameCommand>,
-    pub(crate) script_manager: &'a mut ScriptManager,
+    pub(crate) script_manager: Option<&'a mut ScriptManager>,
 }
 
 fn read_f32(binary: &mut Vec<u8>, reader: &mut BufReader<File>) {

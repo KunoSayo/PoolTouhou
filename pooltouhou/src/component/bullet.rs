@@ -11,8 +11,8 @@ pub struct PlayerBullet {
 }
 
 pub struct EnemyBullet {
-    collide: CollideType,
-    script: ScriptContext,
+    pub(crate) collide: CollideType,
+    pub(crate) script: ScriptContext,
 }
 
 impl Component for PlayerBullet {

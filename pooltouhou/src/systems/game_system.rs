@@ -5,11 +5,12 @@ use amethyst::{
     core::{components::Transform},
     derive::SystemDesc,
     ecs::{Entities, Read, RunningTime, System, SystemData, World, Write, WriteStorage},
-    ecs::prelude::{Component, DenseVecStorage, Join},
+    ecs::prelude::{Component, DenseVecStorage, Join, ParallelIterator, ParJoin},
     input::VirtualKeyCode,
     renderer::{SpriteRender, Transparent},
     shred::ResourceId,
 };
+use failure::_core::f32::consts::PI;
 use nalgebra::Vector3;
 
 use crate::component::{EnemyBullet, InvertColorAnimation, PlayerBullet};
@@ -17,6 +18,7 @@ use crate::CoreStorage;
 use crate::handles::TextureHandles;
 use crate::render::InvertColorCircle;
 use crate::script::{ScriptGameData, ScriptManager};
+use crate::script::script_context::ScriptContext;
 
 #[derive(Default)]
 pub struct Player {
@@ -31,12 +33,37 @@ pub enum CollideType {
     Circle(f32)
 }
 
+impl CollideType {
+    pub fn is_collide_with_point(&self, me: &Vector3<f32>, other: &Vector3<f32>) -> bool {
+        match self {
+            Self::Circle(r_2) => {
+                let x_distance = me.x - other.x;
+                let y_distance = me.y - other.y;
+                x_distance * x_distance + y_distance * y_distance <= *r_2
+            }
+        }
+    }
+
+    pub fn is_collide_with(&self, me: &Vector3<f32>, other_collide: &CollideType, other: &Vector3<f32>) -> bool {
+        match self {
+            Self::Circle(r_2) => {
+                if *r_2 <= 0.0 {
+                    other_collide.is_collide_with_point(me, other)
+                } else {
+                    //todo: circle collide circle
+                    true
+                }
+            }
+        }
+    }
+}
+
 impl TryFrom<(u8, Vec<f32>)> for CollideType {
     type Error = Error;
 
     fn try_from((value, args): (u8, Vec<f32>)) -> Result<Self, Self::Error> {
         match value {
-            10 => Ok(CollideType::Circle(args[0])),
+            10 => Ok(CollideType::Circle(args[0] * args[0])),
             _ => Err(Error::new(ErrorKind::InvalidData, "No such value for CollideType: ".to_owned() + &*value.to_string()))
         }
     }
@@ -92,6 +119,16 @@ impl<'a> System<'a> for GameSystem {
 
     fn run(&mut self, mut data: Self::SystemData) {
         if data.core.tick_sign {
+            let mut game_data = ScriptGameData {
+                tran: None,
+                player_tran: None,
+                submit_command: Vec::with_capacity(4),
+                script_manager: None,
+            };
+
+            process_player(&mut data, &mut game_data);
+            game_data.script_manager = Some(&mut data.script_manager);
+
             data.core.tick_sign = false;
             data.core.tick += 1;
             'bullet_for: for (bullet, bullet_entity) in (&data.player_bullets, &data.entities).join() {
@@ -101,17 +138,9 @@ impl<'a> System<'a> for GameSystem {
                         if enemy.hp <= 0.0 {
                             continue;
                         }
-
-                        let enemy_pos = data.transforms.get(enemy_entity).unwrap().translation();
-                        let x_distance = (enemy_pos.x - bullet_pos.x).abs();
-                        let y_distance = enemy_pos.y - bullet_pos.y;
-                        let distance_p2 = if y_distance >= 0.0 {
-                            let y_distance = (y_distance - 30.0).max(0.0);
-                            x_distance * x_distance + y_distance * y_distance
-                        } else {
-                            x_distance * x_distance + y_distance * y_distance
-                        };
-                        if distance_p2 <= enemy.rad_p2 {
+                        let enemy_tran = data.transforms.get(enemy_entity).unwrap();
+                        let enemy_pos = enemy_tran.translation();
+                        if enemy.collide.is_collide_with_point(enemy_pos, bullet_pos) {
                             enemy.hp -= bullet.damage;
                             if enemy.hp <= 0.0 {
                                 println!("Anye hp left: 0.0");
@@ -128,11 +157,59 @@ impl<'a> System<'a> for GameSystem {
                 }
                 let pos = data.transforms.get_mut(bullet_entity).unwrap();
                 pos.move_up(30.0);
-                if pos.translation().y > 900.0 {
+                if is_out_of_game(pos) {
                     data.entities.delete(bullet_entity).expect("delete bullet entity failed");
                 }
             }
-            process_player(&mut data);
+
+            for (enemy_bullet, enemy_entity) in (&mut data.enemy_bullets, &data.entities).join() {
+                let enemy_tran = data.transforms.get_mut(enemy_entity).unwrap();
+                if is_out_of_game(enemy_tran) {
+                    data.entities.delete(enemy_entity).expect("delete enemy entity failed");
+                    continue;
+                }
+                game_data.tran = Some((*enemy_tran).clone());
+                enemy_bullet.script.execute_function(&"tick".to_string(), &mut game_data);
+                while let Some(x) = game_data.submit_command.pop() {
+                    match x {
+                        crate::script::ScriptGameCommand::MoveUp(v) => {
+                            enemy_tran.move_up(v);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+
+            for (enemy, enemy_entity) in (&mut data.enemies, &data.entities).join() {
+                let enemy_tran = data.transforms.get(enemy_entity).unwrap();
+                game_data.tran = Some((*enemy_tran).clone());
+                enemy.script.execute_function(&"tick".to_string(), &mut game_data);
+                while let Some(x) = game_data.submit_command.pop() {
+                    match x {
+                        crate::script::ScriptGameCommand::SummonBullet(name, x, y, z, angle, collide, script, args) => {
+                            let mut script_context;
+                            if let Some(script) = game_data.script_manager.as_mut().unwrap().get_script(&script) {
+                                script_context = ScriptContext::new(script);
+                            } else {
+                                let script = game_data.script_manager.as_mut().unwrap().load_script(&script).unwrap();
+                                script_context = ScriptContext::new(script);
+                            }
+                            script_context.data = args;
+                            let mut pos = Transform::default();
+                            pos.set_translation_xyz(x, y, z);
+                            pos.set_rotation_z_axis(angle / 180.0 * PI);
+                            data.entities.build_entity()
+                                .with(pos, &mut data.transforms)
+                                .with(EnemyBullet { collide, script: script_context }, &mut data.enemy_bullets)
+                                .with(data.texture_handles.bullets.get(&*name).unwrap().clone(), &mut data.sprite_renders)
+                                .with(Transparent, &mut data.transparent)
+                                .build();
+                        }
+                        _ => {}
+                    }
+                }
+            }
             //tick if end
         }
     }
@@ -142,7 +219,7 @@ impl<'a> System<'a> for GameSystem {
     }
 }
 
-fn process_player(data: &mut GameSystemData) {
+fn process_player(data: &mut GameSystemData, game_data: &mut ScriptGameData) {
     if let Some(entity) = data.core.player {
         let player = data.players.get_mut(entity).unwrap();
         let pos = data.transforms.get_mut(entity).unwrap();
@@ -165,13 +242,7 @@ fn process_player(data: &mut GameSystemData) {
         } else {
             data.animations.0.remove(entity);
         }
-
-        let mut game_data = ScriptGameData {
-            tran: None,
-            player_tran: Some((*pos).clone()),
-            submit_command: vec![],
-            script_manager: &mut data.script_manager,
-        };
+        game_data.player_tran = Some((*pos).clone());
 
         if player.shoot_cooldown == 0 {
             if input.pressing.contains(&VirtualKeyCode::Z) {
@@ -188,6 +259,22 @@ fn process_player(data: &mut GameSystemData) {
             }
         } else {
             player.shoot_cooldown -= 1;
+        }
+        let pos = data.transforms.get(entity).unwrap();
+
+        let collide = CollideType::Circle(player.radius * player.radius);
+
+        let die = (&data.enemy_bullets, &data.entities).par_join().any(|(bullet, enemy_bullet_entity)| {
+            let enemy_tran = data.transforms.get(enemy_bullet_entity).unwrap();
+            if bullet.collide.is_collide_with(enemy_tran.translation(), &collide, pos.translation()) {
+                true
+            } else {
+                false
+            }
+        });
+        if die {
+            data.entities.delete(entity).expect("delete player entity failed");
+            data.core.player = None;
         }
     }
 }
@@ -272,5 +359,5 @@ fn boss_die_anime<'a>(entities: &Entities<'a>,
 
 pub fn is_out_of_game(tran: &Transform) -> bool {
     let tran = tran.translation();
-    tran.x < 0.0 || tran.x > 1600.0 || tran.y > 900.0 || tran.y < 0.0
+    tran.x < -100.0 || tran.x > 1700.0 || tran.y > 1000.0 || tran.y < -100.0
 }

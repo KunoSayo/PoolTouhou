@@ -178,8 +178,11 @@ fn summon_e(raw_args: &str, context: &Context, binary: &mut Vec<u8>) -> Result<(
     context.parse_value(args[1])?.flush(binary)?;
     context.parse_value(args[2])?.flush(binary)?;
     context.parse_value(args[3])?.flush(binary)?;
-    args[4].flush(binary)?;
-    for x in args[5..].iter() {
+    let collide_rule = GameData::try_from(args[4])?;
+    let read = collide_rule.get_args(&args[5..], context, binary)?;
+    let index = 5 + read;
+    args[index].flush(binary)?;
+    for x in args[index + 1..].iter() {
         if let Ok(value) = context.parse_value(x) {
             value.flush(binary)?;
         } else {

@@ -29,7 +29,7 @@
 * B5: break (pointer)
 
 * B10: move_up (pointer)
-* B11: summon_e (name, xy, hp, ai, ai_args)
+* B11: summon_e (name, xy, hp, collide, args..., ai, ai_args)
 * B12: summon_b (name, xyz, angle, collide_name, args..., bullet_ai, args...)
 
 * B20: store_f32 (pointer)
