@@ -273,6 +273,7 @@ fn process_player(data: &mut GameSystemData, game_data: &mut ScriptGameData) {
             }
         });
         if die {
+            boss_die_anime(&mut data.entities, (&mut data.animations.0, &mut data.animations.1), pos.translation());
             data.entities.delete(entity).expect("delete player entity failed");
             data.core.player = None;
         }
