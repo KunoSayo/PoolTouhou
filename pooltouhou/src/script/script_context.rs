@@ -21,8 +21,8 @@ impl ScriptContext {
 }
 
 impl ScriptContext {
-    pub fn execute_function(&mut self, name: &String, game_data: &mut ScriptGameData) {
-        let function = self.desc.functions.get(name).expect(&*("No function ".to_owned() + name));
+    pub fn execute_function(&mut self, name: &String, game_data: &mut ScriptGameData) -> Option<f32> {
+        let function = self.desc.functions.get(name).expect("no such function.");
         let function_context;
         if let Some(ctx) = self.function_context.get_mut(name) {
             function_context = ctx;
@@ -37,7 +37,7 @@ impl ScriptContext {
             context: function_context,
         };
 
-        function_runner.execute();
+        function_runner.execute()
     }
 }
 
@@ -45,7 +45,6 @@ impl ScriptContext {
 struct FunctionContext {
     var_stack: Vec<f32>,
     var_per_stack: Vec<u8>,
-    calc_stack: Vec<f32>,
     loop_start: Vec<usize>,
     pointer: usize,
 }
@@ -55,7 +54,6 @@ impl Default for FunctionContext {
         Self {
             var_stack: Vec::with_capacity(4),
             var_per_stack: vec![0],
-            calc_stack: Vec::with_capacity(4),
             loop_start: Vec::with_capacity(2),
             pointer: 0,
         }
@@ -67,7 +65,6 @@ impl FunctionContext {
         self.var_stack.clear();
         self.var_per_stack.clear();
         self.var_per_stack.push(0);
-        self.calc_stack.clear();
         self.loop_start.clear();
         self.pointer = 0;
     }
@@ -108,7 +105,7 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                 }
                 3 => {
                     let data = self.get_f32();
-                    self.context.calc_stack.push(data);
+                    self.game.calc_stack.push(data);
                 }
                 4 => {
                     self.context.var_stack.push(0.0);
@@ -116,8 +113,8 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                 }
                 5 => {
                     let times = self.get_f32();
-                    let times = times.floor() as i32;
-                    if times > 0 {
+                    if times >= 1.0 {
+                        let times = times.floor() as i32;
                         for _ in 0..times {
                             if let Some(_) = self.context.loop_start.pop() {
                                 for x in self.desc.loop_exit.to_vec() {
@@ -187,61 +184,61 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                     self.game.submit_command.push(ScriptGameCommand::SummonBullet(name, x, y, z, angle, collide, ai_name, args));
                 }
                 20 => {
-                    let value = self.context.calc_stack.pop().unwrap();
+                    let value = self.game.calc_stack.pop().unwrap();
                     self.store_f32(value);
                 }
                 21 => {
-                    let x = self.context.calc_stack.pop().unwrap();
-                    let y = self.context.calc_stack.pop().unwrap();
-                    self.context.calc_stack.push(x + y);
+                    let x = self.game.calc_stack.pop().unwrap();
+                    let y = self.game.calc_stack.last_mut().unwrap();
+                    *y = *y + x;
                 }
                 22 => {
-                    let x = self.context.calc_stack.pop().unwrap();
-                    let y = self.context.calc_stack.pop().unwrap();
-                    self.context.calc_stack.push(y - x);
+                    let x = self.game.calc_stack.pop().unwrap();
+                    let y = self.game.calc_stack.last_mut().unwrap();
+                    *y = *y - x;
                 }
                 23 => {
-                    let x = self.context.calc_stack.pop().unwrap();
-                    let y = self.context.calc_stack.pop().unwrap();
-                    self.context.calc_stack.push(x * y);
+                    let x = self.game.calc_stack.pop().unwrap();
+                    let y = self.game.calc_stack.last_mut().unwrap();
+                    *y = *y * x;
                 }
                 _ => panic!("Unknown byte command: {}", command)
             }
         }
         None
     }
-
+    #[inline]
     fn get_str(&mut self) -> String {
         let count = &self.desc.code[self.context.pointer..self.context.pointer + 2 as usize];
         let count = u16::from_be_bytes(count.try_into().unwrap());
         self.context.pointer += 2;
         let bytes = &self.desc.code[self.context.pointer..self.context.pointer + count as usize];
         self.context.pointer += count as usize;
-        String::from_utf8(bytes.try_into().unwrap()).unwrap()
+        unsafe {
+            String::from_utf8_unchecked(bytes.try_into().unwrap())
+        }
     }
 
+    #[inline]
     fn store_f32(&mut self, value: f32) {
         let src = self.desc.code[self.context.pointer];
         self.context.pointer += 1;
+        let index = self.desc.code[self.context.pointer];
+        self.context.pointer += 1;
         match src {
             1 => {
-                let data = self.desc.code[self.context.pointer];
-                self.context.pointer += 1;
-                match data {
+                match index {
                     0 => {
-                        let mut tran = self.game.tran.as_ref().unwrap().clone();
+                        let mut tran = self.game.tran.as_mut().unwrap().clone();
                         tran.set_translation_x(value);
-                        self.game.tran.replace(tran);
                     }
                     1 => {
-                        let mut tran = self.game.tran.as_ref().unwrap().clone();
+                        let mut tran = self.game.tran.as_mut().unwrap().clone();
                         tran.set_translation_y(value);
-                        self.game.tran.replace(tran);
                     }
                     2 => {
-                        let mut tran = self.game.tran.as_ref().unwrap().clone();
+                        let mut tran = self.game.tran.as_mut().unwrap().clone();
                         tran.set_translation_z(value);
-                        self.game.tran.replace(tran);
                     }
                     3 => {
                         let mut tran = self.game.player_tran.as_ref().unwrap().clone();
@@ -258,22 +255,19 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                         tran.set_translation_z(value);
                         self.game.player_tran.replace(tran);
                     }
-                    _ => panic!("Unknown game data byte: {}", data)
+                    _ => panic!("Unknown game data byte: {}", index)
                 };
             }
             2 => {
-                let data = self.desc.code[self.context.pointer];
-                self.context.pointer += 1;
-                self.data[data as usize] = value;
+                self.data[index as usize] = value;
             }
             3 => {
-                let data = self.desc.code[self.context.pointer];
-                self.context.pointer += 1;
-                self.context.var_stack[data as usize] = value;
+                self.context.var_stack[index as usize] = value;
             }
             _ => panic!("Unknown data src: {}", src)
         }
     }
+    #[inline]
     fn get_f32(&mut self) -> f32 {
         let src = self.desc.code[self.context.pointer];
         self.context.pointer += 1;

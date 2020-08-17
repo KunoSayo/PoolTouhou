@@ -178,6 +178,7 @@ pub struct ScriptGameData<'a> {
     pub(crate) player_tran: Option<Transform>,
     pub(crate) submit_command: Vec<ScriptGameCommand>,
     pub(crate) script_manager: Option<&'a mut ScriptManager>,
+    pub(crate) calc_stack: Vec<f32>,
 }
 
 fn read_f32(binary: &mut Vec<u8>, reader: &mut BufReader<File>) {

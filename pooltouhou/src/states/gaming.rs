@@ -50,6 +50,7 @@ impl SimpleState for Gaming {
             player_tran: None,
             submit_command: vec![],
             script_manager: Some(&mut script_manager),
+            calc_stack: vec![]
         };
 
         context.execute_function(&"start".to_string(), &mut game);

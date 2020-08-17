@@ -124,6 +124,7 @@ impl<'a> System<'a> for GameSystem {
                 player_tran: None,
                 submit_command: Vec::with_capacity(4),
                 script_manager: None,
+                calc_stack: Vec::with_capacity(4),
             };
 
             process_player(&mut data, &mut game_data);
@@ -168,7 +169,7 @@ impl<'a> System<'a> for GameSystem {
                     data.entities.delete(enemy_entity).expect("delete enemy entity failed");
                     continue;
                 }
-                game_data.tran = Some((*enemy_tran).clone());
+                game_data.tran.replace((*enemy_tran).clone());
                 enemy_bullet.script.execute_function(&"tick".to_string(), &mut game_data);
                 while let Some(x) = game_data.submit_command.pop() {
                     match x {
@@ -183,7 +184,7 @@ impl<'a> System<'a> for GameSystem {
 
             for (enemy, enemy_entity) in (&mut data.enemies, &data.entities).join() {
                 let enemy_tran = data.transforms.get(enemy_entity).unwrap();
-                game_data.tran = Some((*enemy_tran).clone());
+                game_data.tran.replace((*enemy_tran).clone());
                 enemy.script.execute_function(&"tick".to_string(), &mut game_data);
                 while let Some(x) = game_data.submit_command.pop() {
                     match x {
@@ -241,7 +242,7 @@ fn process_player(data: &mut GameSystemData, game_data: &mut ScriptGameData) {
         } else {
             data.animations.0.remove(entity);
         }
-        game_data.player_tran = Some((*pos).clone());
+        game_data.player_tran.replace((*pos).clone());
 
         if player.shoot_cooldown == 0 {
             if input.pressing.contains(&VirtualKeyCode::Z) {
@@ -357,6 +358,7 @@ fn boss_die_anime<'a>(entities: &Entities<'a>,
         .build();
 }
 
+#[inline]
 pub fn is_out_of_game(tran: &Transform) -> bool {
     let tran = tran.translation();
     tran.x < -100.0 || tran.x > 1700.0 || tran.y > 1000.0 || tran.y < -100.0
