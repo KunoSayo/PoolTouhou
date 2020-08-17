@@ -290,7 +290,7 @@ fn process_player(data: &mut GameSystemData, game_data: &mut ScriptGameData) {
 fn boss_die_anime<'a>(entities: &Entities<'a>,
                       mut animations: (&mut WriteStorage<'a, InvertColorCircle>, &mut WriteStorage<'a, InvertColorAnimation>),
                       enemy_pos: &Vector3<f32>) {
-    let last_seconds = 5.0;
+    let last_seconds = 7.0;
     let spread_per_second = 300.0;
     let delay_second = 0.0;
     let mut transform = Transform::default();
@@ -309,7 +309,7 @@ fn boss_die_anime<'a>(entities: &Entities<'a>,
             transform: None,
         }, &mut animations.1)
         .build();
-    let last_seconds = 4.75;
+    let last_seconds = 6.75;
     let spread_per_second = 375.0;
     let delay_second = 0.25;
     transform.set_translation_x(enemy_pos.x - 50.0);
@@ -350,8 +350,8 @@ fn boss_die_anime<'a>(entities: &Entities<'a>,
         }, &mut animations.1)
         .build();
 
-    let last_seconds = 4.0;
-    let spread_per_second = 500.0;
+    let last_seconds = 6.0;
+    let spread_per_second = 450.0;
     let delay_second = 1.0;
     transform.set_translation_x(enemy_pos.x);
     transform.set_translation_y(enemy_pos.y);

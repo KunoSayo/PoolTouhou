@@ -85,6 +85,7 @@ impl FunctionContext {
 
 
 impl FunctionContext {
+    #[inline]
     fn reset(&mut self) {
         self.loop_start.clear();
         self.pointer = 0;
@@ -236,9 +237,8 @@ impl<'a, 'b, 'c> FunctionRunner<'a, 'b, 'c> {
     #[inline]
     fn store_f32(&mut self, value: f32) {
         let src = self.desc.code[self.context.pointer];
-        self.context.pointer += 1;
-        let index = self.desc.code[self.context.pointer];
-        self.context.pointer += 1;
+        let index = self.desc.code[self.context.pointer + 1];
+        self.context.pointer += 2;
         match src {
             1 => {
                 match index {
@@ -284,16 +284,15 @@ impl<'a, 'b, 'c> FunctionRunner<'a, 'b, 'c> {
     #[inline]
     fn get_f32(&mut self) -> f32 {
         let src = self.desc.code[self.context.pointer];
-        self.context.pointer += 1;
         match src {
             0 => {
-                let data = self.desc.code[self.context.pointer..self.context.pointer + 4].try_into().unwrap();
-                self.context.pointer += 4;
+                let data = self.desc.code[self.context.pointer + 1..self.context.pointer + 5].try_into().unwrap();
+                self.context.pointer += 5;
                 f32::from_be_bytes(data)
             }
             1 => {
-                let data = self.desc.code[self.context.pointer];
-                self.context.pointer += 1;
+                let data = self.desc.code[self.context.pointer + 1];
+                self.context.pointer += 2;
                 match data {
                     0 => self.temp.tran.as_ref().unwrap().translation().x,
                     1 => self.temp.tran.as_ref().unwrap().translation().y,
@@ -305,13 +304,13 @@ impl<'a, 'b, 'c> FunctionRunner<'a, 'b, 'c> {
                 }
             }
             2 => {
-                let data = self.desc.code[self.context.pointer];
-                self.context.pointer += 1;
+                let data = self.desc.code[self.context.pointer + 1];
+                self.context.pointer += 2;
                 self.data[data as usize]
             }
             3 => {
-                let data = self.desc.code[self.context.pointer];
-                self.context.pointer += 1;
+                let data = self.desc.code[self.context.pointer + 1];
+                self.context.pointer += 2;
                 self.context.var_stack[data as usize]
             }
             _ => panic!("Unknown data src: {}", src)
