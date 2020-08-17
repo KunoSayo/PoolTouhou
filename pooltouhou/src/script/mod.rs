@@ -15,6 +15,7 @@ pub mod script_context;
 pub struct FunctionDesc {
     code: Arc<Vec<u8>>,
     loop_exit: Arc<Vec<usize>>,
+    max_stack: u16,
 }
 
 #[derive(Debug, Clone)]
@@ -57,10 +58,10 @@ impl ScriptManager {
             let version = u32::from_be_bytes(buf[0..4].try_into().unwrap());
             let data_count = buf[4];
             let mut functions = HashMap::new();
-
             loop {
                 let mut binary = Vec::with_capacity(128);
                 let mut loop_exit = Vec::new();
+                let mut max_stack: i16 = -1;
                 let function_name = read_str(&mut reader, &mut binary, false);
                 if function_name.is_empty() {
                     break;
@@ -88,7 +89,9 @@ impl ScriptManager {
                             loops += 1;
                         }
                         3 | 5 | 10 | 20 => {
-                            read_f32(&mut binary, &mut reader);
+                            if let Some(s) = read_f32(&mut binary, &mut reader) {
+                                max_stack = max_stack.max(s as i16);
+                            }
                         }
                         11 => {
                             //name
@@ -149,6 +152,7 @@ impl ScriptManager {
                 functions.insert(function_name, FunctionDesc {
                     code: Arc::new(binary),
                     loop_exit: Arc::new(loop_exit),
+                    max_stack: (max_stack + 1) as u16,
                 });
             }
             let script = ScriptDesc {
@@ -174,14 +178,13 @@ pub enum ScriptGameCommand {
 
 #[derive(Debug)]
 pub struct ScriptGameData<'a> {
-    pub(crate) tran: Option<Transform>,
     pub(crate) player_tran: Option<Transform>,
     pub(crate) submit_command: Vec<ScriptGameCommand>,
     pub(crate) script_manager: Option<&'a mut ScriptManager>,
     pub(crate) calc_stack: Vec<f32>,
 }
 
-fn read_f32(binary: &mut Vec<u8>, reader: &mut BufReader<File>) {
+fn read_f32(binary: &mut Vec<u8>, reader: &mut BufReader<File>) -> Option<u8> {
     let mut buf = [0; 4];
     reader.read(&mut buf[0..1]).unwrap();
     binary.push(buf[0]);
@@ -193,11 +196,17 @@ fn read_f32(binary: &mut Vec<u8>, reader: &mut BufReader<File>) {
             binary.push(buf[2]);
             binary.push(buf[3]);
         }
+        3 => {
+            reader.read(&mut buf[0..1]).unwrap();
+            binary.push(buf[0]);
+            return Some(buf[0]);
+        }
         _ => {
             reader.read(&mut buf[0..1]).unwrap();
-            binary.push(buf[0])
+            binary.push(buf[0]);
         }
     }
+    None
 }
 
 fn read_str(reader: &mut BufReader<File>, binary: &mut Vec<u8>, write: bool) -> String {

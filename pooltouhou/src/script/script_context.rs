@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 
+use amethyst::core::transform::Transform;
+
 use crate::script::{FunctionDesc, ScriptDesc, ScriptGameCommand, ScriptGameData};
 use crate::systems::game_system::CollideType;
 
@@ -8,6 +10,12 @@ pub struct ScriptContext {
     pub(crate) desc: ScriptDesc,
     pub(crate) data: Vec<f32>,
     function_context: HashMap<String, FunctionContext>,
+    tick_function: Option<(FunctionDesc, FunctionContext)>,
+}
+
+#[derive(Default, Debug)]
+pub struct TempGameContext<'a> {
+    pub(crate) tran: Option<&'a mut Transform>,
 }
 
 impl ScriptContext {
@@ -16,18 +24,19 @@ impl ScriptContext {
             desc: desc.clone(),
             data: args,
             function_context: HashMap::new(),
+            tick_function: desc.functions.get("tick").map(|f| ((*f).clone(), FunctionContext::new(f.max_stack as usize))),
         }
     }
 }
 
 impl ScriptContext {
-    pub fn execute_function(&mut self, name: &String, game_data: &mut ScriptGameData) -> Option<f32> {
+    pub fn execute_function(&mut self, name: &String, game_data: &mut ScriptGameData, temp: &mut TempGameContext) -> Option<f32> {
         let function = self.desc.functions.get(name).expect("no such function.");
         let function_context;
         if let Some(ctx) = self.function_context.get_mut(name) {
             function_context = ctx;
         } else {
-            self.function_context.insert(name.clone(), FunctionContext::default());
+            self.function_context.insert(name.clone(), FunctionContext::new(function.max_stack as usize));
             function_context = self.function_context.get_mut(name).unwrap();
         }
         let mut function_runner = FunctionRunner {
@@ -35,6 +44,20 @@ impl ScriptContext {
             desc: function,
             game: game_data,
             context: function_context,
+            temp,
+        };
+
+        function_runner.execute()
+    }
+
+    pub fn tick_function(&mut self, game_data: &mut ScriptGameData, temp: &mut TempGameContext) -> Option<f32> {
+        let f_with_ctx = self.tick_function.as_mut().unwrap();
+        let mut function_runner = FunctionRunner {
+            data: &mut self.data,
+            desc: &f_with_ctx.0,
+            game: game_data,
+            context: &mut f_with_ctx.1,
+            temp,
         };
 
         function_runner.execute()
@@ -44,40 +67,39 @@ impl ScriptContext {
 #[derive(Debug)]
 struct FunctionContext {
     var_stack: Vec<f32>,
-    var_per_stack: Vec<u8>,
     loop_start: Vec<usize>,
     pointer: usize,
 }
 
-impl Default for FunctionContext {
-    fn default() -> Self {
+impl FunctionContext {
+    fn new(max_stack: usize) -> Self {
+        let mut stack_vec = Vec::new();
+        stack_vec.resize_with(max_stack, || 0.0);
         Self {
-            var_stack: Vec::with_capacity(4),
-            var_per_stack: vec![0],
+            var_stack: stack_vec,
             loop_start: Vec::with_capacity(2),
             pointer: 0,
         }
     }
 }
 
+
 impl FunctionContext {
     fn reset(&mut self) {
-        self.var_stack.clear();
-        self.var_per_stack.clear();
-        self.var_per_stack.push(0);
         self.loop_start.clear();
         self.pointer = 0;
     }
 }
 
-struct FunctionRunner<'a, 'b> {
+struct FunctionRunner<'a, 'b, 'c> {
     data: &'a mut Vec<f32>,
     desc: &'a FunctionDesc,
     game: &'a mut ScriptGameData<'b>,
     context: &'a mut FunctionContext,
+    temp: &'a mut TempGameContext<'c>,
 }
 
-impl<'a, 'b> FunctionRunner<'a, 'b> {
+impl<'a, 'b, 'c> FunctionRunner<'a, 'b, 'c> {
     pub fn execute(&mut self) -> Option<f32> {
         loop {
             if self.context.pointer >= self.desc.code.len() {
@@ -90,7 +112,6 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                 0 => {
                     if self.context.loop_start.len() > 0 {
                         self.context.pointer = *self.context.loop_start.last().unwrap();
-                        *self.context.var_per_stack.last_mut().unwrap() = 0;
                     } else {
                         self.context.reset();
                         break;
@@ -98,7 +119,6 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                 }
                 1 => {
                     self.context.loop_start.push(self.context.pointer);
-                    self.context.var_per_stack.push(0);
                 }
                 2 => {
                     return None;
@@ -107,10 +127,7 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                     let data = self.get_f32();
                     self.game.calc_stack.push(data);
                 }
-                4 => {
-                    self.context.var_stack.push(0.0);
-                    *self.context.var_per_stack.last_mut().unwrap() += 1;
-                }
+                4 => {}
                 5 => {
                     let times = self.get_f32();
                     if times >= 1.0 {
@@ -120,9 +137,6 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                                 for x in self.desc.loop_exit.to_vec() {
                                     if x > self.context.pointer {
                                         self.context.pointer = x;
-                                        for _ in 0..self.context.var_per_stack.pop().unwrap() {
-                                            self.context.var_stack.pop().unwrap();
-                                        }
                                         break;
                                     }
                                 }
@@ -229,15 +243,15 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
             1 => {
                 match index {
                     0 => {
-                        let mut tran = self.game.tran.as_mut().unwrap().clone();
+                        let mut tran = self.temp.tran.as_mut().unwrap().clone();
                         tran.set_translation_x(value);
                     }
                     1 => {
-                        let mut tran = self.game.tran.as_mut().unwrap().clone();
+                        let mut tran = self.temp.tran.as_mut().unwrap().clone();
                         tran.set_translation_y(value);
                     }
                     2 => {
-                        let mut tran = self.game.tran.as_mut().unwrap().clone();
+                        let mut tran = self.temp.tran.as_mut().unwrap().clone();
                         tran.set_translation_z(value);
                     }
                     3 => {
@@ -281,9 +295,9 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                 let data = self.desc.code[self.context.pointer];
                 self.context.pointer += 1;
                 match data {
-                    0 => self.game.tran.as_ref().unwrap().translation().x,
-                    1 => self.game.tran.as_ref().unwrap().translation().y,
-                    2 => self.game.tran.as_ref().unwrap().translation().z,
+                    0 => self.temp.tran.as_ref().unwrap().translation().x,
+                    1 => self.temp.tran.as_ref().unwrap().translation().y,
+                    2 => self.temp.tran.as_ref().unwrap().translation().z,
                     3 => self.game.player_tran.as_ref().unwrap().translation().x,
                     4 => self.game.player_tran.as_ref().unwrap().translation().y,
                     5 => self.game.player_tran.as_ref().unwrap().translation().z,

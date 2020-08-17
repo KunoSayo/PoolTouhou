@@ -18,7 +18,7 @@ use crate::CoreStorage;
 use crate::handles::TextureHandles;
 use crate::render::InvertColorCircle;
 use crate::script::{ScriptGameData, ScriptManager};
-use crate::script::script_context::ScriptContext;
+use crate::script::script_context::{ScriptContext, TempGameContext};
 
 #[derive(Default)]
 pub struct Player {
@@ -120,7 +120,6 @@ impl<'a> System<'a> for GameSystem {
     fn run(&mut self, mut data: Self::SystemData) {
         if data.core.tick_sign {
             let mut game_data = ScriptGameData {
-                tran: None,
                 player_tran: None,
                 submit_command: Vec::with_capacity(4),
                 script_manager: None,
@@ -163,18 +162,22 @@ impl<'a> System<'a> for GameSystem {
                 }
             }
 
-            for (enemy_bullet, enemy_entity) in (&mut data.enemy_bullets, &data.entities).join() {
-                let enemy_tran = data.transforms.get_mut(enemy_entity).unwrap();
-                if is_out_of_game(enemy_tran) {
-                    data.entities.delete(enemy_entity).expect("delete enemy entity failed");
+            for (enemy_bullet, bullet_entity)
+            in (&mut data.enemy_bullets, &data.entities).join() {
+                let mut bullet_tran = data.transforms.get_mut(bullet_entity).unwrap();
+                if is_out_of_game(bullet_tran) {
+                    data.entities.delete(bullet_entity).expect("delete enemy bullet entity failed");
                     continue;
                 }
-                game_data.tran.replace((*enemy_tran).clone());
-                enemy_bullet.script.execute_function(&"tick".to_string(), &mut game_data);
+
+                let mut temp = TempGameContext {
+                    tran: Some(&mut bullet_tran)
+                };
+                enemy_bullet.script.tick_function(&mut game_data, &mut temp);
                 while let Some(x) = game_data.submit_command.pop() {
                     match x {
                         crate::script::ScriptGameCommand::MoveUp(v) => {
-                            enemy_tran.move_up(v);
+                            bullet_tran.move_up(v);
                         }
                         _ => {}
                     }
@@ -183,9 +186,12 @@ impl<'a> System<'a> for GameSystem {
 
 
             for (enemy, enemy_entity) in (&mut data.enemies, &data.entities).join() {
-                let enemy_tran = data.transforms.get(enemy_entity).unwrap();
-                game_data.tran.replace((*enemy_tran).clone());
-                enemy.script.execute_function(&"tick".to_string(), &mut game_data);
+                let mut enemy_tran = data.transforms.get_mut(enemy_entity).unwrap();
+                let mut temp = TempGameContext {
+                    tran: Some(&mut enemy_tran)
+                };
+                enemy.script.tick_function(&mut game_data, &mut temp);
+
                 while let Some(x) = game_data.submit_command.pop() {
                     match x {
                         crate::script::ScriptGameCommand::SummonBullet(name, x, y, z, angle, collide, script, args) => {
@@ -210,6 +216,7 @@ impl<'a> System<'a> for GameSystem {
                     }
                 }
             }
+
             //tick if end
         }
     }

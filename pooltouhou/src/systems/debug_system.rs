@@ -20,7 +20,8 @@ impl<'a> System<'a> for DebugSystem {
             println!("lag! in {:?}", time.delta_time());
         }
         if let Some(text) = ui_texts.get_mut(debug_text.entity_count) {
-            text.text = "entities: ".to_owned() + &(&entities).par_join().count().to_string();
+            let fps = 1.0 / time.delta_real_time().as_secs_f32();
+            text.text = "fps:".to_owned() + &*format!("{:.2}", fps) + "\nentities: " + &(&entities).par_join().count().to_string();
         }
     }
 }

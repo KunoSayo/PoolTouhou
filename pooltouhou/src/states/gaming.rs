@@ -14,7 +14,7 @@ use crate::component::{Enemy, EnemyBullet, PlayerBullet, Sheep};
 use crate::CoreStorage;
 use crate::handles::TextureHandles;
 use crate::script::{ScriptGameData, ScriptManager};
-use crate::script::script_context::ScriptContext;
+use crate::script::script_context::{ScriptContext, TempGameContext};
 use crate::states::pausing::Pausing;
 use crate::systems::game_system::CollideType;
 use crate::systems::Player;
@@ -46,14 +46,13 @@ impl SimpleState for Gaming {
 
         let mut context = ScriptContext::new(&script, vec![]);
         let mut game = ScriptGameData {
-            tran: None,
             player_tran: None,
             submit_command: vec![],
             script_manager: Some(&mut script_manager),
-            calc_stack: vec![]
+            calc_stack: vec![],
         };
 
-        context.execute_function(&"start".to_string(), &mut game);
+        context.execute_function(&"start".to_string(), &mut game, &mut TempGameContext::default());
         for x in game.submit_command {
             match x {
                 crate::script::ScriptGameCommand::SummonEnemy(name, x, y, hp, collide, script_name, args) => {
