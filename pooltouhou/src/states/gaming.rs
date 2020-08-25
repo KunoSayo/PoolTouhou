@@ -136,7 +136,7 @@ fn load_bullet(world: &mut World, name: String, ron: String) {
 fn setup_sheep(world: &mut World) -> Entity {
     let mut pos = Transform::default();
 
-    pos.set_translation_xyz(ARENA_WIDTH * 0.5, 100, 0.0);
+    pos.set_translation_xyz(ARENA_WIDTH * 0.5, 100.0, 0.0);
     // pos.set_scale(Vector3::new(1.0, 1.0, 1.0));
     let sprite_sheet_handle = load_sprite_sheet(world, "texture/sheep.png", "texture/sheep.ron");
     let sprite_render = SpriteRender {
