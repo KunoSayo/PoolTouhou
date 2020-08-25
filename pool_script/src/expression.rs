@@ -9,6 +9,8 @@ pub enum Operator {
     ADD,
     SUB,
     MUL,
+    DIV,
+    MOD,
     EQ,
     NEQ,
     GT,
@@ -37,6 +39,8 @@ impl Operator {
             Operator::ADD => v1 + v2,
             Operator::SUB => v1 - v2,
             Operator::MUL => v1 * v2,
+            Operator::DIV => v1 / v2,
+            Operator::MOD => v1 % v2,
             _ => panic!("Not supported {:?}", self)
         }
     }
@@ -58,6 +62,8 @@ impl Compile for Operator {
             Operator::ADD => binary.push(21),
             Operator::SUB => binary.push(22),
             Operator::MUL => binary.push(23),
+            Operator::DIV => binary.push(24),
+            Operator::MOD => binary.push(25),
             _ => { return Err(Error::new(ErrorKind::InvalidData, "[parse expression]expected operator but found : ".to_owned() + stringify!(self))); }
         }
         Ok(())
@@ -215,6 +221,8 @@ impl TryFrom<&str> for Operator {
             "+" => Ok(Operator::ADD),
             "-" => Ok(Operator::SUB),
             "*" => Ok(Operator::MUL),
+            "/" => Ok(Operator::DIV),
+            "%" => Ok(Operator::MOD),
             "(" => Ok(Operator::LeftB),
             ")" => Ok(Operator::RightB),
             _ => Err(Error::new(ErrorKind::InvalidData, "[parse expression]expected operator but found : ".to_owned() + str))
@@ -250,6 +258,10 @@ mod test {
         assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(7.0));
         let mut value = try_parse_expression("1 * ( 2 + 3 )", &context).unwrap();
         assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(5.0));
+        let mut value = try_parse_expression("3/2", &context).unwrap();
+        assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(1.5));
+        let mut value = try_parse_expression("3%2", &context).unwrap();
+        assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(1.0));
         let mut value = try_parse_expression("a1 * ( b1 + a2 )", &context).unwrap();
         assert_eq!(value.tree, vec![ExpressionElement::DATA(1), ExpressionElement::STACK(1), ExpressionElement::DATA(2), ExpressionElement::OP(Operator::ADD), ExpressionElement::OP(Operator::MUL)]);
     }

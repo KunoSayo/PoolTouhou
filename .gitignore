@@ -7,3 +7,5 @@ target
 *.pthps
 
 *.exe
+
+examples/*.pthpsb

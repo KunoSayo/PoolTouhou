@@ -111,14 +111,26 @@ fn parse_function(name: &str, reader: &mut Box<dyn BufRead>, context: &mut Conte
                 }
             }
             "move_up" => {
-                binary.push(10);
-                let value = context.parse_value(line[1])?;
-                value.flush(&mut binary)?;
+                if let Ok(value) = context.parse_value(line[1]) {
+                    binary.push(10);
+                    value.flush(&mut binary)?;
+                } else {
+                    let exp = try_parse_expression(line[1].trim(), context)?;
+                    exp.flush(&mut binary)?;
+                    binary.push(10);
+                    binary.push(4);
+                }
             }
             "break" => {
-                binary.push(5);
-                let value = context.parse_value(line[1])?;
-                value.flush(&mut binary)?;
+                if let Ok(value) = context.parse_value(line[1]) {
+                    binary.push(5);
+                    value.flush(&mut binary)?;
+                } else {
+                    let exp = try_parse_expression(line[1].trim(), context)?;
+                    exp.flush(&mut binary)?;
+                    binary.push(5);
+                    binary.push(4);
+                }
             }
             "loop" => {
                 loops += 1;

@@ -14,7 +14,8 @@
 * B0: const value (4B)
 * B1: game value (1B)
 * B2: script data value (1B)
-* B3: script stack value (1B)
+* B3: script stack val~~~~ue (1B)
+* B4: calc stack value
 
 ### Begin File Data
 * 4B : Version  
@@ -36,7 +37,9 @@
 * B21: add
 * B22: sub
 * B23: mul
-* B24: eq
-* B25: neq
-* B26: lt
-* B27: gt
+* B24: DIV
+* B25: MOD
+* B26: eq
+* B27: neq
+* B28: lt
+* B29: gt

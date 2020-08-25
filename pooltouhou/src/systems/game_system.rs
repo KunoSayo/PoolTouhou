@@ -50,8 +50,14 @@ impl CollideType {
                 if *r_2 <= 0.0 {
                     other_collide.is_collide_with_point(me, other)
                 } else {
-                    //todo: circle collide circle
-                    true
+                    match other_collide {
+                        Self::Circle(o_r_2) => {
+                            let center_x_distance = me.x - other.x;
+                            let center_y_distance = me.y - other.y;
+                            let center_distance = center_x_distance * center_x_distance + center_y_distance * center_y_distance;
+                            center_distance < r_2 + o_r_2
+                        }
+                    }
                 }
             }
         }

@@ -128,7 +128,6 @@ impl<'a, 'b, 'c> FunctionRunner<'a, 'b, 'c> {
                     let data = self.get_f32();
                     self.game.calc_stack.push(data);
                 }
-                4 => {}
                 5 => {
                     let times = self.get_f32();
                     if times >= 1.0 {
@@ -216,6 +215,16 @@ impl<'a, 'b, 'c> FunctionRunner<'a, 'b, 'c> {
                     let x = self.game.calc_stack.pop().unwrap();
                     let y = self.game.calc_stack.last_mut().unwrap();
                     *y = *y * x;
+                }
+                24 => {
+                    let x = self.game.calc_stack.pop().unwrap();
+                    let y = self.game.calc_stack.last_mut().unwrap();
+                    *y = *y / x;
+                }
+                25 => {
+                    let x = self.game.calc_stack.pop().unwrap();
+                    let y = self.game.calc_stack.last_mut().unwrap();
+                    *y = *y % x;
                 }
                 _ => panic!("Unknown byte command: {}", command)
             }
@@ -312,6 +321,9 @@ impl<'a, 'b, 'c> FunctionRunner<'a, 'b, 'c> {
                 let data = self.desc.code[self.context.pointer + 1];
                 self.context.pointer += 2;
                 self.context.var_stack[data as usize]
+            }
+            4 => {
+                self.game.calc_stack.pop().unwrap()
             }
             _ => panic!("Unknown data src: {}", src)
         }

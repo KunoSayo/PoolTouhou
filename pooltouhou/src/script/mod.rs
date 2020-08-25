@@ -93,6 +93,10 @@ impl ScriptManager {
                                 max_stack = max_stack.max(s as i16);
                             }
                         }
+                        4 => {
+                            //allocate needn't execute
+                            binary.pop().unwrap();
+                        }
                         11 => {
                             //name
                             read_str(&mut reader, &mut binary, true);

@@ -126,6 +126,14 @@ fn setup_camera(world: &mut World) {
         .build();
 }
 
+fn load_bullet(world: &mut World, name: String, ron: String) {
+    let handle = load_sprite_sheet(world, &*("texture/".to_owned() + &name + ".png"),
+                                   &*("texture/".to_owned() + &ron + ".ron"));
+    let mut texture_handle = world.try_fetch_mut::<TextureHandles>().unwrap();
+    texture_handle.bullets.insert(name, SpriteRender { sprite_sheet: handle, sprite_number: 0 });
+
+}
+
 fn setup_sheep(world: &mut World) -> Entity {
     let mut pos = Transform::default();
 
@@ -137,14 +145,13 @@ fn setup_sheep(world: &mut World) -> Entity {
         sprite_number: 0,
     };
 
-    let sprite_sheet_handle = load_sprite_sheet(world, "texture/sheepBullet.png", "texture/sheepBullet.ron");
-    let bullet = load_sprite_sheet(world, "texture/bullet.png", "texture/bullet.ron");
+    load_bullet(world, "bullet".to_string(), "bullet".to_string());
+    load_bullet(world, "circle_red".to_string(), "circle".to_string());
+    load_bullet(world, "circle_blue".to_string(), "circle".to_string());
+    load_bullet(world, "circle_green".to_string(), "circle".to_string());
+    load_bullet(world, "circle_yellow".to_string(), "circle".to_string());
+    load_bullet(world, "circle_purple".to_string(), "circle".to_string());
 
-    {
-        let mut texture_handle = world.try_fetch_mut::<TextureHandles>().unwrap();
-        texture_handle.player_bullet = Some(SpriteRender { sprite_sheet: sprite_sheet_handle, sprite_number: 0 });
-        texture_handle.bullets.insert("bullet".to_string(), SpriteRender { sprite_sheet: bullet, sprite_number: 0 });
-    }
 
     world.create_entity()
         .with(sprite_render)
