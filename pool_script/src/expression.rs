@@ -28,6 +28,8 @@ impl Operator {
             Operator::ADD => 1,
             Operator::SUB => 1,
             Operator::MUL => 2,
+            Operator::DIV => 2,
+            Operator::MOD => 2,
             Operator::LeftB => 0,
             Operator::RightB => 0,
             _ => 1
@@ -260,7 +262,7 @@ mod test {
         assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(5.0));
         let mut value = try_parse_expression("3/2", &context).unwrap();
         assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(1.5));
-        let mut value = try_parse_expression("3%2", &context).unwrap();
+        let mut value = try_parse_expression("(1+2)%2", &context).unwrap();
         assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(1.0));
         let mut value = try_parse_expression("a1 * ( b1 + a2 )", &context).unwrap();
         assert_eq!(value.tree, vec![ExpressionElement::DATA(1), ExpressionElement::STACK(1), ExpressionElement::DATA(2), ExpressionElement::OP(Operator::ADD), ExpressionElement::OP(Operator::MUL)]);

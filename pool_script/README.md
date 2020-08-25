@@ -43,3 +43,5 @@
 * B27: neq
 * B28: lt
 * B29: gt
+
+* B40: load_texture (name, ron)

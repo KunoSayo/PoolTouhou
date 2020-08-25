@@ -3,7 +3,7 @@ use std::convert::{TryFrom, TryInto};
 
 use amethyst::core::transform::Transform;
 
-use crate::script::{FunctionDesc, ScriptDesc, ScriptGameCommand, ScriptGameData};
+use crate::script::{FunctionDesc, Loop, ScriptDesc, ScriptGameCommand, ScriptGameData};
 use crate::systems::game_system::CollideType;
 
 pub struct ScriptContext {
@@ -134,10 +134,23 @@ impl<'a, 'b, 'c> FunctionRunner<'a, 'b, 'c> {
                         let times = times.floor() as i32;
                         for _ in 0..times {
                             if let Some(_) = self.context.loop_start.pop() {
-                                for x in self.desc.loop_exit.to_vec() {
-                                    if x > self.context.pointer {
-                                        self.context.pointer = x;
-                                        break;
+                                let mut layer = 0;
+                                for x in self.desc.loops.iter() {
+                                    match x {
+                                        Loop::Start(p) => {
+                                            if self.context.pointer < *p {
+                                                layer += 1;
+                                            }
+                                        }
+                                        Loop::End(p) => {
+                                            if self.context.pointer < *p {
+                                                if layer == 0 {
+                                                    self.context.pointer = *p;
+                                                    break;
+                                                }
+                                                layer -= 1;
+                                            }
+                                        }
                                     }
                                 }
                             } else {
@@ -323,6 +336,7 @@ impl<'a, 'b, 'c> FunctionRunner<'a, 'b, 'c> {
                 self.context.var_stack[data as usize]
             }
             4 => {
+                self.context.pointer += 1;
                 self.game.calc_stack.pop().unwrap()
             }
             _ => panic!("Unknown data src: {}", src)

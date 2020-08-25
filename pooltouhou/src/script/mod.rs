@@ -11,10 +11,16 @@ use crate::systems::game_system::CollideType;
 
 pub mod script_context;
 
+#[derive(Debug, Copy, Clone)]
+pub enum Loop {
+    Start(usize),
+    End(usize),
+}
+
 #[derive(Debug, Clone)]
 pub struct FunctionDesc {
     code: Arc<Vec<u8>>,
-    loop_exit: Arc<Vec<usize>>,
+    loops: Arc<Vec<Loop>>,
     max_stack: u16,
 }
 
@@ -60,7 +66,7 @@ impl ScriptManager {
             let mut functions = HashMap::new();
             loop {
                 let mut binary = Vec::with_capacity(128);
-                let mut loop_exit = Vec::new();
+                let mut loop_vec = Vec::new();
                 let mut max_stack: i16 = -1;
                 let function_name = read_str(&mut reader, &mut binary, false);
                 if function_name.is_empty() {
@@ -80,12 +86,13 @@ impl ScriptManager {
                         0 => {
                             if loops > 0 {
                                 loops -= 1;
-                                loop_exit.push(binary.len());
+                                loop_vec.push(Loop::End(binary.len()));
                             } else {
                                 break;
                             }
                         }
                         1 => {
+                            loop_vec.push(Loop::Start(binary.len()));
                             loops += 1;
                         }
                         3 | 5 | 10 | 20 => {
@@ -155,7 +162,7 @@ impl ScriptManager {
                 }
                 functions.insert(function_name, FunctionDesc {
                     code: Arc::new(binary),
-                    loop_exit: Arc::new(loop_exit),
+                    loops: Arc::new(loop_vec),
                     max_stack: (max_stack + 1) as u16,
                 });
             }
@@ -205,6 +212,7 @@ fn read_f32(binary: &mut Vec<u8>, reader: &mut BufReader<File>) -> Option<u8> {
             binary.push(buf[0]);
             return Some(buf[0]);
         }
+        4 => {}
         _ => {
             reader.read(&mut buf[0..1]).unwrap();
             binary.push(buf[0]);
