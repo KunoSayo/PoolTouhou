@@ -136,13 +136,19 @@ fn load_bullet(world: &mut World, name: String, ron: String) {
 fn setup_sheep(world: &mut World) -> Entity {
     let mut pos = Transform::default();
 
-    pos.set_translation_xyz(ARENA_WIDTH * 0.5, ARENA_HEIGHT * 0.5, 0.0);
+    pos.set_translation_xyz(ARENA_WIDTH * 0.5, 100, 0.0);
     // pos.set_scale(Vector3::new(1.0, 1.0, 1.0));
     let sprite_sheet_handle = load_sprite_sheet(world, "texture/sheep.png", "texture/sheep.ron");
     let sprite_render = SpriteRender {
         sprite_sheet: sprite_sheet_handle,
         sprite_number: 0,
     };
+    let sheep_bullet = load_sprite_sheet(world, "texture/sheepBullet.png", "texture/sheepBullet.ron");
+
+    {
+        let mut texture_handle = world.try_fetch_mut::<TextureHandles>().unwrap();
+        texture_handle.player_bullet = Some(SpriteRender { sprite_sheet: sheep_bullet, sprite_number: 0 });
+    }
 
     load_bullet(world, "bullet".to_string(), "bullet".to_string());
     load_bullet(world, "circle_red".to_string(), "circle".to_string());
