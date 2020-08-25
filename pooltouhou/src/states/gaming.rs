@@ -131,7 +131,6 @@ fn load_bullet(world: &mut World, name: String, ron: String) {
                                    &*("texture/".to_owned() + &ron + ".ron"));
     let mut texture_handle = world.try_fetch_mut::<TextureHandles>().unwrap();
     texture_handle.bullets.insert(name, SpriteRender { sprite_sheet: handle, sprite_number: 0 });
-
 }
 
 fn setup_sheep(world: &mut World) -> Entity {
