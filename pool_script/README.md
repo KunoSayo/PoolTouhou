@@ -14,7 +14,7 @@
 * B0: const value (4B)
 * B1: game value (1B)
 * B2: script data value (1B)
-* B3: script stack val~~~~ue (1B)
+* B3: script stack value (1B)
 * B4: calc stack value
 
 ### Begin File Data

@@ -125,15 +125,12 @@ impl<'a> System<'a> for GameSystem {
 
     fn run(&mut self, mut data: Self::SystemData) {
         if data.core.tick_sign {
+            let player_tran = process_player(&mut data);
             let mut game_data = ScriptGameData {
-                player_tran: None,
+                player_tran,
                 submit_command: Vec::with_capacity(4),
-                script_manager: None,
                 calc_stack: Vec::with_capacity(4),
             };
-
-            process_player(&mut data, &mut game_data);
-            game_data.script_manager = Some(&mut data.script_manager);
 
             data.core.tick_sign = false;
             data.core.tick += 1;
@@ -177,9 +174,9 @@ impl<'a> System<'a> for GameSystem {
                 }
 
                 let mut temp = TempGameContext {
-                    tran: Some(&mut bullet_tran)
+                    tran: Some(&mut bullet_tran),
                 };
-                enemy_bullet.script.tick_function(&mut game_data, &mut temp);
+                enemy_bullet.script.tick_function(&mut game_data, &mut data.script_manager, &mut temp);
                 while let Some(x) = game_data.submit_command.pop() {
                     match x {
                         crate::script::ScriptGameCommand::MoveUp(v) => {
@@ -194,18 +191,19 @@ impl<'a> System<'a> for GameSystem {
             for (enemy, enemy_entity) in (&mut data.enemies, &data.entities).join() {
                 let mut enemy_tran = data.transforms.get_mut(enemy_entity).unwrap();
                 let mut temp = TempGameContext {
-                    tran: Some(&mut enemy_tran)
+                    tran: Some(&mut enemy_tran),
+
                 };
-                enemy.script.tick_function(&mut game_data, &mut temp);
+                enemy.script.tick_function(&mut game_data, &mut data.script_manager, &mut temp);
 
                 while let Some(x) = game_data.submit_command.pop() {
                     match x {
                         crate::script::ScriptGameCommand::SummonBullet(name, x, y, z, angle, collide, script, args) => {
                             let script_context;
-                            if let Some(script) = game_data.script_manager.as_mut().unwrap().get_script(&script) {
+                            if let Some(script) = data.script_manager.get_script(&script) {
                                 script_context = ScriptContext::new(script, args);
                             } else {
-                                let script = game_data.script_manager.as_mut().unwrap().load_script(&script).unwrap();
+                                let script = data.script_manager.load_script(&script).unwrap();
                                 script_context = ScriptContext::new(script, args);
                             }
                             let mut pos = Transform::default();
@@ -232,7 +230,7 @@ impl<'a> System<'a> for GameSystem {
     }
 }
 
-fn process_player(data: &mut GameSystemData, game_data: &mut ScriptGameData) {
+fn process_player(data: &mut GameSystemData) -> Transform {
     if let Some(entity) = data.core.player {
         let player = data.players.get_mut(entity).unwrap();
         let pos = data.transforms.get_mut(entity).unwrap();
@@ -255,7 +253,6 @@ fn process_player(data: &mut GameSystemData, game_data: &mut ScriptGameData) {
         } else {
             data.animations.0.remove(entity);
         }
-        game_data.player_tran.replace((*pos).clone());
 
         if player.shoot_cooldown == 0 {
             if input.pressing.contains(&VirtualKeyCode::Z) {
@@ -290,6 +287,10 @@ fn process_player(data: &mut GameSystemData, game_data: &mut ScriptGameData) {
             data.entities.delete(entity).expect("delete player entity failed");
             data.core.player = None;
         }
+        pos.clone()
+    } else {
+        Transform::default()
+        //fixme: not delete the entity for player while dying
     }
 }
 

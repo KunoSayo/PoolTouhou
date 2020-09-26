@@ -42,17 +42,20 @@ impl SimpleState for Gaming {
         crate::ui::debug::setup_debug_text(world);
 
         let mut script_manager = ScriptManager::default();
-        let script = script_manager.load_script(&"main".to_string()).unwrap();
+        script_manager.load_scripts();
+        let script = script_manager.get_script(&"main".to_string()).unwrap();
 
         let mut context = ScriptContext::new(&script, vec![]);
         let mut game = ScriptGameData {
-            player_tran: None,
+            player_tran: Transform::default(),
             submit_command: vec![],
-            script_manager: Some(&mut script_manager),
             calc_stack: vec![],
         };
 
-        context.execute_function(&"start".to_string(), &mut game, &mut TempGameContext::default());
+        let mut temp = TempGameContext {
+            tran: None,
+        };
+        context.execute_function(&"start".to_string(), &mut game, &mut script_manager, &mut temp);
         for x in game.submit_command {
             match x {
                 crate::script::ScriptGameCommand::SummonEnemy(name, x, y, hp, collide, script_name, args) => {

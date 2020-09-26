@@ -3,17 +3,17 @@ use std::convert::{TryFrom, TryInto};
 
 use amethyst::core::transform::Transform;
 
-use crate::script::{FunctionDesc, Loop, ScriptDesc, ScriptGameCommand, ScriptGameData};
+use crate::script::{FunctionDesc, Loop, ScriptDesc, ScriptGameCommand, ScriptGameData, ScriptManager};
 use crate::systems::game_system::CollideType;
 
 pub struct ScriptContext {
-    pub(crate) desc: ScriptDesc,
+    pub(crate) desc_index: usize,
     pub(crate) data: Vec<f32>,
     function_context: HashMap<String, FunctionContext>,
-    tick_function: Option<(FunctionDesc, FunctionContext)>,
+    tick_function: Option<FunctionContext>,
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct TempGameContext<'a> {
     pub(crate) tran: Option<&'a mut Transform>,
 }
@@ -21,17 +21,18 @@ pub struct TempGameContext<'a> {
 impl ScriptContext {
     pub fn new(desc: &ScriptDesc, args: Vec<f32>) -> Self {
         Self {
-            desc: desc.clone(),
+            desc_index: desc.index,
             data: args,
             function_context: HashMap::new(),
-            tick_function: desc.functions.get("tick").map(|f| ((*f).clone(), FunctionContext::new(f.max_stack as usize))),
+            tick_function: desc.tick_function.as_ref().map(|f| FunctionContext::new(f.max_stack.into())),
         }
     }
 }
 
 impl ScriptContext {
-    pub fn execute_function(&mut self, name: &String, game_data: &mut ScriptGameData, temp: &mut TempGameContext) -> Option<f32> {
-        let function = self.desc.functions.get(name).expect("no such function.");
+    pub fn execute_function(&mut self, name: &String, game_data: &mut ScriptGameData, script_manager: &mut ScriptManager, temp: &mut TempGameContext) -> Option<f32> {
+        let function = script_manager.scripts.get(self.desc_index)
+            .unwrap().functions.get(name).expect("no such function.");
         let function_context;
         if let Some(ctx) = self.function_context.get_mut(name) {
             function_context = ctx;
@@ -47,20 +48,22 @@ impl ScriptContext {
             temp,
         };
 
-        function_runner.execute()
+        function_runner.execute(script_manager)
     }
 
-    pub fn tick_function(&mut self, game_data: &mut ScriptGameData, temp: &mut TempGameContext) -> Option<f32> {
+    pub fn tick_function(&mut self, game_data: &mut ScriptGameData, script_manager: &mut ScriptManager, temp: &mut TempGameContext) -> Option<f32> {
         let f_with_ctx = self.tick_function.as_mut().unwrap();
+        let desc = script_manager.scripts.get(self.desc_index).unwrap().tick_function
+            .as_ref().unwrap();
         let mut function_runner = FunctionRunner {
             data: &mut self.data,
-            desc: &f_with_ctx.0,
+            desc,
             game: game_data,
-            context: &mut f_with_ctx.1,
+            context: f_with_ctx,
             temp,
         };
 
-        function_runner.execute()
+        function_runner.execute(script_manager)
     }
 }
 
@@ -92,16 +95,16 @@ impl FunctionContext {
     }
 }
 
-struct FunctionRunner<'a, 'b, 'c> {
+struct FunctionRunner<'a, 'c> {
     data: &'a mut Vec<f32>,
     desc: &'a FunctionDesc,
-    game: &'a mut ScriptGameData<'b>,
+    game: &'a mut ScriptGameData,
     context: &'a mut FunctionContext,
     temp: &'a mut TempGameContext<'c>,
 }
 
-impl<'a, 'b, 'c> FunctionRunner<'a, 'b, 'c> {
-    pub fn execute(&mut self) -> Option<f32> {
+impl<'a, 'c> FunctionRunner<'a, 'c> {
+    pub fn execute(&mut self, script_manager: &ScriptManager) -> Option<f32> {
         loop {
             if self.context.pointer >= self.desc.code.len() {
                 self.context.reset();
@@ -180,7 +183,7 @@ impl<'a, 'b, 'c> FunctionRunner<'a, 'b, 'c> {
                         .unwrap();
 
                     let ai_name = self.get_str();
-                    let arg_len = self.game.script_manager.as_mut().unwrap().get_script_data_count(&ai_name);
+                    let arg_len = script_manager.get_script_data_count(&ai_name);
                     let mut args = Vec::with_capacity(arg_len as usize);
                     for _ in 0..arg_len {
                         args.push(self.get_f32());
@@ -203,7 +206,7 @@ impl<'a, 'b, 'c> FunctionRunner<'a, 'b, 'c> {
                     let collide = CollideType::try_from((collide_byte, collide_args))
                         .unwrap();
                     let ai_name = self.get_str();
-                    let arg_len = self.game.script_manager.as_mut().unwrap().get_script_data_count(&ai_name);
+                    let arg_len = script_manager.get_script_data_count(&ai_name);
                     let mut args = Vec::with_capacity(arg_len as usize);
                     for _ in 0..arg_len {
                         args.push(self.get_f32());
@@ -277,19 +280,19 @@ impl<'a, 'b, 'c> FunctionRunner<'a, 'b, 'c> {
                         tran.set_translation_z(value);
                     }
                     3 => {
-                        let mut tran = self.game.player_tran.as_ref().unwrap().clone();
+                        let tran = &mut self.game.player_tran;
                         tran.set_translation_x(value);
-                        self.game.player_tran.replace(tran);
+                        // self.game.player_tran.replace(tran);
                     }
                     4 => {
-                        let mut tran = self.game.player_tran.as_ref().unwrap().clone();
+                        let tran = &mut self.game.player_tran;
                         tran.set_translation_y(value);
-                        self.game.player_tran.replace(tran);
+                        // self.game.player_tran.replace(tran);
                     }
                     5 => {
-                        let mut tran = self.game.player_tran.as_ref().unwrap().clone();
+                        let tran = &mut self.game.player_tran;
                         tran.set_translation_z(value);
-                        self.game.player_tran.replace(tran);
+                        // self.game.player_tran.replace(tran);
                     }
                     _ => panic!("Unknown game data byte: {}", index)
                 };
@@ -319,9 +322,9 @@ impl<'a, 'b, 'c> FunctionRunner<'a, 'b, 'c> {
                     0 => self.temp.tran.as_ref().unwrap().translation().x,
                     1 => self.temp.tran.as_ref().unwrap().translation().y,
                     2 => self.temp.tran.as_ref().unwrap().translation().z,
-                    3 => self.game.player_tran.as_ref().unwrap().translation().x,
-                    4 => self.game.player_tran.as_ref().unwrap().translation().y,
-                    5 => self.game.player_tran.as_ref().unwrap().translation().z,
+                    3 => self.game.player_tran.translation().x,
+                    4 => self.game.player_tran.translation().y,
+                    5 => self.game.player_tran.translation().z,
                     _ => panic!("Unknown game data byte: {}", data)
                 }
             }

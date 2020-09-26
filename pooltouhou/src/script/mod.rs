@@ -3,7 +3,6 @@ use std::convert::TryInto;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use amethyst::core::components::Transform;
 
@@ -19,8 +18,8 @@ pub enum Loop {
 
 #[derive(Debug, Clone)]
 pub struct FunctionDesc {
-    code: Arc<Vec<u8>>,
-    loops: Arc<Vec<Loop>>,
+    code: Vec<u8>,
+    loops: Vec<Loop>,
     max_stack: u16,
 }
 
@@ -28,18 +27,29 @@ pub struct FunctionDesc {
 pub struct ScriptDesc {
     version: u32,
     data_count: u8,
+    index: usize,
     pub(crate) functions: HashMap<String, FunctionDesc>,
+    pub(crate) tick_function: Option<FunctionDesc>,
 }
 
 #[derive(Debug, Default)]
 pub struct ScriptManager {
-    pub scripts: HashMap<String, ScriptDesc>
+    pub scripts: Vec<ScriptDesc>,
+    pub script_map: HashMap<String, usize>,
 }
 
 impl ScriptManager {
-    pub fn get_script_data_count(&mut self, name: &String) -> u8 {
-        if let Some(script) = self.scripts.get(name) {
-            script.data_count
+    pub fn get_script_data_count(&self, name: &String) -> u8 {
+        if let Some(index) = self.script_map.get(name) {
+            self.scripts[*index].data_count
+        } else {
+            panic!("There is no script with name: ".to_owned() + name)
+        }
+    }
+
+    pub fn load_script_data_count(&mut self, name: &String) -> u8 {
+        if let Some(index) = self.script_map.get(name) {
+            self.scripts[*index].data_count
         } else if let Some(script) = self.load_script(name) {
             script.data_count
         } else {
@@ -48,10 +58,14 @@ impl ScriptManager {
     }
 
     pub fn get_script(&mut self, name: &String) -> Option<&ScriptDesc> {
-        self.scripts.get(name)
+        if let Some(index) = self.script_map.get(name) {
+            self.scripts.get(*index)
+        } else {
+            None
+        }
     }
 
-    pub fn load_script(&mut self, name: &String) -> Option<&ScriptDesc> {
+    pub(crate) fn load_script(&mut self, name: &String) -> Option<&ScriptDesc> {
         let path = PathBuf::from(std::env::current_dir().unwrap().to_str().unwrap().to_owned() + "/script/" + name + ".pthpsb");
         if let Ok(file) = File::open(&path) {
             let mut reader = BufReader::new(file);
@@ -124,7 +138,7 @@ impl ScriptManager {
                             if script_name == *name {
                                 ai_args_count = data_count;
                             } else {
-                                ai_args_count = self.get_script_data_count(&script_name);
+                                ai_args_count = self.load_script_data_count(&script_name);
                             }
                             for _ in 0..ai_args_count {
                                 read_f32(&mut binary, &mut reader);
@@ -151,7 +165,7 @@ impl ScriptManager {
                             if script_name == *name {
                                 ai_args_count = data_count;
                             } else {
-                                ai_args_count = self.get_script_data_count(&script_name);
+                                ai_args_count = self.load_script_data_count(&script_name);
                             }
                             for _ in 0..ai_args_count {
                                 read_f32(&mut binary, &mut reader);
@@ -161,22 +175,49 @@ impl ScriptManager {
                     }
                 }
                 functions.insert(function_name, FunctionDesc {
-                    code: Arc::new(binary),
-                    loops: Arc::new(loop_vec),
+                    code: binary,
+                    loops: loop_vec,
                     max_stack: (max_stack + 1) as u16,
                 });
             }
+            let index = self.scripts.len();
+            let tick_function = functions.remove("tick");
             let script = ScriptDesc {
                 version,
                 data_count,
+                index,
                 functions,
+                tick_function,
             };
-            self.scripts.insert(name.clone(), script);
-            return self.scripts.get(name);
+            self.scripts.push(script);
+            self.script_map.insert(name.clone(), index);
+            return self.scripts.get(index);
         } else {
             eprintln!("Script not found in {:?}", path);
         }
         None
+    }
+
+    pub fn load_scripts(&mut self) {
+        let path = PathBuf::from(std::env::current_dir().unwrap().to_str().unwrap().to_owned() + "/script/");
+        let dir = path.read_dir().unwrap();
+        for file in dir {
+            match file {
+                Ok(entry) => {
+                    if let Ok(file_type) = entry.file_type() {
+                        if file_type.is_file() && entry.file_name().to_str().to_owned().unwrap().ends_with(".pthpsb") {
+                            let name = &entry.file_name().into_string().unwrap().replace(".pthpsb", "");
+                            if !self.script_map.contains_key(name) {
+                                self.load_script(name);
+                            }
+                        }
+                    }
+                }
+                Err(err) => {
+                    eprintln!("read entry failed! {}", err);
+                }
+            }
+        }
     }
 }
 
@@ -188,10 +229,9 @@ pub enum ScriptGameCommand {
 }
 
 #[derive(Debug)]
-pub struct ScriptGameData<'a> {
-    pub(crate) player_tran: Option<Transform>,
+pub struct ScriptGameData {
+    pub(crate) player_tran: Transform,
     pub(crate) submit_command: Vec<ScriptGameCommand>,
-    pub(crate) script_manager: Option<&'a mut ScriptManager>,
     pub(crate) calc_stack: Vec<f32>,
 }
 
