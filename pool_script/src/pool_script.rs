@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::fs::File;
-use std::io::{BufRead, BufWriter, Error, ErrorKind, Write};
+use std::io::{BufRead, BufWriter, Error, ErrorKind, Read, stdin, Write};
 
 use crate::context::Context;
 use crate::expression::{ExpressionElement, try_parse_expression};
@@ -45,6 +45,155 @@ impl PoolScript {
         Ok(Self {
             version: 0,
             data,
+            functions,
+        })
+    }
+
+    pub(crate) fn try_parse_bin(mut reader: Box<dyn BufRead>, debug: bool) -> Result<Self, Error> {
+        let mut buf = [0; 16];
+        let size = reader.read(&mut buf[0..5]).expect("read file failed");
+        if size < 5 {
+            return Err(Error::new(std::io::ErrorKind::InvalidData, "No const file data"));
+        }
+        let version = u32::from_be_bytes(buf[0..4].try_into().unwrap());
+        let data_count = buf[4];
+        let mut functions = HashMap::new();
+        loop {
+            let mut binary = Vec::with_capacity(128);
+            let mut max_stack: i16 = -1;
+            let function_name = read_str(&mut reader, &mut binary, false, debug);
+            if function_name.is_empty() {
+                break;
+            }
+
+            binary.clear();
+
+            let mut loops = 0;
+            loop {
+                let read = reader.read(&mut buf[0..1]).unwrap();
+                if read == 0 {
+                    break;
+                }
+                binary.push(buf[0]);
+                match buf[0] {
+                    0 => {
+                        if debug {
+                            println!("ret")
+                        }
+                        if loops > 0 {
+                            loops -= 1;
+                        } else {
+                            break;
+                        }
+                    }
+                    1 => {
+                        if debug {
+                            println!("loop")
+                        }
+                        loops += 1;
+                    }
+                    3 | 5 | 10 | 20 => {
+                        if debug {
+                            println!("{}", match buf[0] {
+                                3 => "push stack",
+                                5 => "break",
+                                10 => "move_up",
+                                20 => "store",
+                                _ => "Unknown",
+                            });
+                        }
+                        if let Some(s) = read_f32(&mut binary, &mut reader, debug) {
+                            max_stack = max_stack.max(s as i16);
+                        }
+                    }
+                    4 => {
+                        if debug {
+                            println!("allocated");
+                        }
+                        //allocate needn't execute
+                        binary.pop().unwrap();
+                    }
+                    11 => {
+                        if debug {
+                            println!("summon_e")
+                        }
+                        //name
+                        read_str(&mut reader, &mut binary, true, debug);
+
+                        //xy hp
+                        read_f32(&mut binary, &mut reader, debug);
+                        read_f32(&mut binary, &mut reader, debug);
+                        read_f32(&mut binary, &mut reader, debug);
+                        //collide & args
+                        reader.read(&mut buf[0..1]).unwrap();
+                        binary.push(buf[0]);
+
+                        for _ in 0..GameData::try_from(buf[0]).unwrap().get_args_count() {
+                            read_f32(&mut binary, &mut reader, debug);
+                        }
+                        //ai & args
+                        let script_name = read_str(&mut reader, &mut binary, true, debug);
+                        println!("We need know script {} data count:", script_name);
+                        let ai_args_count = read_stdin_i32();
+                        for _ in 0..ai_args_count {
+                            read_f32(&mut binary, &mut reader, debug);
+                        }
+                    }
+                    12 => {
+                        if debug {
+                            println!("summon_b")
+                        }
+                        //name
+                        read_str(&mut reader, &mut binary, true, debug);
+
+                        //xyz angle
+                        read_f32(&mut binary, &mut reader, debug);
+                        read_f32(&mut binary, &mut reader, debug);
+                        read_f32(&mut binary, &mut reader, debug);
+                        read_f32(&mut binary, &mut reader, debug);
+                        //collide & args
+                        reader.read(&mut buf[0..1]).unwrap();
+                        binary.push(buf[0]);
+
+                        for _ in 0..GameData::try_from(buf[0]).unwrap().get_args_count() {
+                            read_f32(&mut binary, &mut reader, debug);
+                        }
+                        //ai & args
+                        let script_name = read_str(&mut reader, &mut binary, true, debug);
+                        println!("We need know script {} data count:", script_name);
+                        let ai_args_count = read_stdin_i32();
+                        for _ in 0..ai_args_count {
+                            read_f32(&mut binary, &mut reader, debug);
+                        }
+                    }
+                    38 | 39 => {
+                        if debug {
+                            println!("sin/cos command{}", buf[0]);
+                        }
+                        if let Some(s) = read_f32(&mut binary, &mut reader, debug) {
+                            max_stack = max_stack.max(s as i16);
+                        }
+                        if let Some(s) = read_f32(&mut binary, &mut reader, debug) {
+                            max_stack = max_stack.max(s as i16);
+                        }
+                    }
+                    _ => {
+                        if debug {
+                            println!("byte command{}", buf[0]);
+                        }
+                    }
+                }
+            }
+            functions.insert(function_name, binary);
+        }
+
+        let mut data_map = HashMap::default();
+        for x in 0..data_count {
+            data_map.insert(format!("data{}", x), x);
+        }
+        Ok(Self {
+            version,
+            data: data_map,
             functions,
         })
     }
@@ -97,7 +246,7 @@ fn parse_function(name: &str, reader: &mut Box<dyn BufRead>, context: &mut Conte
             break;
         }
         let line: Vec<&str> = raw_line.trim().splitn(2, " ").collect();
-        if line[0].starts_with("//") {
+        if line[0].is_empty() || line[0].starts_with("//") {
             continue;
         }
         match line[0] {
@@ -164,6 +313,16 @@ fn parse_function(name: &str, reader: &mut Box<dyn BufRead>, context: &mut Conte
                             return Err(Error::new(ErrorKind::InvalidData, "[parse function]unknown reason: ".to_owned() + &*raw_line));
                         }
                     }
+                }
+            }
+            "sin" | "cos" => {
+                let arg = line[1].trim().splitn(2, ",").collect::<Vec<&str>>();
+                if let (Ok(src), Ok(dst)) = (context.parse_value(arg[0].trim()), context.find_index(arg[1].trim())) {
+                    binary.push(if line[0] == "sin" { 38 } else { 39 });
+                    src.flush(&mut binary)?;
+                    dst.flush(&mut binary)?;
+                } else {
+                    return Err(Error::new(ErrorKind::InvalidData, "[parse function]unknown reason: ".to_owned() + &*raw_line));
                 }
             }
             _ => {
@@ -243,4 +402,82 @@ impl Compile for &str {
         }
         Ok(())
     }
+}
+
+fn read_f32(binary: &mut Vec<u8>, reader: &mut Box<dyn BufRead>, debug: bool) -> Option<u8> {
+    let mut buf = [0; 4];
+    reader.read(&mut buf[0..1]).unwrap();
+    binary.push(buf[0]);
+    match buf[0] {
+        0 => {
+            if debug {
+                println!("point const ({})", buf[0])
+            }
+            reader.read(&mut buf[0..4]).unwrap();
+            binary.push(buf[0]);
+            binary.push(buf[1]);
+            binary.push(buf[2]);
+            binary.push(buf[3]);
+        }
+        3 => {
+            if debug {
+                println!("point stack value ({})", buf[0])
+            }
+            reader.read(&mut buf[0..1]).unwrap();
+            binary.push(buf[0]);
+            return Some(buf[0]);
+        }
+        4 => {
+            if debug {
+                println!("point calc value ({})", buf[0])
+            }
+        }
+        _ => {
+            if debug {
+                println!("point value ({})", buf[0])
+            }
+            reader.read(&mut buf[0..1]).unwrap();
+            binary.push(buf[0]);
+        }
+    }
+    None
+}
+
+fn read_str(reader: &mut Box<dyn BufRead>, binary: &mut Vec<u8>, write: bool, debug: bool) -> String {
+    let mut buf = [0; 32];
+    if reader.read(&mut buf[0..2]).unwrap() == 0 {
+        return "".to_string();
+    }
+    if write {
+        binary.push(buf[0]);
+        binary.push(buf[1]);
+    }
+    let str_len = u16::from_be_bytes(buf[0..2].try_into().unwrap()) as usize;
+    let mut vec = Vec::with_capacity(str_len);
+    let mut len = 0;
+    while len < str_len {
+        let read = reader.read(&mut buf[0..(str_len - len).min(32)]).unwrap();
+        for x in &buf[0..read] {
+            vec.push(*x);
+        }
+        len += read;
+    }
+
+    if write {
+        for x in &vec {
+            binary.push(*x);
+        }
+    }
+
+    let str = String::from_utf8(vec).expect("parse utf8 str failed");
+    if debug {
+        println!("str: {}", str);
+    }
+    str
+}
+
+fn read_stdin_i32() -> i32 {
+    let mut line = String::default();
+    stdin().read_line(&mut line).expect("read failed");
+    line.trim().parse().unwrap()
 }

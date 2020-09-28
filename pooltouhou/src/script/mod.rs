@@ -171,6 +171,14 @@ impl ScriptManager {
                                 read_f32(&mut binary, &mut reader);
                             }
                         }
+                        38 | 39 => {
+                            if let Some(s) = read_f32(&mut binary, &mut reader) {
+                                max_stack = max_stack.max(s as i16);
+                            }
+                            if let Some(s) = read_f32(&mut binary, &mut reader) {
+                                max_stack = max_stack.max(s as i16);
+                            }
+                        }
                         _ => {}
                     }
                 }

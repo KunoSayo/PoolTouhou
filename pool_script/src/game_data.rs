@@ -34,6 +34,27 @@ impl GameData {
             }
         }
     }
+
+    pub fn get_args_count(&self) -> usize {
+        match self {
+            GameData::CircleCollide => 1,
+            _ => panic!("no such arg")
+        }
+    }
+}
+
+impl TryFrom<u8> for GameData {
+    type Error = Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            10 => Ok(GameData::CircleCollide),
+            _ => {
+                eprintln!("There is unknown binary value {}", value);
+                Err(Error::new(ErrorKind::InvalidData, "[parse game data]no such game value"))
+            }
+        }
+    }
 }
 
 impl TryFrom<&str> for GameData {

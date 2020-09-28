@@ -10,6 +10,7 @@ mod expression;
 
 pub mod pool_script;
 
+
 fn compile(name: OsString, file: File) {
     println!("compiling file {:?}", name);
 
@@ -31,6 +32,16 @@ fn compile(name: OsString, file: File) {
     } else {
         println!("compiled file {:?} into {:?}", name, output_name);
     }
+}
+
+fn decompile(name: OsString, file: File) {
+    println!("decompiling file {:?}", name);
+
+    let script = pool_script::PoolScript::try_parse_bin(Box::new(BufReader::new(file)), true);
+    if script.is_err() {
+        eprintln!("parse script failed: {}", script.err().expect("parse failed: Unknown"));
+    }
+
 }
 
 //https://doc.rust-lang.org/book/
@@ -60,6 +71,37 @@ fn main() {
                     Err(err) => {
                         eprintln!("read entry failed! {}", err);
                     }
+                }
+            }
+        }
+    } else if args.len()> 2 && args[1] == "decompile" {
+        let run_dir = std::env::current_dir().unwrap();
+        for path in args.iter().skip(2) {
+            let path = run_dir.join(Path::new(path));
+            if path.is_dir() {
+                let dir = path.read_dir().expect(&*("We need a directory, not ".to_owned() + path.to_str().unwrap()));
+                println!("decompiling dir {:?}", dir);
+                for file in dir {
+                    match file {
+                        Ok(entry) => {
+                            if let Ok(file_type) = entry.file_type() {
+                                if file_type.is_file() && entry.file_name().to_str().to_owned().unwrap().ends_with(".pthps") {
+                                    match File::open(entry.path()) {
+                                        Ok(file) => decompile(entry.file_name(), file),
+                                        Err(err) => eprintln!("open file failed: {}", err)
+                                    }
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            eprintln!("read entry failed! {}", err);
+                        }
+                    }
+                }
+            } else {
+                match File::open(&path) {
+                    Ok(file) => decompile(path.file_name().unwrap().to_os_string(), file),
+                    Err(err) => eprintln!("open file failed: {}", err)
                 }
             }
         }

@@ -242,6 +242,46 @@ impl<'a, 'c> FunctionRunner<'a, 'c> {
                     let y = self.game.calc_stack.last_mut().unwrap();
                     *y = *y % x;
                 }
+                26 => {
+                    let x = self.game.calc_stack.pop().unwrap();
+                    let y = self.game.calc_stack.last_mut().unwrap();
+                    *y = if *y == x { 1.0 } else { 0.0 };
+                }
+                27 => {
+                    let x = self.game.calc_stack.pop().unwrap();
+                    let y = self.game.calc_stack.last_mut().unwrap();
+                    *y = if *y != x { 1.0 } else { 0.0 };
+                }
+                28 => {
+                    let x = self.game.calc_stack.pop().unwrap();
+                    let y = self.game.calc_stack.last_mut().unwrap();
+                    *y = if *y < x { 1.0 } else { 0.0 };
+                }
+                29 => {
+                    let x = self.game.calc_stack.pop().unwrap();
+                    let y = self.game.calc_stack.last_mut().unwrap();
+                    *y = if *y > x { 1.0 } else { 0.0 };
+                }
+                30 => {
+                    let x = self.game.calc_stack.pop().unwrap();
+                    let y = self.game.calc_stack.last_mut().unwrap();
+                    *y = if *y <= x { 1.0 } else { 0.0 };
+                }
+                31 => {
+                    let x = self.game.calc_stack.pop().unwrap();
+                    let y = self.game.calc_stack.last_mut().unwrap();
+                    *y = if *y >= x { 1.0 } else { 0.0 };
+                }
+                38 => {
+                    let mut v = self.get_f32();
+                    v = (v * std::f32::consts::PI / 180.0).sin();
+                    self.store_f32(v);
+                }
+                39 => {
+                    let mut v = self.get_f32();
+                    v = (v * std::f32::consts::PI / 180.0).cos();
+                    self.store_f32(v);
+                }
                 _ => panic!("Unknown byte command: {}", command)
             }
         }

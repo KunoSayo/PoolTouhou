@@ -25,14 +25,14 @@ pub enum Operator {
 impl Operator {
     fn get_priority(&self) -> u8 {
         match self {
-            Operator::ADD => 1,
-            Operator::SUB => 1,
-            Operator::MUL => 2,
-            Operator::DIV => 2,
-            Operator::MOD => 2,
+            Operator::ADD => 2,
+            Operator::SUB => 2,
+            Operator::MUL => 3,
+            Operator::DIV => 3,
+            Operator::MOD => 3,
+            Operator::EQ | Operator::NEQ | Operator::LT | Operator::GT | Operator::LE | Operator::GE => 1,
             Operator::LeftB => 0,
             Operator::RightB => 0,
-            _ => 1
         }
     }
 
@@ -43,6 +43,12 @@ impl Operator {
             Operator::MUL => v1 * v2,
             Operator::DIV => v1 / v2,
             Operator::MOD => v1 % v2,
+            Operator::EQ => if v1 == v2 { 1.0 } else { 0.0 },
+            Operator::NEQ => if v1 != v2 { 1.0 } else { 0.0 },
+            Operator::GT => if v1 > v2 { 1.0 } else { 0.0 },
+            Operator::LT => if v1 < v2 { 1.0 } else { 0.0 },
+            Operator::GE => if v1 >= v2 { 1.0 } else { 0.0 },
+            Operator::LE => if v1 <= v2 { 1.0 } else { 0.0 },
             _ => panic!("Not supported {:?}", self)
         }
     }
@@ -66,6 +72,12 @@ impl Compile for Operator {
             Operator::MUL => binary.push(23),
             Operator::DIV => binary.push(24),
             Operator::MOD => binary.push(25),
+            Operator::EQ => binary.push(26),
+            Operator::NEQ => binary.push(27),
+            Operator::LT => binary.push(28),
+            Operator::GT => binary.push(29),
+            Operator::LE => binary.push(30),
+            Operator::GE => binary.push(31),
             _ => { return Err(Error::new(ErrorKind::InvalidData, "[parse expression]expected operator but found : ".to_owned() + stringify!(self))); }
         }
         Ok(())
@@ -200,6 +212,18 @@ pub fn try_parse_expression(raw_str: &str, context: &Context) -> Result<Expressi
                 parsing_value = true;
                 begin = index + 1;
             }
+        } else if index + 1 < s.len() {
+            if let Ok(op) = Operator::try_from(&s[index..index + 2]) {
+                if parsing_value && begin != index {
+                    if let Ok(value) = context.parse_value(&s[begin..index]) {
+                        expression.push_tree(value);
+                    }
+                }
+                index += 1;
+                expression.push_operator(op);
+                parsing_value = true;
+                begin = index + 1;
+            }
         }
         index += 1;
     }
@@ -227,6 +251,12 @@ impl TryFrom<&str> for Operator {
             "%" => Ok(Operator::MOD),
             "(" => Ok(Operator::LeftB),
             ")" => Ok(Operator::RightB),
+            "==" => Ok(Operator::EQ),
+            "!=" => Ok(Operator::NEQ),
+            "<" => Ok(Operator::LT),
+            ">" => Ok(Operator::GT),
+            "<=" => Ok(Operator::LE),
+            ">=" => Ok(Operator::GE),
             _ => Err(Error::new(ErrorKind::InvalidData, "[parse expression]expected operator but found : ".to_owned() + str))
         }
     }
@@ -237,7 +267,7 @@ mod test {
     use std::collections::HashMap;
 
     use crate::context::Context;
-    use crate::expression::{Expression, ExpressionElement, Operator, try_parse_expression};
+    use crate::expression::{ExpressionElement, Operator, try_parse_expression};
 
     #[test]
     fn parse_expression() {
@@ -264,7 +294,13 @@ mod test {
         assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(1.5));
         let mut value = try_parse_expression("(1+2)%2", &context).unwrap();
         assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(1.0));
-        let mut value = try_parse_expression("a1 * ( b1 + a2 )", &context).unwrap();
+        let value = try_parse_expression("a1 * ( b1 + a2 )", &context).unwrap();
         assert_eq!(value.tree, vec![ExpressionElement::DATA(1), ExpressionElement::STACK(1), ExpressionElement::DATA(2), ExpressionElement::OP(Operator::ADD), ExpressionElement::OP(Operator::MUL)]);
+
+        let mut value = try_parse_expression("1 + 2 < 3", &context).unwrap();
+        assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(0.0));
+
+        let mut value = try_parse_expression("1 + 2 == 3", &context).unwrap();
+        assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(1.0));
     }
 }

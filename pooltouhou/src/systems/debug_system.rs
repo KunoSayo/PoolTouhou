@@ -5,8 +5,12 @@ use amethyst::{
     ui::UiText,
 };
 
-#[derive(SystemDesc)]
-pub struct DebugSystem;
+#[derive(SystemDesc, Default)]
+pub struct DebugSystem {
+    count: u32,
+    delta: f32,
+    fps: f32,
+}
 
 impl<'a> System<'a> for DebugSystem {
     type SystemData = (
@@ -17,8 +21,14 @@ impl<'a> System<'a> for DebugSystem {
     );
     fn run(&mut self, (entities, debug_text, mut ui_texts, time): Self::SystemData) {
         if let Some(text) = ui_texts.get_mut(debug_text.entity_count) {
-            let fps = 1.0 / time.delta_real_time().as_secs_f32();
-            text.text = "fps:".to_owned() + &*format!("{:.2}", fps) + "\nentities: " + &(&entities).par_join().count().to_string();
+            self.delta += time.delta_real_time().as_secs_f32();
+            self.count += 1;
+            if self.delta >= 1.0 {
+                self.fps = self.count as f32 / self.delta;
+                self.delta = 0.0;
+                self.count = 0;
+            }
+            text.text = format!("fps:{:.2}\nentities: {}", self.fps, (&entities).par_join().count());
         }
     }
 }

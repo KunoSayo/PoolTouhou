@@ -34,14 +34,18 @@
 * B12: summon_b (name, xyz, angle, collide_name, args..., bullet_ai, args...)
 
 * B20: store_f32 (pointer)
-* B21: add
-* B22: sub
-* B23: mul
-* B24: DIV
-* B25: MOD
-* B26: eq
-* B27: neq
-* B28: lt
-* B29: gt
+* B21: add +
+* B22: sub -
+* B23: mul *
+* B24: DIV /
+* B25: MOD %
+* B26: eq ==
+* B27: neq !=
+* B28: lt <
+* B29: gt >
+* B30: le <=
+* B31: ge >=
+* B38: sin (src, dst)
+* B39: cos (src, dst)
 
 * B40: load_texture (name, ron)

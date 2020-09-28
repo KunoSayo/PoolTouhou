@@ -2317,6 +2317,9 @@ dependencies = [
 [[package]]
 name = "pool_script"
 version = "0.1.0"
+dependencies = [
+ "pooltouhou",
+]
 
 [[package]]
 name = "pooltouhou"
