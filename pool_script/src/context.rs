@@ -9,7 +9,7 @@ use crate::game_data::GameData;
 pub struct Context<'a> {
     heap: &'a HashMap<String, u8>,
     stack: LinkedList<Vec<String>>,
-    stack_index: u8,
+    stack_count: u8,
 }
 
 impl<'a> Context<'a> {
@@ -19,7 +19,7 @@ impl<'a> Context<'a> {
         Self {
             heap,
             stack: list,
-            stack_index: 0,
+            stack_count: 0,
         }
     }
 
@@ -35,18 +35,17 @@ impl<'a> Context<'a> {
             return Ok(ExpressionElement::GAME(value as u8));
         } else if let Some(value) = self.heap.get(name) {
             return Ok(ExpressionElement::DATA(*value));
-        } else if self.stack_index > 0 {
-            let mut index = self.stack_index - 1;
+        } else if self.stack_count > 0 {
+            let mut count = self.stack_count;
             for ss in self.stack.iter().rev() {
                 for s in ss.iter().rev() {
                     if s == name {
-                        return Ok(ExpressionElement::STACK(index));
+                        return Ok(ExpressionElement::STACK(count - 1));
                     }
-                    index -= 1;
+                    count -= 1;
                 }
             }
         }
-        if name.starts_with("pos") {}
 
         return Err(Error::new(ErrorKind::InvalidData, "[find index]Unknown var name: ".to_owned() + name));
     }
@@ -57,12 +56,12 @@ impl<'a> Context<'a> {
 
     pub fn pop_stack(&mut self) {
         let vec = self.stack.pop_back().unwrap();
-        self.stack_index -= vec.len() as u8;
+        self.stack_count -= vec.len() as u8;
     }
 
     pub fn push_name(&mut self, name: &str) {
         let vec = self.stack.back_mut().unwrap();
         vec.push(name.to_string());
-        self.stack_index += 1;
+        self.stack_count += 1;
     }
 }
