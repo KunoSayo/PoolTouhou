@@ -315,15 +315,15 @@ impl<'a, 'c> FunctionRunner<'a, 'c> {
             1 => {
                 match index {
                     0 => {
-                        let mut tran = self.temp.tran.as_mut().unwrap().clone();
+                        let tran = self.temp.tran.as_mut().unwrap();
                         tran.set_translation_x(value);
                     }
                     1 => {
-                        let mut tran = self.temp.tran.as_mut().unwrap().clone();
+                        let tran = self.temp.tran.as_mut().unwrap();
                         tran.set_translation_y(value);
                     }
                     2 => {
-                        let mut tran = self.temp.tran.as_mut().unwrap().clone();
+                        let tran = self.temp.tran.as_mut().unwrap();
                         tran.set_translation_z(value);
                     }
                     3 => {
