@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 
 use amethyst::core::transform::Transform;
@@ -9,7 +8,6 @@ use crate::systems::game_system::CollideType;
 pub struct ScriptContext {
     pub(crate) desc_index: usize,
     pub(crate) data: Vec<f32>,
-    function_context: HashMap<String, FunctionContext>,
     tick_function: Option<FunctionContext>,
 }
 
@@ -23,7 +21,6 @@ impl ScriptContext {
         Self {
             desc_index: desc.index,
             data: args,
-            function_context: HashMap::new(),
             tick_function: desc.tick_function.as_ref().map(|f| FunctionContext::new(f.max_stack.into())),
         }
     }
@@ -33,18 +30,12 @@ impl ScriptContext {
     pub fn execute_function(&mut self, name: &String, game_data: &mut ScriptGameData, script_manager: &mut ScriptManager, temp: &mut TempGameContext) -> Option<f32> {
         let function = script_manager.scripts.get(self.desc_index)
             .unwrap().functions.get(name).expect("no such function.");
-        let function_context;
-        if let Some(ctx) = self.function_context.get_mut(name) {
-            function_context = ctx;
-        } else {
-            self.function_context.insert(name.clone(), FunctionContext::new(function.max_stack as usize));
-            function_context = self.function_context.get_mut(name).unwrap();
-        }
+        let mut function_context = FunctionContext::new(function.max_stack as usize);
         let mut function_runner = FunctionRunner {
             data: &mut self.data,
             desc: function,
             game: game_data,
-            context: function_context,
+            context: &mut function_context,
             temp,
         };
 
@@ -52,14 +43,18 @@ impl ScriptContext {
     }
 
     pub fn tick_function(&mut self, game_data: &mut ScriptGameData, script_manager: &mut ScriptManager, temp: &mut TempGameContext) -> Option<f32> {
-        let f_with_ctx = self.tick_function.as_mut().unwrap();
+        let context = self.tick_function.as_mut().unwrap();
+        if context.wait > 0 {
+            context.wait -= 1;
+            return None;
+        }
         let desc = script_manager.scripts.get(self.desc_index).unwrap().tick_function
             .as_ref().unwrap();
         let mut function_runner = FunctionRunner {
             data: &mut self.data,
             desc,
             game: game_data,
-            context: f_with_ctx,
+            context,
             temp,
         };
 
@@ -72,6 +67,7 @@ struct FunctionContext {
     var_stack: Vec<f32>,
     loop_start: Vec<usize>,
     pointer: usize,
+    wait: i32,
 }
 
 impl FunctionContext {
@@ -82,6 +78,7 @@ impl FunctionContext {
             var_stack: stack_vec,
             loop_start: Vec::with_capacity(2),
             pointer: 0,
+            wait: 0,
         }
     }
 }
@@ -162,6 +159,13 @@ impl<'a, 'c> FunctionRunner<'a, 'c> {
                         }
                     }
                 }
+                6 => {
+                    let wait = self.get_f32().floor() as i32;
+                    if wait > 0 {
+                        self.context.wait = wait;
+                        return None;
+                    }
+                }
                 10 => {
                     let v = self.get_f32();
                     self.game.submit_command.push(ScriptGameCommand::MoveUp(v));
@@ -212,6 +216,9 @@ impl<'a, 'c> FunctionRunner<'a, 'c> {
                         args.push(self.get_f32());
                     }
                     self.game.submit_command.push(ScriptGameCommand::SummonBullet(name, x, y, z, angle, collide, ai_name, args));
+                }
+                16 => {
+                    self.game.submit_command.push(ScriptGameCommand::Kill)
                 }
                 20 => {
                     let value = self.game.calc_stack.pop().unwrap();

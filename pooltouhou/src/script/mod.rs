@@ -109,7 +109,7 @@ impl ScriptManager {
                             loop_vec.push(Loop::Start(binary.len()));
                             loops += 1;
                         }
-                        3 | 5 | 10 | 20 => {
+                        3 | 5 | 6 | 10 | 20 => {
                             if let Some(s) = read_f32(&mut binary, &mut reader) {
                                 max_stack = max_stack.max(s as i16);
                             }
@@ -234,6 +234,7 @@ pub enum ScriptGameCommand {
     MoveUp(f32),
     SummonEnemy(String, f32, f32, f32, CollideType, String, Vec<f32>),
     SummonBullet(String, f32, f32, f32, f32, CollideType, String, Vec<f32>),
+    Kill,
 }
 
 #[derive(Debug)]

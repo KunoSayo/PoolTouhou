@@ -281,6 +281,17 @@ fn parse_function(name: &str, reader: &mut Box<dyn BufRead>, context: &mut Conte
                     binary.push(4);
                 }
             }
+            "wait" => {
+                if let Ok(value) = context.parse_value(line[1]) {
+                    binary.push(6);
+                    value.flush(&mut binary)?;
+                } else {
+                    let exp = try_parse_expression(line[1].trim(), context)?;
+                    exp.flush(&mut binary)?;
+                    binary.push(6);
+                    binary.push(4);
+                }
+            }
             "loop" => {
                 loops += 1;
                 context.push_stack();
@@ -288,6 +299,9 @@ fn parse_function(name: &str, reader: &mut Box<dyn BufRead>, context: &mut Conte
             }
             "summon_e" => summon_e(line[1], &context, &mut binary)?,
             "summon_b" => summon_b(line[1], &context, &mut binary)?,
+            "kill" => {
+                binary.push(16);
+            }
             "let" => {
                 let expression: Vec<&str> = line[1].split("=").collect();
                 let name = expression[0].trim();

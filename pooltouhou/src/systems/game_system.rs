@@ -17,7 +17,7 @@ use crate::component::{EnemyBullet, InvertColorAnimation, PlayerBullet};
 use crate::CoreStorage;
 use crate::handles::TextureHandles;
 use crate::render::InvertColorCircle;
-use crate::script::{ScriptGameData, ScriptManager};
+use crate::script::{ScriptGameCommand, ScriptGameData, ScriptManager};
 use crate::script::script_context::{ScriptContext, TempGameContext};
 
 #[derive(Default)]
@@ -165,6 +165,7 @@ impl<'a> System<'a> for GameSystem {
                 }
             }
 
+
             for (enemy_bullet, bullet_entity)
             in (&mut data.enemy_bullets, &data.entities).join() {
                 let mut bullet_tran = data.transforms.get_mut(bullet_entity).unwrap();
@@ -182,7 +183,15 @@ impl<'a> System<'a> for GameSystem {
                         crate::script::ScriptGameCommand::MoveUp(v) => {
                             bullet_tran.move_up(v);
                         }
-                        _ => {}
+                        crate::script::ScriptGameCommand::Kill => {
+                            data.entities.delete(bullet_entity).expect("delete the entity failed");
+                        }
+                        crate::script::ScriptGameCommand::SummonBullet(..) => {
+                            data.core.commands.push(x);
+                        }
+                        _ => {
+                            unimplemented!("Not ready")
+                        }
                     }
                 }
             }
@@ -198,25 +207,38 @@ impl<'a> System<'a> for GameSystem {
 
                 while let Some(x) = game_data.submit_command.pop() {
                     match x {
-                        crate::script::ScriptGameCommand::SummonBullet(name, x, y, z, angle, collide, script, args) => {
-                            let script_context;
-                            if let Some(script) = data.script_manager.get_script(&script) {
-                                script_context = ScriptContext::new(script, args);
-                            } else {
-                                let script = data.script_manager.load_script(&script).unwrap();
-                                script_context = ScriptContext::new(script, args);
-                            }
-                            let mut pos = Transform::default();
-                            pos.set_translation_xyz(x, y, z);
-                            pos.set_rotation_z_axis(angle / 180.0 * PI);
-                            data.entities.build_entity()
-                                .with(pos, &mut data.transforms)
-                                .with(EnemyBullet { collide, script: script_context }, &mut data.enemy_bullets)
-                                .with(data.texture_handles.bullets.get(&*name).unwrap().clone(), &mut data.sprite_renders)
-                                .with(Transparent, &mut data.transparent)
-                                .build();
+                        ScriptGameCommand::SummonBullet(..) => {
+                            data.core.commands.push(x);
                         }
-                        _ => {}
+                        _ => {
+                            unimplemented!("Not ready")
+                        }
+                    }
+                }
+            }
+
+            while let Some(x) = data.core.commands.pop() {
+                match x {
+                    ScriptGameCommand::SummonBullet(name, x, y, z, angle, collide, script, args) => {
+                        let script_context;
+                        if let Some(script) = data.script_manager.get_script(&script) {
+                            script_context = ScriptContext::new(script, args);
+                        } else {
+                            let script = data.script_manager.load_script(&script).unwrap();
+                            script_context = ScriptContext::new(script, args);
+                        }
+                        let mut pos = Transform::default();
+                        pos.set_translation_xyz(x, y, z);
+                        pos.set_rotation_z_axis(angle / 180.0 * PI);
+                        data.entities.build_entity()
+                            .with(pos, &mut data.transforms)
+                            .with(EnemyBullet { collide, script: script_context }, &mut data.enemy_bullets)
+                            .with(data.texture_handles.bullets.get(&*name).unwrap().clone(), &mut data.sprite_renders)
+                            .with(Transparent, &mut data.transparent)
+                            .build();
+                    }
+                    _ => {
+                        unimplemented!("Not ready")
                     }
                 }
             }
@@ -225,10 +247,12 @@ impl<'a> System<'a> for GameSystem {
         }
     }
 
+
     fn running_time(&self) -> RunningTime {
         RunningTime::Long
     }
 }
+
 
 fn process_player(data: &mut GameSystemData) -> Transform {
     if let Some(entity) = data.core.player {

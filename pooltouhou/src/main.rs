@@ -13,6 +13,8 @@ use amethyst::{
     utils::application_root_dir,
 };
 
+use crate::script::ScriptGameCommand;
+
 mod script;
 
 mod render;
@@ -32,6 +34,7 @@ pub struct CoreStorage {
     last_input: input::InputData,
     cur_input: Option<input::InputData>,
     temp_input: Option<input::InputData>,
+    commands: Vec<ScriptGameCommand>,
     tick: u128,
     tick_sign: bool,
 }
@@ -43,6 +46,7 @@ impl Default for CoreStorage {
             last_input: input::InputData::empty(),
             cur_input: Some(input::InputData::empty()),
             temp_input: Some(input::InputData::empty()),
+            commands: vec![],
             tick: 0,
             tick_sign: false,
         }

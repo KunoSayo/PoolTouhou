@@ -12,7 +12,7 @@ pub struct DebugText {
 
 pub fn setup_debug_text(world: &mut World) {
     let font = world.read_resource::<Loader>().load(
-        "font/square.ttf",
+        "font/simhei.ttf",
         TtfFormat,
         (),
         &world.read_resource(),
