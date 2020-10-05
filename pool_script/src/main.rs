@@ -11,7 +11,7 @@ mod expression;
 pub mod pool_script;
 
 
-fn compile(name: OsString, file: File) {
+fn compile(name: OsString, file: File, output_dir: &String) {
     println!("compiling file {:?}", name);
 
     let script = pool_script::PoolScript::try_parse(Box::new(BufReader::new(file)));
@@ -19,7 +19,7 @@ fn compile(name: OsString, file: File) {
         eprintln!("parse script failed: {}", script.err().expect("parse failed: Unknown"));
         return;
     }
-    let output_name = OsString::from(name.to_str().unwrap().to_owned() + "b");
+        let output_name = OsString::from(format!("{}/{}b", output_dir, name.to_str().unwrap()));
     let output_file = File::create(&output_name);
     if output_file.is_err() {
         eprintln!("open output file failed: {}", script.err().expect("save failed: Unknown"));
@@ -41,13 +41,25 @@ fn decompile(name: OsString, file: File) {
     if script.is_err() {
         eprintln!("parse script failed: {}", script.err().expect("parse failed: Unknown"));
     }
-
 }
 
 //https://doc.rust-lang.org/book/
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+
+    let mut output_dir = ".".to_string();
+    let args = args.into_iter().filter(|arg| {
+        if arg.starts_with("--") {
+            if arg.starts_with("--output=") {
+                output_dir = String::from(&arg["--output=".len()..]);
+            }
+            false
+        } else {
+            true
+        }
+    }).collect::<Vec<String>>();
+
     if args.len() == 1 {
         println!("psc compile <dir...>")
     } else if args.len() > 2 && args[1] == "compile" {
@@ -62,7 +74,7 @@ fn main() {
                         if let Ok(file_type) = entry.file_type() {
                             if file_type.is_file() && entry.file_name().to_str().to_owned().unwrap().ends_with(".pthps") {
                                 match File::open(entry.path()) {
-                                    Ok(file) => compile(entry.file_name(), file),
+                                    Ok(file) => compile(entry.file_name(), file, &output_dir),
                                     Err(err) => eprintln!("open file failed: {}", err)
                                 }
                             }
@@ -74,7 +86,7 @@ fn main() {
                 }
             }
         }
-    } else if args.len()> 2 && args[1] == "decompile" {
+    } else if args.len() > 2 && args[1] == "decompile" {
         let run_dir = std::env::current_dir().unwrap();
         for path in args.iter().skip(2) {
             let path = run_dir.join(Path::new(path));

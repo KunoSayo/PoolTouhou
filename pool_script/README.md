@@ -16,6 +16,7 @@
 * B2: script data value (1B)
 * B3: script stack value (1B)
 * B4: calc stack value
+* B9: no data
 
 ### Begin File Data
 * 4B : Version  

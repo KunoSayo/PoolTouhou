@@ -66,6 +66,7 @@ impl ScriptManager {
     }
 
     pub(crate) fn load_script(&mut self, name: &String) -> Option<&ScriptDesc> {
+        println!("loading script: {}", name);
         let path = PathBuf::from(std::env::current_dir().unwrap().to_str().unwrap().to_owned() + "/script/" + name + ".pthpsb");
         if let Ok(file) = File::open(&path) {
             let mut reader = BufReader::new(file);
@@ -110,7 +111,7 @@ impl ScriptManager {
                             loops += 1;
                         }
                         3 | 5 | 6 | 10 | 20 => {
-                            if let Some(s) = read_f32(&mut binary, &mut reader) {
+                            if let (Some(s), _) = read_f32(&mut binary, &mut reader) {
                                 max_stack = max_stack.max(s as i16);
                             }
                         }
@@ -133,16 +134,8 @@ impl ScriptManager {
                                 read_f32(&mut binary, &mut reader);
                             }
                             //ai & args
-                            let script_name = read_str(&mut reader, &mut binary, true);
-                            let ai_args_count;
-                            if script_name == *name {
-                                ai_args_count = data_count;
-                            } else {
-                                ai_args_count = self.load_script_data_count(&script_name);
-                            }
-                            for _ in 0..ai_args_count {
-                                read_f32(&mut binary, &mut reader);
-                            }
+                            let _script_name = read_str(&mut reader, &mut binary, true);
+                            while read_f32(&mut binary, &mut reader).1 {}
                         }
                         12 => {
                             //name
@@ -160,22 +153,15 @@ impl ScriptManager {
                                 read_f32(&mut binary, &mut reader);
                             }
                             //ai & args
-                            let script_name = read_str(&mut reader, &mut binary, true);
-                            let ai_args_count;
-                            if script_name == *name {
-                                ai_args_count = data_count;
-                            } else {
-                                ai_args_count = self.load_script_data_count(&script_name);
-                            }
-                            for _ in 0..ai_args_count {
-                                read_f32(&mut binary, &mut reader);
-                            }
+                            let _script_name = read_str(&mut reader, &mut binary, true);
+
+                            while read_f32(&mut binary, &mut reader).1 {}
                         }
                         38 | 39 => {
-                            if let Some(s) = read_f32(&mut binary, &mut reader) {
+                            if let (Some(s), _) = read_f32(&mut binary, &mut reader) {
                                 max_stack = max_stack.max(s as i16);
                             }
-                            if let Some(s) = read_f32(&mut binary, &mut reader) {
+                            if let (Some(s), _) = read_f32(&mut binary, &mut reader) {
                                 max_stack = max_stack.max(s as i16);
                             }
                         }
@@ -199,6 +185,7 @@ impl ScriptManager {
             };
             self.scripts.push(script);
             self.script_map.insert(name.clone(), index);
+            println!("loaded script: {}", name);
             return self.scripts.get(index);
         } else {
             eprintln!("Script not found in {:?}", path);
@@ -244,7 +231,7 @@ pub struct ScriptGameData {
     pub(crate) calc_stack: Vec<f32>,
 }
 
-fn read_f32(binary: &mut Vec<u8>, reader: &mut BufReader<File>) -> Option<u8> {
+fn read_f32(binary: &mut Vec<u8>, reader: &mut BufReader<File>) -> (Option<u8>, bool) {
     let mut buf = [0; 4];
     reader.read(&mut buf[0..1]).unwrap();
     binary.push(buf[0]);
@@ -259,15 +246,17 @@ fn read_f32(binary: &mut Vec<u8>, reader: &mut BufReader<File>) -> Option<u8> {
         3 => {
             reader.read(&mut buf[0..1]).unwrap();
             binary.push(buf[0]);
-            return Some(buf[0]);
+            return (Some(buf[0]), true);
         }
-        4 => {}
+        4 | 9 => {
+            return (None, false);
+        }
         _ => {
             reader.read(&mut buf[0..1]).unwrap();
             binary.push(buf[0]);
         }
     }
-    None
+    (None, true)
 }
 
 fn read_str(reader: &mut BufReader<File>, binary: &mut Vec<u8>, write: bool) -> String {

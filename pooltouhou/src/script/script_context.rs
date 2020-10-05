@@ -17,7 +17,8 @@ pub struct TempGameContext<'a> {
 }
 
 impl ScriptContext {
-    pub fn new(desc: &ScriptDesc, args: Vec<f32>) -> Self {
+    pub fn new(desc: &ScriptDesc, mut args: Vec<f32>) -> Self {
+        args.resize_with(desc.data_count as usize, Default::default);
         Self {
             desc_index: desc.index,
             data: args,
@@ -92,15 +93,15 @@ impl FunctionContext {
     }
 }
 
-struct FunctionRunner<'a, 'c> {
+struct FunctionRunner<'a, 'b> {
     data: &'a mut Vec<f32>,
     desc: &'a FunctionDesc,
     game: &'a mut ScriptGameData,
     context: &'a mut FunctionContext,
-    temp: &'a mut TempGameContext<'c>,
+    temp: &'a mut TempGameContext<'b>,
 }
 
-impl<'a, 'c> FunctionRunner<'a, 'c> {
+impl<'a, 'b> FunctionRunner<'a, 'b> {
     pub fn execute(&mut self, script_manager: &ScriptManager) -> Option<f32> {
         loop {
             if self.context.pointer >= self.desc.code.len() {
@@ -125,11 +126,11 @@ impl<'a, 'c> FunctionRunner<'a, 'c> {
                     return None;
                 }
                 3 => {
-                    let data = self.get_f32();
+                    let data = self.get_f32_unchecked();
                     self.game.calc_stack.push(data);
                 }
                 5 => {
-                    let times = self.get_f32();
+                    let times = self.get_f32_unchecked();
                     if times >= 1.0 {
                         let times = times.floor() as i32;
                         for _ in 0..times {
@@ -160,28 +161,28 @@ impl<'a, 'c> FunctionRunner<'a, 'c> {
                     }
                 }
                 6 => {
-                    let wait = self.get_f32().floor() as i32;
+                    let wait = self.get_f32_unchecked().floor() as i32;
                     if wait > 0 {
-                        self.context.wait = wait;
+                        self.context.wait = wait - 1;
                         return None;
                     }
                 }
                 10 => {
                     let v = self.get_f32();
-                    self.game.submit_command.push(ScriptGameCommand::MoveUp(v));
+                    self.game.submit_command.push(ScriptGameCommand::MoveUp(v.unwrap()));
                 }
                 11 => {
                     let name = self.get_str();
-                    let x = self.get_f32();
-                    let y = self.get_f32();
-                    let hp = self.get_f32();
+                    let x = self.get_f32_unchecked();
+                    let y = self.get_f32_unchecked();
+                    let hp = self.get_f32_unchecked();
 
                     let collide_byte = self.desc.code[self.context.pointer];
                     self.context.pointer += 1;
                     let collide_arg_len = CollideType::get_arg_count(collide_byte);
                     let mut collide_args = Vec::with_capacity(collide_arg_len as usize);
                     for _ in 0..collide_arg_len {
-                        collide_args.push(self.get_f32());
+                        collide_args.push(self.get_f32_unchecked());
                     }
                     let collide = CollideType::try_from((collide_byte, collide_args))
                         .unwrap();
@@ -189,31 +190,31 @@ impl<'a, 'c> FunctionRunner<'a, 'c> {
                     let ai_name = self.get_str();
                     let arg_len = script_manager.get_script_data_count(&ai_name);
                     let mut args = Vec::with_capacity(arg_len as usize);
-                    for _ in 0..arg_len {
-                        args.push(self.get_f32());
+                    while let Some(arg) = self.get_f32() {
+                        args.push(arg);
                     }
                     self.game.submit_command.push(ScriptGameCommand::SummonEnemy(name, x, y, hp, collide, ai_name, args));
                 }
                 12 => {
                     let name = self.get_str();
-                    let x = self.get_f32();
-                    let y = self.get_f32();
-                    let z = self.get_f32();
-                    let angle = self.get_f32();
+                    let x = self.get_f32_unchecked();
+                    let y = self.get_f32_unchecked();
+                    let z = self.get_f32_unchecked();
+                    let angle = self.get_f32_unchecked();
                     let collide_byte = self.desc.code[self.context.pointer];
                     self.context.pointer += 1;
                     let collide_arg_len = CollideType::get_arg_count(collide_byte);
                     let mut collide_args = Vec::with_capacity(collide_arg_len as usize);
                     for _ in 0..collide_arg_len {
-                        collide_args.push(self.get_f32());
+                        collide_args.push(self.get_f32_unchecked());
                     }
                     let collide = CollideType::try_from((collide_byte, collide_args))
                         .unwrap();
                     let ai_name = self.get_str();
                     let arg_len = script_manager.get_script_data_count(&ai_name);
                     let mut args = Vec::with_capacity(arg_len as usize);
-                    for _ in 0..arg_len {
-                        args.push(self.get_f32());
+                    while let Some(arg) = self.get_f32() {
+                        args.push(arg);
                     }
                     self.game.submit_command.push(ScriptGameCommand::SummonBullet(name, x, y, z, angle, collide, ai_name, args));
                 }
@@ -280,12 +281,12 @@ impl<'a, 'c> FunctionRunner<'a, 'c> {
                     *y = if *y >= x { 1.0 } else { 0.0 };
                 }
                 38 => {
-                    let mut v = self.get_f32();
+                    let mut v = self.get_f32_unchecked();
                     v = (v * std::f32::consts::PI / 180.0).sin();
                     self.store_f32(v);
                 }
                 39 => {
-                    let mut v = self.get_f32();
+                    let mut v = self.get_f32_unchecked();
                     v = (v * std::f32::consts::PI / 180.0).cos();
                     self.store_f32(v);
                 }
@@ -354,7 +355,7 @@ impl<'a, 'c> FunctionRunner<'a, 'c> {
         }
     }
     #[inline]
-    fn get_f32(&mut self) -> f32 {
+    fn get_f32_unchecked(&mut self) -> f32 {
         let src = self.desc.code[self.context.pointer];
         match src {
             0 => {
@@ -388,6 +389,50 @@ impl<'a, 'c> FunctionRunner<'a, 'c> {
             4 => {
                 self.context.pointer += 1;
                 self.game.calc_stack.pop().unwrap()
+            }
+            _ => panic!("Unknown data src: {}", src)
+        }
+    }
+
+    #[inline]
+    fn get_f32(&mut self) -> Option<f32> {
+        let src = self.desc.code[self.context.pointer];
+        match src {
+            0 => {
+                let data = self.desc.code[self.context.pointer + 1..self.context.pointer + 5].try_into().unwrap();
+                self.context.pointer += 5;
+                Some(f32::from_be_bytes(data))
+            }
+            1 => {
+                let data = self.desc.code[self.context.pointer + 1];
+                self.context.pointer += 2;
+                Some(match data {
+                    0 => self.temp.tran.as_ref().unwrap().translation().x,
+                    1 => self.temp.tran.as_ref().unwrap().translation().y,
+                    2 => self.temp.tran.as_ref().unwrap().translation().z,
+                    3 => self.game.player_tran.translation().x,
+                    4 => self.game.player_tran.translation().y,
+                    5 => self.game.player_tran.translation().z,
+                    _ => panic!("Unknown game data byte: {}", data)
+                })
+            }
+            2 => {
+                let data = self.desc.code[self.context.pointer + 1];
+                self.context.pointer += 2;
+                Some(self.data[data as usize])
+            }
+            3 => {
+                let data = self.desc.code[self.context.pointer + 1];
+                self.context.pointer += 2;
+                Some(self.context.var_stack[data as usize])
+            }
+            4 => {
+                self.context.pointer += 1;
+                Some(self.game.calc_stack.pop().unwrap())
+            }
+            9 => {
+                self.context.pointer += 1;
+                None
             }
             _ => panic!("Unknown data src: {}", src)
         }

@@ -133,6 +133,7 @@ impl PoolScript {
                         }
                         //ai & args
                         let script_name = read_str(&mut reader, &mut binary, true, debug);
+                        //todo: there is no more data
                         println!("We need know script {} data count:", script_name);
                         let ai_args_count = read_stdin_i32();
                         for _ in 0..ai_args_count {
@@ -161,6 +162,7 @@ impl PoolScript {
                         //ai & args
                         let script_name = read_str(&mut reader, &mut binary, true, debug);
                         println!("We need know script {} data count:", script_name);
+                        //todo: there is no more data
                         let ai_args_count = read_stdin_i32();
                         for _ in 0..ai_args_count {
                             read_f32(&mut binary, &mut reader, debug);
@@ -374,6 +376,7 @@ fn summon_e(raw_args: &str, context: &Context, binary: &mut Vec<u8>) -> Result<(
             x.flush(binary)?;
         }
     }
+    binary.push(9);
     Ok(())
 }
 
@@ -401,6 +404,7 @@ fn summon_b(raw_args: &str, context: &Context, binary: &mut Vec<u8>) -> Result<(
             x.flush(binary)?;
         }
     }
+    binary.push(9);
     Ok(())
 }
 
@@ -444,6 +448,11 @@ fn read_f32(binary: &mut Vec<u8>, reader: &mut Box<dyn BufRead>, debug: bool) ->
         4 => {
             if debug {
                 println!("point calc value ({})", buf[0])
+            }
+        }
+        9 => {
+            if debug {
+                println!("no data");
             }
         }
         _ => {

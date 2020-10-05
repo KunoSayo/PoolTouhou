@@ -189,6 +189,20 @@ pub fn try_parse_expression(raw_str: &str, context: &Context) -> Result<Expressi
     let mut index = 0;
     let mut parsing_value = true;
     while index < s.len() {
+        if index + 1 < s.len() {
+            if let Ok(op) = Operator::try_from(&s[index..index + 2]) {
+                if parsing_value && begin != index {
+                    if let Ok(value) = context.parse_value(&s[begin..index]) {
+                        expression.push_tree(value);
+                    }
+                }
+                index += 2;
+                expression.push_operator(op);
+                parsing_value = true;
+                begin = index;
+                continue;
+            }
+        }
         if let Ok(op) = Operator::try_from(&s[index..index + 1]) {
             if parsing_value && index == begin && op == Operator::SUB {
                 index += 1;
@@ -208,18 +222,6 @@ pub fn try_parse_expression(raw_str: &str, context: &Context) -> Result<Expressi
                         expression.push_tree(value);
                     }
                 }
-                expression.push_operator(op);
-                parsing_value = true;
-                begin = index + 1;
-            }
-        } else if index + 1 < s.len() {
-            if let Ok(op) = Operator::try_from(&s[index..index + 2]) {
-                if parsing_value && begin != index {
-                    if let Ok(value) = context.parse_value(&s[begin..index]) {
-                        expression.push_tree(value);
-                    }
-                }
-                index += 1;
                 expression.push_operator(op);
                 parsing_value = true;
                 begin = index + 1;
@@ -300,7 +302,7 @@ mod test {
         let mut value = try_parse_expression("1 + 2 < 3", &context).unwrap();
         assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(0.0));
 
-        let mut value = try_parse_expression("1 + 2 == 3", &context).unwrap();
+        let mut value = try_parse_expression("1 + 2 <= 3", &context).unwrap();
         assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(1.0));
     }
 }
