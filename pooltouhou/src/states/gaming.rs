@@ -65,6 +65,7 @@ impl SimpleState for Gaming {
             }
         }
         world.insert(script_manager);
+        println!("Gaming state started.");
     }
 
     fn fixed_update(&mut self, data: StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
@@ -139,7 +140,7 @@ fn load_bullet(world: &mut World, name: String, ron: String) {
 fn setup_sheep(world: &mut World) -> Entity {
     let mut pos = Transform::default();
 
-    pos.set_translation_xyz(ARENA_WIDTH * 0.5, 100.0, 0.0);
+    pos.set_translation_xyz(ARENA_WIDTH * 0.5, 100.0, 0.0125);
     // pos.set_scale(Vector3::new(1.0, 1.0, 1.0));
     let sprite_sheet_handle = load_sprite_sheet(world, "texture/sheep.png", "texture/sheep.ron");
     let sprite_render = SpriteRender {
@@ -159,6 +160,7 @@ fn setup_sheep(world: &mut World) -> Entity {
     load_bullet(world, "circle_green".to_string(), "circle".to_string());
     load_bullet(world, "circle_yellow".to_string(), "circle".to_string());
     load_bullet(world, "circle_purple".to_string(), "circle".to_string());
+    load_bullet(world, "zzzz".to_string(), "zzzz".to_string());
 
 
     world.create_entity()

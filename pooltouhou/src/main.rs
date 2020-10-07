@@ -74,7 +74,6 @@ impl CoreStorage {
 
 fn main() -> amethyst::Result<()> {
     amethyst::start_logger(Default::default());
-
     let app_root = application_root_dir()?;
     let res_root = if app_root.join("res").exists() { app_root.join("res") } else { app_root };
     let display_config_path = res_root.join("config").join("display.ron");

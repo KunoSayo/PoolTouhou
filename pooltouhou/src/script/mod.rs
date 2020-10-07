@@ -185,7 +185,6 @@ impl ScriptManager {
             };
             self.scripts.push(script);
             self.script_map.insert(name.clone(), index);
-            println!("loaded script: {}", name);
             return self.scripts.get(index);
         } else {
             eprintln!("Script not found in {:?}", path);

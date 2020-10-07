@@ -39,7 +39,7 @@ impl CollideType {
             Self::Circle(r_2) => {
                 let x_distance = me.x - other.x;
                 let y_distance = me.y - other.y;
-                x_distance * x_distance + y_distance * y_distance <= *r_2
+                x_distance * x_distance + y_distance * y_distance < *r_2
             }
         }
     }
@@ -219,7 +219,7 @@ impl<'a> System<'a> for GameSystem {
 
             while let Some(x) = data.core.commands.pop() {
                 match x {
-                    ScriptGameCommand::SummonBullet(name, x, y, z, angle, collide, script, args) => {
+                    ScriptGameCommand::SummonBullet(name, x, y, scale, angle, collide, script, args) => {
                         let script_context;
                         if let Some(script) = data.script_manager.get_script(&script) {
                             script_context = ScriptContext::new(script, args);
@@ -228,8 +228,9 @@ impl<'a> System<'a> for GameSystem {
                             script_context = ScriptContext::new(script, args);
                         }
                         let mut pos = Transform::default();
-                        pos.set_translation_xyz(x, y, z);
+                        pos.set_translation_xyz(x, y, 0.0);
                         pos.set_rotation_z_axis(angle / 180.0 * PI);
+                        pos.set_scale(Vector3::new(scale, scale, 1.0));
                         data.entities.build_entity()
                             .with(pos, &mut data.transforms)
                             .with(EnemyBullet { collide, script: script_context }, &mut data.enemy_bullets)
