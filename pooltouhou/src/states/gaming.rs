@@ -117,12 +117,16 @@ const ARENA_HEIGHT: f32 = 900.0;
 
 fn setup_camera(world: &mut World) {
     let mut transform = Transform::default();
-    transform.set_translation_xyz(ARENA_WIDTH * 0.5, ARENA_HEIGHT * 0.5, 1600.0);
-    let camera = Camera::from(camera::Projection::from(camera::Perspective
-    ::new(ARENA_WIDTH / ARENA_HEIGHT,
-          std::f32::consts::FRAC_PI_6,
-          0.1,
-          3200.0)));
+    // transform.set_translation_xyz(ARENA_WIDTH * 0.5, ARENA_HEIGHT * 0.5, 16.0);
+    // let camera = Camera::from(camera::Projection::from(camera::Perspective
+    // ::new(ARENA_WIDTH / ARENA_HEIGHT,
+    //       std::f32::consts::FRAC_PI_6,
+    //       0.1,
+    //       3200.0)));
+    transform.set_translation_xyz(0.0, 0.0, 16.0);
+    let camera = Camera::from(camera::Projection::from(camera::Orthographic
+    ::new(0.0, ARENA_WIDTH, -ARENA_HEIGHT, 0.0,
+          0.1, 32.0)));
     world
         .create_entity()
         .with(camera)
@@ -140,7 +144,7 @@ fn load_bullet(world: &mut World, name: String, ron: String) {
 fn setup_sheep(world: &mut World) -> Entity {
     let mut pos = Transform::default();
 
-    pos.set_translation_xyz(ARENA_WIDTH * 0.5, 100.0, 0.0125);
+    pos.set_translation_xyz(ARENA_WIDTH * 0.5, 100.0, crate::PLAYER_Z);
     // pos.set_scale(Vector3::new(1.0, 1.0, 1.0));
     let sprite_sheet_handle = load_sprite_sheet(world, "texture/sheep.png", "texture/sheep.ron");
     let sprite_render = SpriteRender {

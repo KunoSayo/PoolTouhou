@@ -28,6 +28,7 @@ mod input;
 
 // https://doc.rust-lang.org/book/
 
+pub const PLAYER_Z: f32 = 2.0;
 
 pub struct CoreStorage {
     player: Option<Entity>,

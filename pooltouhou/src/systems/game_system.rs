@@ -47,7 +47,7 @@ impl CollideType {
     pub fn is_collide_with(&self, me: &Vector3<f32>, other_collide: &CollideType, other: &Vector3<f32>) -> bool {
         match self {
             Self::Circle(r_2) => {
-                if *r_2 <= 0.0 {
+                if *r_2 == 0.0 {
                     other_collide.is_collide_with_point(me, other)
                 } else {
                     match other_collide {
@@ -267,8 +267,8 @@ fn process_player(data: &mut GameSystemData) -> Transform {
             player.move_speed
         });
         let (raw_x, raw_y) = (pos.translation().x, pos.translation().y);
-        pos.set_translation_x((mov_x + raw_x).max(0.0).min(1600.0))
-            .set_translation_y((mov_y + raw_y).max(0.0).min(900.0));
+        pos.set_translation_x((mov_x + raw_x).max(0.0 + 50.0).min(1600.0 - 50.0))
+            .set_translation_y((mov_y + raw_y).max(0.0 + 50.0).min(900.0 - 50.0));
 
         if is_walk {
             data.animations.0.insert(entity, InvertColorCircle {
@@ -283,7 +283,7 @@ fn process_player(data: &mut GameSystemData) -> Transform {
             if input.pressing.contains(&VirtualKeyCode::Z) {
                 player.shoot_cooldown = 2;
                 let mut pos = (*pos).clone();
-                pos.prepend_translation_z(-1.0);
+                pos.set_translation_z(1.0);
                 pos.set_scale(Vector3::new(0.5, 0.5, 1.0));
                 data.entities.build_entity()
                     .with(pos, &mut data.transforms)

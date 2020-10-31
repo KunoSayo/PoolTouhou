@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 rand = "0.6.0"
-amethyst = "0.15.0"
+amethyst = "0.15"
 nalgebra = "0.19"
 lazy_static = "1.4.0"
 glsl-layout = "0.3.2"

@@ -1,8 +1,8 @@
 #version 450
 
 layout(std140, set = 0, binding = 0) uniform CameraUniformArgs {
-    uniform mat4 projection;
-    uniform mat4 view;
+    mat4 projection;
+    mat4 view;
 };
 
 

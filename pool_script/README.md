@@ -1,6 +1,8 @@
 # PoolScript
 ## Thanks  SwiteFaster!
 
+Use BE.
+
 ### Begin Game Data
 * B0: pos_x
 * B1: pos_y
@@ -22,7 +24,7 @@
 * 4B : Version  
 * 1B : f32 Data Count  
 * 2B : Function Name Bytes
-* Function Data
+#### Function Data
 * B0: end
 * B1: loop
 * B2: ret

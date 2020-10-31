@@ -19,7 +19,7 @@ fn compile(name: OsString, file: File, output_dir: &String) {
         eprintln!("parse script failed: {}", script.err().expect("parse failed: Unknown"));
         return;
     }
-        let output_name = OsString::from(format!("{}/{}b", output_dir, name.to_str().unwrap()));
+    let output_name = OsString::from(format!("{}/{}b", output_dir, name.to_str().unwrap()));
     let output_file = File::create(&output_name);
     if output_file.is_err() {
         eprintln!("open output file failed: {}", script.err().expect("save failed: Unknown"));
