@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fs::File;
-use std::io::{BufRead, BufWriter, Error, ErrorKind, Read, stdin, Write};
+use std::io::{BufRead, BufWriter, Error, ErrorKind, Read, Write};
 
 use crate::context::Context;
 use crate::expression::{ExpressionElement, try_parse_expression};
@@ -120,7 +120,8 @@ impl PoolScript {
                         //name
                         read_str(&mut reader, &mut binary, true, debug);
 
-                        //xy hp
+                        //xyz hp
+                        read_f32(&mut binary, &mut reader, debug);
                         read_f32(&mut binary, &mut reader, debug);
                         read_f32(&mut binary, &mut reader, debug);
                         read_f32(&mut binary, &mut reader, debug);
@@ -132,13 +133,8 @@ impl PoolScript {
                             read_f32(&mut binary, &mut reader, debug);
                         }
                         //ai & args
-                        let script_name = read_str(&mut reader, &mut binary, true, debug);
-                        //todo: there is no more data
-                        println!("We need know script {} data count:", script_name);
-                        let ai_args_count = read_stdin_i32();
-                        for _ in 0..ai_args_count {
-                            read_f32(&mut binary, &mut reader, debug);
-                        }
+                        let _script_name = read_str(&mut reader, &mut binary, true, debug);
+                        while let Some(_) = read_f32(&mut binary, &mut reader, debug) {}
                     }
                     12 => {
                         if debug {
@@ -147,7 +143,8 @@ impl PoolScript {
                         //name
                         read_str(&mut reader, &mut binary, true, debug);
 
-                        //xyz angle
+                        //xyz scale angle
+                        read_f32(&mut binary, &mut reader, debug);
                         read_f32(&mut binary, &mut reader, debug);
                         read_f32(&mut binary, &mut reader, debug);
                         read_f32(&mut binary, &mut reader, debug);
@@ -160,13 +157,8 @@ impl PoolScript {
                             read_f32(&mut binary, &mut reader, debug);
                         }
                         //ai & args
-                        let script_name = read_str(&mut reader, &mut binary, true, debug);
-                        println!("We need know script {} data count:", script_name);
-                        //todo: there is no more data
-                        let ai_args_count = read_stdin_i32();
-                        for _ in 0..ai_args_count {
-                            read_f32(&mut binary, &mut reader, debug);
-                        }
+                        let _script_name = read_str(&mut reader, &mut binary, true, debug);
+                        while let Some(_) = read_f32(&mut binary, &mut reader, debug) {}
                     }
                     38 | 39 => {
                         if debug {
@@ -360,14 +352,15 @@ fn summon_e(raw_args: &str, context: &Context, binary: &mut Vec<u8>) -> Result<(
         return Err(Error::new(ErrorKind::InvalidData, "[parse function]command args is not good (require 5..): ".to_owned() + raw_args));
     }
 
-    // name x y hp ai_name
+    // name x y z hp ai_name
     args[0].flush(binary)?;
     context.parse_value(args[1])?.flush(binary)?;
     context.parse_value(args[2])?.flush(binary)?;
     context.parse_value(args[3])?.flush(binary)?;
-    let collide_rule = GameData::try_from(args[4])?;
-    let read = collide_rule.get_args(&args[5..], context, binary)?;
-    let index = 5 + read;
+    context.parse_value(args[4])?.flush(binary)?;
+    let collide_rule = GameData::try_from(args[5])?;
+    let read = collide_rule.get_args(&args[6..], context, binary)?;
+    let index = 6 + read;
     args[index].flush(binary)?;
     for x in args[index + 1..].iter() {
         if let Ok(value) = context.parse_value(x) {
@@ -392,10 +385,11 @@ fn summon_b(raw_args: &str, context: &Context, binary: &mut Vec<u8>) -> Result<(
     context.parse_value(args[2])?.flush(binary)?;
     context.parse_value(args[3])?.flush(binary)?;
     context.parse_value(args[4])?.flush(binary)?;
+    context.parse_value(args[5])?.flush(binary)?;
 
-    let collide_rule = GameData::try_from(args[5])?;
-    let read = collide_rule.get_args(&args[6..], context, binary)?;
-    let index = 6 + read;
+    let collide_rule = GameData::try_from(args[6])?;
+    let read = collide_rule.get_args(&args[7..], context, binary)?;
+    let index = 7 + read;
     args[index].flush(binary)?;
     for x in args[index + 1..].iter() {
         if let Ok(value) = context.parse_value(x) {
@@ -497,10 +491,4 @@ fn read_str(reader: &mut Box<dyn BufRead>, binary: &mut Vec<u8>, write: bool, de
         println!("str: {}", str);
     }
     str
-}
-
-fn read_stdin_i32() -> i32 {
-    let mut line = String::default();
-    stdin().read_line(&mut line).expect("read failed");
-    line.trim().parse().unwrap()
 }

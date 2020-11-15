@@ -175,6 +175,7 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                     let name = self.get_str();
                     let x = self.get_f32_unchecked();
                     let y = self.get_f32_unchecked();
+                    let z = self.get_f32_unchecked();
                     let hp = self.get_f32_unchecked();
 
                     let collide_byte = self.desc.code[self.context.pointer];
@@ -193,13 +194,14 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                     while let Some(arg) = self.get_f32() {
                         args.push(arg);
                     }
-                    self.game.submit_command.push(ScriptGameCommand::SummonEnemy(name, x, y, hp, collide, ai_name, args));
+                    self.game.submit_command.push(ScriptGameCommand::SummonEnemy(name, x, y, z, hp, collide, ai_name, args));
                 }
                 12 => {
                     let name = self.get_str();
                     let x = self.get_f32_unchecked();
                     let y = self.get_f32_unchecked();
                     let z = self.get_f32_unchecked();
+                    let scale = self.get_f32_unchecked();
                     let angle = self.get_f32_unchecked();
                     let collide_byte = self.desc.code[self.context.pointer];
                     self.context.pointer += 1;
@@ -216,7 +218,7 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                     while let Some(arg) = self.get_f32() {
                         args.push(arg);
                     }
-                    self.game.submit_command.push(ScriptGameCommand::SummonBullet(name, x, y, z, angle, collide, ai_name, args));
+                    self.game.submit_command.push(ScriptGameCommand::SummonBullet(name, x, y, z, scale, angle, collide, ai_name, args));
                 }
                 16 => {
                     self.game.submit_command.push(ScriptGameCommand::Kill)

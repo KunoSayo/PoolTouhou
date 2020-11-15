@@ -58,8 +58,8 @@ impl SimpleState for Gaming {
         context.execute_function(&"start".to_string(), &mut game, &mut script_manager, &mut temp);
         for x in game.submit_command {
             match x {
-                crate::script::ScriptGameCommand::SummonEnemy(name, x, y, hp, collide, script_name, args) => {
-                    setup_enemy(world, &mut script_manager, (name, x, y, hp, collide, script_name, args))
+                crate::script::ScriptGameCommand::SummonEnemy(name, x, y, z, hp, collide, script_name, args) => {
+                    setup_enemy(world, &mut script_manager, (name, x, y, z, hp, collide, script_name, args))
                 }
                 _ => panic!("没实现哪里来的命令（大声）")
             }
@@ -134,11 +134,11 @@ fn setup_camera(world: &mut World) {
         .build();
 }
 
-fn load_bullet(world: &mut World, name: String, ron: String) {
+fn load_texture(world: &mut World, name: String, ron: String) {
     let handle = load_sprite_sheet(world, &*("texture/".to_owned() + &name + ".png"),
                                    &*("texture/".to_owned() + &ron + ".ron"));
     let mut texture_handle = world.try_fetch_mut::<TextureHandles>().unwrap();
-    texture_handle.bullets.insert(name, SpriteRender { sprite_sheet: handle, sprite_number: 0 });
+    texture_handle.textures.insert(name, SpriteRender { sprite_sheet: handle, sprite_number: 0 });
 }
 
 fn setup_sheep(world: &mut World) -> Entity {
@@ -158,13 +158,13 @@ fn setup_sheep(world: &mut World) -> Entity {
         texture_handle.player_bullet = Some(SpriteRender { sprite_sheet: sheep_bullet, sprite_number: 0 });
     }
 
-    load_bullet(world, "bullet".to_string(), "bullet".to_string());
-    load_bullet(world, "circle_red".to_string(), "circle".to_string());
-    load_bullet(world, "circle_blue".to_string(), "circle".to_string());
-    load_bullet(world, "circle_green".to_string(), "circle".to_string());
-    load_bullet(world, "circle_yellow".to_string(), "circle".to_string());
-    load_bullet(world, "circle_purple".to_string(), "circle".to_string());
-    load_bullet(world, "zzzz".to_string(), "zzzz".to_string());
+    load_texture(world, "bullet".to_string(), "bullet".to_string());
+    load_texture(world, "circle_red".to_string(), "circle".to_string());
+    load_texture(world, "circle_blue".to_string(), "circle".to_string());
+    load_texture(world, "circle_green".to_string(), "circle".to_string());
+    load_texture(world, "circle_yellow".to_string(), "circle".to_string());
+    load_texture(world, "circle_purple".to_string(), "circle".to_string());
+    load_texture(world, "zzzz".to_string(), "zzzz".to_string());
 
 
     world.create_entity()
@@ -178,9 +178,9 @@ fn setup_sheep(world: &mut World) -> Entity {
         .build()
 }
 
-fn setup_enemy(world: &mut World, script_manager: &mut ScriptManager, (name, x, y, hp, collide, script_name, args): (String, f32, f32, f32, CollideType, String, Vec<f32>)) {
+fn setup_enemy(world: &mut World, script_manager: &mut ScriptManager, (name, x, y, z, hp, collide, script_name, args): (String, f32, f32, f32, f32, CollideType, String, Vec<f32>)) {
     let mut pos = Transform::default();
-    pos.set_translation_xyz(x, y, 0.0);
+    pos.set_translation_xyz(x, y, z);
     let sprite_sheet_handle = load_sprite_sheet(world,
                                                 &*("texture/".to_owned() + &*name + ".png"),
                                                 &*("texture/".to_owned() + &*name + ".ron"));

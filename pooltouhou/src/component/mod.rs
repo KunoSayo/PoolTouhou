@@ -1,6 +1,5 @@
 use amethyst::{
     ecs::prelude::Component,
-    renderer::SpriteRender,
 };
 use amethyst::core::ecs::DenseVecStorage;
 
@@ -20,7 +19,6 @@ pub struct Enemy {
     pub hp: f32,
     pub collide: CollideType,
     pub script: ScriptContext,
-    pub sprite_render: Option<SpriteRender>,
 }
 
 impl Enemy {
@@ -29,7 +27,6 @@ impl Enemy {
             hp,
             collide,
             script,
-            sprite_render: None,
         }
     }
 }

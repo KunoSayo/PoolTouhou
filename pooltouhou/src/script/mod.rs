@@ -123,7 +123,8 @@ impl ScriptManager {
                             //name
                             read_str(&mut reader, &mut binary, true);
 
-                            //xy hp
+                            //xyz hp
+                            read_f32(&mut binary, &mut reader);
                             read_f32(&mut binary, &mut reader);
                             read_f32(&mut binary, &mut reader);
                             read_f32(&mut binary, &mut reader);
@@ -141,7 +142,8 @@ impl ScriptManager {
                             //name
                             read_str(&mut reader, &mut binary, true);
 
-                            //xyz angle
+                            //xyz scale angle
+                            read_f32(&mut binary, &mut reader);
                             read_f32(&mut binary, &mut reader);
                             read_f32(&mut binary, &mut reader);
                             read_f32(&mut binary, &mut reader);
@@ -218,8 +220,8 @@ impl ScriptManager {
 #[derive(Debug)]
 pub enum ScriptGameCommand {
     MoveUp(f32),
-    SummonEnemy(String, f32, f32, f32, CollideType, String, Vec<f32>),
-    SummonBullet(String, f32, f32, f32, f32, CollideType, String, Vec<f32>),
+    SummonEnemy(String, f32, f32, f32, f32, CollideType, String, Vec<f32>),
+    SummonBullet(String, f32, f32, f32, f32, f32, CollideType, String, Vec<f32>),
     Kill,
 }
 

@@ -13,7 +13,7 @@ use amethyst::{
 use failure::_core::f32::consts::PI;
 use nalgebra::Vector3;
 
-use crate::component::{EnemyBullet, InvertColorAnimation, PlayerBullet};
+use crate::component::{Enemy, EnemyBullet, InvertColorAnimation, PlayerBullet};
 use crate::CoreStorage;
 use crate::handles::TextureHandles;
 use crate::render::InvertColorCircle;
@@ -47,16 +47,12 @@ impl CollideType {
     pub fn is_collide_with(&self, me: &Vector3<f32>, other_collide: &CollideType, other: &Vector3<f32>) -> bool {
         match self {
             Self::Circle(r_2) => {
-                if *r_2 == 0.0 {
-                    other_collide.is_collide_with_point(me, other)
-                } else {
-                    match other_collide {
-                        Self::Circle(o_r_2) => {
-                            let center_x_distance = me.x - other.x;
-                            let center_y_distance = me.y - other.y;
-                            let center_distance = center_x_distance * center_x_distance + center_y_distance * center_y_distance;
-                            center_distance < r_2 + o_r_2
-                        }
+                match other_collide {
+                    Self::Circle(o_r_2) => {
+                        let center_x_distance = me.x - other.x;
+                        let center_y_distance = me.y - other.y;
+                        let center_distance = center_x_distance * center_x_distance + center_y_distance * center_y_distance;
+                        center_distance < r_2 + o_r_2
                     }
                 }
             }
@@ -210,6 +206,9 @@ impl<'a> System<'a> for GameSystem {
                         ScriptGameCommand::SummonBullet(..) => {
                             data.core.commands.push(x);
                         }
+                        ScriptGameCommand::SummonEnemy(..) => {
+                            data.core.commands.push(x);
+                        }
                         _ => {
                             unimplemented!("Not ready")
                         }
@@ -219,7 +218,7 @@ impl<'a> System<'a> for GameSystem {
 
             while let Some(x) = data.core.commands.pop() {
                 match x {
-                    ScriptGameCommand::SummonBullet(name, x, y, scale, angle, collide, script, args) => {
+                    ScriptGameCommand::SummonBullet(name, x, y, z, scale, angle, collide, script, args) => {
                         let script_context;
                         if let Some(script) = data.script_manager.get_script(&script) {
                             script_context = ScriptContext::new(script, args);
@@ -228,13 +227,30 @@ impl<'a> System<'a> for GameSystem {
                             script_context = ScriptContext::new(script, args);
                         }
                         let mut pos = Transform::default();
-                        pos.set_translation_xyz(x, y, 0.0);
+                        pos.set_translation_xyz(x, y, z);
                         pos.set_rotation_z_axis(angle / 180.0 * PI);
                         pos.set_scale(Vector3::new(scale, scale, 1.0));
                         data.entities.build_entity()
                             .with(pos, &mut data.transforms)
                             .with(EnemyBullet { collide, script: script_context }, &mut data.enemy_bullets)
-                            .with(data.texture_handles.bullets.get(&*name).unwrap().clone(), &mut data.sprite_renders)
+                            .with(data.texture_handles.textures.get(&*name).unwrap().clone(), &mut data.sprite_renders)
+                            .with(Transparent, &mut data.transparent)
+                            .build();
+                    }
+                    ScriptGameCommand::SummonEnemy(name, x, y, z, hp, collide, script, args) => {
+                        let script_context;
+                        if let Some(script) = data.script_manager.get_script(&script) {
+                            script_context = ScriptContext::new(script, args);
+                        } else {
+                            let script = data.script_manager.load_script(&script).unwrap();
+                            script_context = ScriptContext::new(script, args);
+                        }
+                        let mut pos = Transform::default();
+                        pos.set_translation_xyz(x, y, z);
+                        data.entities.build_entity()
+                            .with(pos, &mut data.transforms)
+                            .with(Enemy::new(hp, collide, script_context), &mut data.enemies)
+                            .with(data.texture_handles.textures.get(&*name).unwrap().clone(), &mut data.sprite_renders)
                             .with(Transparent, &mut data.transparent)
                             .build();
                     }
@@ -245,6 +261,10 @@ impl<'a> System<'a> for GameSystem {
             }
 
             //tick if end
+
+            if game_data.calc_stack.len() != 0 {
+                eprintln!("Not balance");
+            }
         }
     }
 

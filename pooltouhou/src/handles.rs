@@ -6,14 +6,14 @@ use amethyst::{
 
 pub struct TextureHandles {
     pub player_bullet: Option<SpriteRender>,
-    pub bullets: HashMap<String, SpriteRender>,
+    pub textures: HashMap<String, SpriteRender>,
 }
 
 impl Default for TextureHandles {
     fn default() -> Self {
         Self {
             player_bullet: None,
-            bullets: Default::default(),
+            textures: Default::default(),
         }
     }
 }
