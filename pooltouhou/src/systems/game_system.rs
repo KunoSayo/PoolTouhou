@@ -233,7 +233,7 @@ impl<'a> System<'a> for GameSystem {
                         data.entities.build_entity()
                             .with(pos, &mut data.transforms)
                             .with(EnemyBullet { collide, script: script_context }, &mut data.enemy_bullets)
-                            .with(data.texture_handles.textures.get(&*name).unwrap().clone(), &mut data.sprite_renders)
+                            .with(data.texture_handles.textures.get(&name).unwrap().clone(), &mut data.sprite_renders)
                             .with(Transparent, &mut data.transparent)
                             .build();
                     }
@@ -250,7 +250,7 @@ impl<'a> System<'a> for GameSystem {
                         data.entities.build_entity()
                             .with(pos, &mut data.transforms)
                             .with(Enemy::new(hp, collide, script_context), &mut data.enemies)
-                            .with(data.texture_handles.textures.get(&*name).unwrap().clone(), &mut data.sprite_renders)
+                            .with(data.texture_handles.textures.get(&name).unwrap().clone(), &mut data.sprite_renders)
                             .with(Transparent, &mut data.transparent)
                             .build();
                     }

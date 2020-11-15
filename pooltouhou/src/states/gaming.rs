@@ -189,6 +189,11 @@ fn setup_enemy(world: &mut World, script_manager: &mut ScriptManager, (name, x, 
         sprite_number: 0,
     };
 
+    {
+        let mut texture_handle = world.fetch_mut::<TextureHandles>();
+        texture_handle.textures.insert(name, sprite_render.clone());
+    }
+
     let ctx;
     if let Some(script) = script_manager.get_script(&script_name) {
         ctx = ScriptContext::new(script, args);
