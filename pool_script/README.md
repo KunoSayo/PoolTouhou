@@ -1,7 +1,7 @@
 # PoolScript
 ## Thanks  SwiteFaster!
 
-Player z : 2  
+Player z : 0
 Camera z : 16
 
 Use BE.
@@ -30,7 +30,7 @@ Use BE.
 #### Function Data
 * B0: end
 * B1: loop
-* B2: ret
+* B2: ret (pointer)
 * B3: push_to_stack_top (pointer)
 * B4: allocate
 * B5: break (pointer)

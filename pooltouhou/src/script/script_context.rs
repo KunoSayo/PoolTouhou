@@ -43,6 +43,23 @@ impl ScriptContext {
         function_runner.execute(script_manager)
     }
 
+    pub fn exe_fn_if_present(&mut self, name: &String, game_data: &mut ScriptGameData, script_manager: &mut ScriptManager, temp: &mut TempGameContext) -> Option<f32> {
+        if let Some(function) = script_manager.scripts.get(self.desc_index).unwrap().functions.get(name) {
+            let mut function_context = FunctionContext::new(function.max_stack as usize);
+            let mut function_runner = FunctionRunner {
+                data: &mut self.data,
+                desc: function,
+                game: game_data,
+                context: &mut function_context,
+                temp,
+            };
+
+            function_runner.execute(script_manager)
+        } else {
+            None
+        }
+    }
+
     pub fn tick_function(&mut self, game_data: &mut ScriptGameData, script_manager: &mut ScriptManager, temp: &mut TempGameContext) -> Option<f32> {
         let context = self.tick_function.as_mut().unwrap();
         if context.wait > 0 {

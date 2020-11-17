@@ -10,6 +10,8 @@ use crate::systems::game_system::CollideType;
 
 pub mod script_context;
 
+pub const ON_DIE_FUNCTION: &str = "on_die";
+
 #[derive(Debug, Copy, Clone)]
 pub enum Loop {
     Start(usize),

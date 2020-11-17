@@ -17,7 +17,7 @@ use crate::component::{Enemy, EnemyBullet, InvertColorAnimation, PlayerBullet};
 use crate::CoreStorage;
 use crate::handles::TextureHandles;
 use crate::render::InvertColorCircle;
-use crate::script::{ScriptGameCommand, ScriptGameData, ScriptManager};
+use crate::script::{ON_DIE_FUNCTION, ScriptGameCommand, ScriptGameData, ScriptManager};
 use crate::script::script_context::{ScriptContext, TempGameContext};
 
 #[derive(Default)]
@@ -142,11 +142,16 @@ impl<'a> System<'a> for GameSystem {
                         if enemy.collide.is_collide_with_point(enemy_pos, bullet_pos) {
                             enemy.hp -= bullet.damage;
                             if enemy.hp <= 0.0 {
-                                println!("Anye hp left: 0.0");
                                 data.entities.delete(enemy_entity).expect("delete enemy entity failed");
-                                boss_die_anime(&data.entities, (&mut data.animations.0, &mut data.animations.1), enemy_pos);
-                            } else {
-                                println!("Anye hp left: {}", enemy.hp);
+                                let mut enemy_tran = data.transforms.get_mut(enemy_entity).unwrap();
+                                let mut temp = TempGameContext {
+                                    tran: Some(&mut enemy_tran),
+                                };
+                                let result = enemy.script.exe_fn_if_present(&ON_DIE_FUNCTION.to_string(), &mut game_data, &mut data.script_manager, &mut temp)
+                                    .unwrap_or(0.0);
+                                if result == 9.0 {
+                                    boss_die_anime(&data.entities, (&mut data.animations.0, &mut data.animations.1), enemy_tran.translation());
+                                }
                             }
                             data.entities.delete(bullet_entity).expect("delete bullet entity failed");
 
@@ -197,7 +202,6 @@ impl<'a> System<'a> for GameSystem {
                 let mut enemy_tran = data.transforms.get_mut(enemy_entity).unwrap();
                 let mut temp = TempGameContext {
                     tran: Some(&mut enemy_tran),
-
                 };
                 enemy.script.tick_function(&mut game_data, &mut data.script_manager, &mut temp);
 
