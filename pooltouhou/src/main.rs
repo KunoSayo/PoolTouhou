@@ -1,5 +1,4 @@
 use amethyst::{
-    audio::AudioBundle,
     core::TransformBundle,
     ecs::Entity,
     input::{InputBundle, StringBindings, VirtualKeyCode},
@@ -24,6 +23,7 @@ pub mod systems;
 mod states;
 mod component;
 mod input;
+mod audio;
 
 
 // https://doc.rust-lang.org/book/
@@ -38,6 +38,7 @@ pub struct CoreStorage {
     commands: Vec<ScriptGameCommand>,
     tick: u128,
     tick_sign: bool,
+    al: audio::OpenalData,
 }
 
 impl Default for CoreStorage {
@@ -50,6 +51,7 @@ impl Default for CoreStorage {
             commands: vec![],
             tick: 0,
             tick_sign: false,
+            al: audio::OpenalData::default(),
         }
     }
 }
@@ -93,7 +95,6 @@ fn main() -> amethyst::Result<()> {
         .with_bundle(TransformBundle::new())?
         .with_bundle(InputBundle::<StringBindings>::new())?
         .with_bundle(UiBundle::<StringBindings>::new())?
-        .with_bundle(AudioBundle::default())?
         .with(input::InputDataSystem, "main_input_system", &["input_system"])
         .with(systems::GameSystem, "main_game_system", &["main_input_system"])
         .with(systems::AnimationSystem, "main_anime_system", &[])

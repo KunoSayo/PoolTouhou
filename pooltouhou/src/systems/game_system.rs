@@ -15,7 +15,7 @@ use nalgebra::Vector3;
 
 use crate::component::{Enemy, EnemyBullet, InvertColorAnimation, PlayerBullet};
 use crate::CoreStorage;
-use crate::handles::TextureHandles;
+use crate::handles::ResourcesHandles;
 use crate::render::InvertColorCircle;
 use crate::script::{ON_DIE_FUNCTION, ScriptGameCommand, ScriptGameData, ScriptManager};
 use crate::script::script_context::{ScriptContext, TempGameContext};
@@ -102,7 +102,7 @@ pub struct GameSystemData<'a> {
     sprite_renders: WriteStorage<'a, SpriteRender>,
     transparent: WriteStorage<'a, Transparent>,
     players: WriteStorage<'a, Player>,
-    texture_handles: Read<'a, TextureHandles>,
+    resources_handles: Read<'a, ResourcesHandles>,
     core: Write<'a, CoreStorage>,
     entities: Entities<'a>,
     enemies: WriteStorage<'a, crate::component::Enemy>,
@@ -237,7 +237,7 @@ impl<'a> System<'a> for GameSystem {
                         data.entities.build_entity()
                             .with(pos, &mut data.transforms)
                             .with(EnemyBullet { collide, script: script_context }, &mut data.enemy_bullets)
-                            .with(data.texture_handles.textures.get(&name).unwrap().clone(), &mut data.sprite_renders)
+                            .with(data.resources_handles.textures.get(&name).unwrap().clone(), &mut data.sprite_renders)
                             .with(Transparent, &mut data.transparent)
                             .build();
                     }
@@ -254,7 +254,7 @@ impl<'a> System<'a> for GameSystem {
                         data.entities.build_entity()
                             .with(pos, &mut data.transforms)
                             .with(Enemy::new(hp, collide, script_context), &mut data.enemies)
-                            .with(data.texture_handles.textures.get(&name).unwrap().clone(), &mut data.sprite_renders)
+                            .with(data.resources_handles.textures.get(&name).unwrap().clone(), &mut data.sprite_renders)
                             .with(Transparent, &mut data.transparent)
                             .build();
                     }
@@ -312,7 +312,7 @@ fn process_player(data: &mut GameSystemData) -> Transform {
                 data.entities.build_entity()
                     .with(pos, &mut data.transforms)
                     .with(PlayerBullet { damage: 10.0 }, &mut data.player_bullets)
-                    .with(data.texture_handles.player_bullet.clone().unwrap(), &mut data.sprite_renders)
+                    .with(data.resources_handles.player_bullet.clone().unwrap(), &mut data.sprite_renders)
                     .with(Transparent, &mut data.transparent)
                     .build();
             }

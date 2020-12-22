@@ -29,9 +29,9 @@ pub fn setup_debug_text(world: &mut World) {
         "entities: ".to_owned() + &entities_now,
         [1., 1., 1., 1.],
         20.,
+        LineMode::Wrap,
+        Anchor::MiddleRight,
     );
-    text.line_mode = LineMode::Wrap;
-    text.align = Anchor::MiddleRight;
     let entity_count = world
         .create_entity()
         .with(entity_count_transform)

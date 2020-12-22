@@ -8,11 +8,12 @@ use amethyst::{
     prelude::*,
     renderer::*,
 };
+use amethyst::audio::{FlacFormat, Mp3Format, OggFormat, SourceHandle, WavFormat};
 use amethyst::core::ecs::Join;
 
 use crate::component::{Enemy, EnemyBullet, PlayerBullet, Sheep};
 use crate::CoreStorage;
-use crate::handles::TextureHandles;
+use crate::handles::ResourcesHandles;
 use crate::script::{ScriptGameData, ScriptManager};
 use crate::script::script_context::{ScriptContext, TempGameContext};
 use crate::states::pausing::Pausing;
@@ -29,7 +30,7 @@ impl SimpleState for Gaming {
         world.register::<Enemy>();
         world.register::<PlayerBullet>();
         world.register::<EnemyBullet>();
-        world.insert(TextureHandles::default());
+        world.insert(ResourcesHandles::default());
 
         let player = setup_sheep(world);
         {
@@ -95,7 +96,7 @@ impl SimpleState for Gaming {
             let cameras = world.read_component::<Camera>();
             if let Some((camera, transform, _)) = (&cameras, &transforms, &world.entities()).join().next() {
                 let mut inverse_args = world.write_resource::<crate::render::CameraUniformArgs>();
-                let projection = camera.projection().as_matrix();
+                let projection = &camera.matrix;
                 let view = &transform.view_matrix();
                 inverse_args.projection = [[projection.m11, projection.m21, projection.m31, projection.m41],
                     [projection.m12, projection.m22, projection.m32, projection.m42],
@@ -124,9 +125,8 @@ fn setup_camera(world: &mut World) {
     //       0.1,
     //       3200.0)));
     transform.set_translation_xyz(0.0, 0.0, 16.0);
-    let camera = Camera::from(camera::Projection::from(camera::Orthographic
-    ::new(0.0, ARENA_WIDTH, -ARENA_HEIGHT, 0.0,
-          0.1, 32.0)));
+    let camera = camera::Camera::orthographic(0.0, ARENA_WIDTH, -ARENA_HEIGHT, 0.0,
+                                              0.1, 32.0);
     world
         .create_entity()
         .with(camera)
@@ -134,10 +134,32 @@ fn setup_camera(world: &mut World) {
         .build();
 }
 
+
+fn load_sound(world: &mut World, name: String) {
+    let get_format = |s: &str| -> Box<dyn amethyst::assets::Format<_>> {
+        match s {
+            "wav" => Box::new(WavFormat),
+            "ogg" => Box::new(OggFormat),
+            "mp3" => Box::new(Mp3Format),
+            "flac" => Box::new(FlacFormat),
+            _ => {
+                panic!("Not supported format!");
+            }
+        }
+    };
+    let loader = world.read_resource::<Loader>();
+    let handle: SourceHandle = loader
+        .load(format!("sounds/{}", name),
+              get_format(*name.split(".").collect::<Vec<&str>>().last().unwrap()),
+              (), &world.read_resource());
+    let mut handles = world.fetch_mut::<ResourcesHandles>();
+    handles.sounds.insert(name, handle);
+}
+
 fn load_texture(world: &mut World, name: String, ron: String) {
     let handle = load_sprite_sheet(world, &*("texture/".to_owned() + &name + ".png"),
                                    &*("texture/".to_owned() + &ron + ".ron"));
-    let mut texture_handle = world.try_fetch_mut::<TextureHandles>().unwrap();
+    let mut texture_handle = world.try_fetch_mut::<ResourcesHandles>().unwrap();
     texture_handle.textures.insert(name, SpriteRender { sprite_sheet: handle, sprite_number: 0 });
 }
 
@@ -154,7 +176,7 @@ fn setup_sheep(world: &mut World) -> Entity {
     let sheep_bullet = load_sprite_sheet(world, "texture/sheepBullet.png", "texture/sheepBullet.ron");
 
     {
-        let mut texture_handle = world.try_fetch_mut::<TextureHandles>().unwrap();
+        let mut texture_handle = world.try_fetch_mut::<ResourcesHandles>().unwrap();
         texture_handle.player_bullet = Some(SpriteRender { sprite_sheet: sheep_bullet, sprite_number: 0 });
     }
 
@@ -190,7 +212,7 @@ fn setup_enemy(world: &mut World, script_manager: &mut ScriptManager, (name, x, 
     };
 
     {
-        let mut texture_handle = world.fetch_mut::<TextureHandles>();
+        let mut texture_handle = world.fetch_mut::<ResourcesHandles>();
         texture_handle.textures.insert(name, sprite_render.clone());
     }
 

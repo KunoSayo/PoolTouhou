@@ -4,8 +4,5 @@ members = [
     "pool_script"
 ]
 
-[profile.dev.package."*"]
-opt-level = 1
-
 [profile.release]
 lto = "fat"
