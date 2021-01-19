@@ -65,23 +65,32 @@ fn main() {
     } else if args.len() > 2 && args[1] == "compile" {
         let run_dir = std::env::current_dir().unwrap();
         for path in args.iter().skip(2) {
-            let dir_path = run_dir.join(Path::new(path));
-            let dir = dir_path.read_dir().expect(&*("We need a directory, not ".to_owned() + dir_path.to_str().unwrap()));
-            println!("compiling dir {:?}", dir);
-            for file in dir {
-                match file {
-                    Ok(entry) => {
-                        if let Ok(file_type) = entry.file_type() {
-                            if file_type.is_file() && entry.file_name().to_str().to_owned().unwrap().ends_with(".pthps") {
-                                match File::open(entry.path()) {
-                                    Ok(file) => compile(entry.file_name(), file, &output_dir),
-                                    Err(err) => eprintln!("open file failed: {}", err)
+            let src_path = run_dir.join(Path::new(path));
+            if src_path.is_dir() {
+                let dir = src_path.read_dir().expect(&*("We need a directory, not ".to_owned() + src_path.to_str().unwrap()));
+                println!("compiling dir {:?}", dir);
+                for file in dir {
+                    match file {
+                        Ok(entry) => {
+                            if let Ok(file_type) = entry.file_type() {
+                                if file_type.is_file() && entry.file_name().to_str().to_owned().unwrap().ends_with(".pthps") {
+                                    match File::open(entry.path()) {
+                                        Ok(file) => compile(entry.file_name(), file, &output_dir),
+                                        Err(err) => eprintln!("open file failed: {}", err)
+                                    }
                                 }
                             }
                         }
+                        Err(err) => {
+                            eprintln!("read entry failed! {}", err);
+                        }
                     }
-                    Err(err) => {
-                        eprintln!("read entry failed! {}", err);
+                }
+            } else {
+                if src_path.file_name().unwrap().to_str().unwrap().ends_with(".pthps") {
+                    match File::open(&src_path) {
+                        Ok(file) => compile(src_path.file_name().unwrap().into(), file, &output_dir),
+                        Err(err) => eprintln!("open file failed: {}", err)
                     }
                 }
             }
