@@ -21,7 +21,6 @@ pub fn load_sprite_sheet(world: &mut World, path: &str, ron_name: &str, progress
     // The texture is the pixel data
     // `texture_handle` is a cloneable reference to the texture
     let is_some = progress.is_some();
-    let x = progress.unwrap();
     let texture_handle = {
         let loader = world.read_resource::<Loader>();
         let texture_storage = world.read_resource::<AssetStorage<Texture>>();
@@ -29,7 +28,7 @@ pub fn load_sprite_sheet(world: &mut World, path: &str, ron_name: &str, progress
             loader.load(
                 path,
                 ImageFormat::default(),
-                x,
+                progress.unwrap(),
                 &texture_storage,
             )
         } else {
