@@ -134,7 +134,7 @@ fn setup_enemy(world: &mut World, (name, x, y, z, hp, collide, script_name, args
     pos.set_translation_xyz(x, y, z);
     let sprite_sheet_handle = load_sprite_sheet(world,
                                                 &*("texture/".to_owned() + &*name + ".png"),
-                                                &*("texture/".to_owned() + &*name + ".ron"), ());
+                                                &*("texture/".to_owned() + &*name + ".ron"), None);
     let sprite_render = SpriteRender {
         sprite_sheet: sprite_sheet_handle,
         sprite_number: 0,

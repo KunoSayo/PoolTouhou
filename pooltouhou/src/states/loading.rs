@@ -53,7 +53,6 @@ impl SimpleState for Loading {
 
         world.insert(script_manager);
 
-
         println!("Loading state started.");
     }
 
@@ -143,7 +142,7 @@ fn load_texture(world: &mut World, name: String, ron: String, progress: &mut Pro
 
 fn load_texture_with_path(world: &mut World, name: String, path: String, ron: String, progress: &mut ProgressType) {
     let handle = load_sprite_sheet(world, &path,
-                                   &("texture/".to_owned() + &ron), progress);
+                                   &("texture/".to_owned() + &ron), Some(progress));
     let mut texture_handle = world.try_fetch_mut::<ResourcesHandles>().unwrap();
     texture_handle.textures.insert(name, SpriteRender { sprite_sheet: handle, sprite_number: 0 });
 }
