@@ -1,5 +1,4 @@
 use amethyst::{
-    assets::*,
     core::{
         components::Transform
     },
@@ -8,14 +7,14 @@ use amethyst::{
     prelude::*,
     renderer::*,
 };
-use amethyst::audio::{FlacFormat, Mp3Format, OggFormat, SourceHandle, WavFormat};
 use amethyst::core::ecs::Join;
 
-use crate::component::{Enemy, EnemyBullet, PlayerBullet, Sheep};
+use crate::component::{Enemy, Sheep};
 use crate::CoreStorage;
 use crate::handles::ResourcesHandles;
 use crate::script::{ScriptGameData, ScriptManager};
 use crate::script::script_context::{ScriptContext, TempGameContext};
+use crate::states::{ARENA_WIDTH, load_sprite_sheet};
 use crate::states::pausing::Pausing;
 use crate::systems::game_system::CollideType;
 use crate::systems::Player;
@@ -26,11 +25,6 @@ pub struct Gaming;
 impl SimpleState for Gaming {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         let world = data.world;
-        world.register::<Sheep>();
-        world.register::<Enemy>();
-        world.register::<PlayerBullet>();
-        world.register::<EnemyBullet>();
-        world.insert(ResourcesHandles::default());
 
         let player = setup_sheep(world);
         {
@@ -38,34 +32,33 @@ impl SimpleState for Gaming {
             let mut core_storage = world.write_resource::<CoreStorage>();
             core_storage.player = Some(player);
         }
-        setup_camera(world);
 
-        crate::ui::debug::setup_debug_text(world);
-
-        let mut script_manager = ScriptManager::default();
-        script_manager.load_scripts();
-        let script = script_manager.get_script(&"main".to_string()).unwrap();
-
-        let mut context = ScriptContext::new(&script, vec![]);
         let mut game = ScriptGameData {
             player_tran: Transform::default(),
             submit_command: vec![],
             calc_stack: vec![],
         };
 
-        let mut temp = TempGameContext {
-            tran: None,
-        };
-        context.execute_function(&"start".to_string(), &mut game, &mut script_manager, &mut temp);
+        {
+            let mut script_manager = world.get_mut::<ScriptManager>().unwrap();
+            let script = script_manager.get_script(&"main".to_string()).unwrap();
+            let mut context = ScriptContext::new(&script, vec![]);
+
+
+            let mut temp = TempGameContext {
+                tran: None,
+            };
+            context.execute_function(&"start".to_string(), &mut game, &mut script_manager, &mut temp);
+        }
         for x in game.submit_command {
             match x {
                 crate::script::ScriptGameCommand::SummonEnemy(name, x, y, z, hp, collide, script_name, args) => {
-                    setup_enemy(world, &mut script_manager, (name, x, y, z, hp, collide, script_name, args))
+                    setup_enemy(world, (name, x, y, z, hp, collide, script_name, args))
                 }
                 _ => panic!("没实现哪里来的命令（大声）")
             }
         }
-        world.insert(script_manager);
+
         println!("Gaming state started.");
     }
 
@@ -73,7 +66,6 @@ impl SimpleState for Gaming {
         let world = data.world;
         let mut core_storage = world.write_resource::<CoreStorage>();
         if !core_storage.tick_sign {
-            core_storage.swap_input();
             core_storage.tick_sign = true;
             let mut transforms = world.write_component::<Transform>();
             if let Some(player) = core_storage.player {
@@ -113,81 +105,18 @@ impl SimpleState for Gaming {
     }
 }
 
-const ARENA_WIDTH: f32 = 1600.0;
-const ARENA_HEIGHT: f32 = 900.0;
-
-fn setup_camera(world: &mut World) {
-    let mut transform = Transform::default();
-    // transform.set_translation_xyz(ARENA_WIDTH * 0.5, ARENA_HEIGHT * 0.5, 16.0);
-    // let camera = Camera::from(camera::Projection::from(camera::Perspective
-    // ::new(ARENA_WIDTH / ARENA_HEIGHT,
-    //       std::f32::consts::FRAC_PI_6,
-    //       0.1,
-    //       3200.0)));
-    transform.set_translation_xyz(0.0, 0.0, 16.0);
-    let camera = camera::Camera::orthographic(0.0, ARENA_WIDTH, -ARENA_HEIGHT, 0.0,
-                                              0.1, 32.0);
-    world
-        .create_entity()
-        .with(camera)
-        .with(transform)
-        .build();
-}
-
-
-fn load_sound(world: &mut World, name: String) {
-    let get_format = |s: &str| -> Box<dyn amethyst::assets::Format<_>> {
-        match s {
-            "wav" => Box::new(WavFormat),
-            "ogg" => Box::new(OggFormat),
-            "mp3" => Box::new(Mp3Format),
-            "flac" => Box::new(FlacFormat),
-            _ => {
-                panic!("Not supported format!");
-            }
-        }
-    };
-    let loader = world.read_resource::<Loader>();
-    let handle: SourceHandle = loader
-        .load(format!("sounds/{}", name),
-              get_format(*name.split(".").collect::<Vec<&str>>().last().unwrap()),
-              (), &world.read_resource());
-    let mut handles = world.fetch_mut::<ResourcesHandles>();
-    handles.sounds.insert(name, handle);
-}
-
-fn load_texture(world: &mut World, name: String, ron: String) {
-    let handle = load_sprite_sheet(world, &*("texture/".to_owned() + &name + ".png"),
-                                   &*("texture/".to_owned() + &ron + ".ron"));
-    let mut texture_handle = world.try_fetch_mut::<ResourcesHandles>().unwrap();
-    texture_handle.textures.insert(name, SpriteRender { sprite_sheet: handle, sprite_number: 0 });
-}
 
 fn setup_sheep(world: &mut World) -> Entity {
     let mut pos = Transform::default();
 
     pos.set_translation_xyz(ARENA_WIDTH * 0.5, 100.0, crate::PLAYER_Z);
     // pos.set_scale(Vector3::new(1.0, 1.0, 1.0));
-    let sprite_sheet_handle = load_sprite_sheet(world, "texture/sheep.png", "texture/sheep.ron");
-    let sprite_render = SpriteRender {
-        sprite_sheet: sprite_sheet_handle,
-        sprite_number: 0,
+
+    let sprite_render = {
+        let texture_handle = world.fetch::<ResourcesHandles>();
+
+        texture_handle.textures.get("sheep").unwrap().clone()
     };
-    let sheep_bullet = load_sprite_sheet(world, "texture/sheepBullet.png", "texture/sheepBullet.ron");
-
-    {
-        let mut texture_handle = world.try_fetch_mut::<ResourcesHandles>().unwrap();
-        texture_handle.player_bullet = Some(SpriteRender { sprite_sheet: sheep_bullet, sprite_number: 0 });
-    }
-
-    load_texture(world, "bullet".to_string(), "bullet".to_string());
-    load_texture(world, "circle_red".to_string(), "circle".to_string());
-    load_texture(world, "circle_blue".to_string(), "circle".to_string());
-    load_texture(world, "circle_green".to_string(), "circle".to_string());
-    load_texture(world, "circle_yellow".to_string(), "circle".to_string());
-    load_texture(world, "circle_purple".to_string(), "circle".to_string());
-    load_texture(world, "zzzz".to_string(), "zzzz".to_string());
-
 
     world.create_entity()
         .with(sprite_render)
@@ -200,12 +129,12 @@ fn setup_sheep(world: &mut World) -> Entity {
         .build()
 }
 
-fn setup_enemy(world: &mut World, script_manager: &mut ScriptManager, (name, x, y, z, hp, collide, script_name, args): (String, f32, f32, f32, f32, CollideType, String, Vec<f32>)) {
+fn setup_enemy(world: &mut World, (name, x, y, z, hp, collide, script_name, args): (String, f32, f32, f32, f32, CollideType, String, Vec<f32>)) {
     let mut pos = Transform::default();
     pos.set_translation_xyz(x, y, z);
     let sprite_sheet_handle = load_sprite_sheet(world,
                                                 &*("texture/".to_owned() + &*name + ".png"),
-                                                &*("texture/".to_owned() + &*name + ".ron"));
+                                                &*("texture/".to_owned() + &*name + ".ron"), ());
     let sprite_render = SpriteRender {
         sprite_sheet: sprite_sheet_handle,
         sprite_number: 0,
@@ -215,6 +144,8 @@ fn setup_enemy(world: &mut World, script_manager: &mut ScriptManager, (name, x, 
         let mut texture_handle = world.fetch_mut::<ResourcesHandles>();
         texture_handle.textures.insert(name, sprite_render.clone());
     }
+
+    let script_manager = world.get_mut::<ScriptManager>().unwrap();
 
     let ctx;
     if let Some(script) = script_manager.get_script(&script_name) {
@@ -229,28 +160,4 @@ fn setup_enemy(world: &mut World, script_manager: &mut ScriptManager, (name, x, 
         .with(Enemy::new(hp, collide, ctx))
         .with(Transparent)
         .build();
-}
-
-fn load_sprite_sheet(world: &mut World, name: &str, ron_name: &str) -> Handle<SpriteSheet> {
-    // Load the sprite sheet necessary to render the graphics.
-    // The texture is the pixel data
-    // `texture_handle` is a cloneable reference to the texture
-    let texture_handle = {
-        let loader = world.read_resource::<Loader>();
-        let texture_storage = world.read_resource::<AssetStorage<Texture>>();
-        loader.load(
-            name,
-            ImageFormat::default(),
-            (),
-            &texture_storage,
-        )
-    };
-    let loader = world.read_resource::<Loader>();
-    let sprite_sheet_store = world.read_resource::<AssetStorage<SpriteSheet>>();
-    loader.load(
-        ron_name, // Here we load the associated ron file
-        SpriteSheetFormat(texture_handle),
-        (),
-        &sprite_sheet_store,
-    )
 }

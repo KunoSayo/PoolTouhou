@@ -99,7 +99,7 @@ fn main() -> amethyst::Result<()> {
         .with(systems::GameSystem, "main_game_system", &["main_input_system"])
         .with(systems::AnimationSystem, "main_anime_system", &[])
         .with(systems::DebugSystem::default(), "debug_system", &[]);
-    let mut game = Application::build(assets_dir, states::Gaming::default())?
+    let mut game = Application::build(assets_dir, states::Loading::default())?
         .build(game_data)?;
     game.run();
     Ok(())

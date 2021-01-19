@@ -24,7 +24,7 @@ pub fn setup_debug_text(world: &mut World) {
     );
 
     let entities_now = (&world.entities()).join().count().to_string();
-    let mut text = UiText::new(
+    let text = UiText::new(
         font.clone(),
         "entities: ".to_owned() + &entities_now,
         [1., 1., 1., 1.],
