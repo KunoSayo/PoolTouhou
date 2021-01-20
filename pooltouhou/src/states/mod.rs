@@ -16,7 +16,7 @@ pub mod loading;
 pub const ARENA_WIDTH: f32 = 1600.0;
 pub const ARENA_HEIGHT: f32 = 900.0;
 
-pub fn load_sprite_sheet(world: &mut World, path: &str, ron_name: &str, progress: Option<&mut ProgressType>) -> Handle<SpriteSheet> {
+pub fn load_sprite_sheet(world: &mut World, path: &str, ron_name: &str, mut progress: Option<&mut ProgressType>) -> Handle<SpriteSheet> {
     // Load the sprite sheet necessary to render the graphics.
     // The texture is the pixel data
     // `texture_handle` is a cloneable reference to the texture
@@ -28,7 +28,7 @@ pub fn load_sprite_sheet(world: &mut World, path: &str, ron_name: &str, progress
             loader.load(
                 path,
                 ImageFormat::default(),
-                &mut *progress.unwrap(),
+                &mut **progress.as_mut().unwrap(),
                 &texture_storage,
             )
         } else {
@@ -46,7 +46,7 @@ pub fn load_sprite_sheet(world: &mut World, path: &str, ron_name: &str, progress
         loader.load(
             ron_name, // Here we load the associated ron file
             SpriteSheetFormat(texture_handle),
-            &mut *progress.unwrap(),
+            &mut **progress.as_mut().unwrap(),
             &sprite_sheet_store,
         )
     } else {
