@@ -110,6 +110,7 @@ dependencies = [
  "amethyst_locale",
  "amethyst_network",
  "amethyst_rendy",
+ "amethyst_tiles",
  "amethyst_ui",
  "amethyst_utils",
  "amethyst_window",
@@ -125,6 +126,7 @@ dependencies = [
  "rayon",
  "rustc_version_runtime",
  "serde",
+ "thread_profiler",
  "vergen",
  "winit",
 ]
@@ -147,6 +149,7 @@ dependencies = [
  "log",
  "minterpolate",
  "serde",
+ "thread_profiler",
 ]
 
 [[package]]
@@ -172,6 +175,7 @@ dependencies = [
  "rayon",
  "ron",
  "serde",
+ "thread_profiler",
 ]
 
 [[package]]
@@ -189,6 +193,7 @@ dependencies = [
  "rodio",
  "serde",
  "smallvec 1.5.1",
+ "thread_profiler",
 ]
 
 [[package]]
@@ -200,6 +205,7 @@ dependencies = [
  "log",
  "ron",
  "serde",
+ "thread_profiler",
 ]
 
 [[package]]
@@ -216,6 +222,7 @@ dependencies = [
  "derive-new",
  "log",
  "serde",
+ "thread_profiler",
  "winit",
 ]
 
@@ -240,6 +247,7 @@ dependencies = [
  "serde",
  "specs",
  "specs-hierarchy",
+ "thread_profiler",
 ]
 
 [[package]]
@@ -280,6 +288,7 @@ dependencies = [
  "fnv",
  "serde",
  "smallvec 1.5.1",
+ "thread_profiler",
  "winit",
 ]
 
@@ -294,6 +303,7 @@ dependencies = [
  "amethyst_error",
  "fluent",
  "serde",
+ "thread_profiler",
  "unic-langid",
 ]
 
@@ -338,6 +348,33 @@ dependencies = [
  "serde",
  "smallvec 1.5.1",
  "static_assertions 1.1.0",
+ "thread_profiler",
+]
+
+[[package]]
+name = "amethyst_tiles"
+version = "0.15.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "557652b76240ccf17dca8f1dc1fb7e3e3dabdceeb5d9307e09e68019219e048b"
+dependencies = [
+ "amethyst_assets",
+ "amethyst_core",
+ "amethyst_error",
+ "amethyst_rendy",
+ "amethyst_window",
+ "bitintr",
+ "derivative 2.1.1",
+ "err-derive",
+ "failure",
+ "fnv",
+ "glsl-layout",
+ "hibitset",
+ "lazy_static 1.4.0",
+ "log",
+ "rayon",
+ "serde",
+ "smallvec 1.5.1",
+ "thread_profiler",
 ]
 
 [[package]]
@@ -369,6 +406,7 @@ dependencies = [
  "ron",
  "serde",
  "smallvec 1.5.1",
+ "thread_profiler",
  "unicode-normalization",
  "unicode-segmentation",
  "winit",
@@ -393,6 +431,7 @@ dependencies = [
  "serde",
  "specs-derive",
  "specs-hierarchy",
+ "thread_profiler",
 ]
 
 [[package]]
@@ -562,6 +601,12 @@ name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
+
+[[package]]
+name = "bitintr"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ba5a5c4df8ac8673f22698f443ef1ce3853d7f22d5a15ebf66b9a7553b173dd"
 
 [[package]]
 name = "blake2b_simd"

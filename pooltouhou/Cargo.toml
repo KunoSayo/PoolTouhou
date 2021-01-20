@@ -25,6 +25,7 @@ default = ["vulkan", "shader-compiler"]
 empty = ["amethyst/empty"]
 metal = ["amethyst/metal"]
 vulkan = ["amethyst/vulkan"]
+profiler = ["amethyst/profiler"]
 
 shader-compiler = ["amethyst/shader-compiler"]
 no-slow-safety-checks = ["amethyst/no-slow-safety-checks"]

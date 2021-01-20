@@ -28,7 +28,7 @@ pub fn load_sprite_sheet(world: &mut World, path: &str, ron_name: &str, progress
             loader.load(
                 path,
                 ImageFormat::default(),
-                progress.unwrap(),
+                &mut *progress.unwrap(),
                 &texture_storage,
             )
         } else {
@@ -46,7 +46,7 @@ pub fn load_sprite_sheet(world: &mut World, path: &str, ron_name: &str, progress
         loader.load(
             ron_name, // Here we load the associated ron file
             SpriteSheetFormat(texture_handle),
-            (),
+            &mut *progress.unwrap(),
             &sprite_sheet_store,
         )
     } else {
