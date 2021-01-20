@@ -11,6 +11,7 @@ use amethyst::{
     ui::{RenderUi, UiBundle},
     utils::application_root_dir,
 };
+use amethyst::core::frame_limiter::FrameRateLimitStrategy;
 
 use crate::script::ScriptGameCommand;
 
@@ -100,6 +101,7 @@ fn main() -> amethyst::Result<()> {
         .with(systems::AnimationSystem, "main_anime_system", &[])
         .with(systems::DebugSystem::default(), "debug_system", &[]);
     let mut game = Application::build(assets_dir, states::Loading::default())?
+        .with_frame_limit(FrameRateLimitStrategy::Unlimited, 0)
         .build(game_data)?;
     game.run();
     Ok(())
