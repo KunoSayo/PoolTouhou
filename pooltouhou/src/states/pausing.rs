@@ -5,7 +5,10 @@ use amethyst::{
 
 use crate::CoreStorage;
 
-pub struct Pausing;
+#[derive(Default)]
+pub struct Pausing {
+    choosing: u8
+}
 
 
 impl SimpleState for Pausing {
@@ -13,8 +16,15 @@ impl SimpleState for Pausing {
         let world = data.world;
         let core_storage = world.read_resource::<CoreStorage>();
 
-        if core_storage.is_press(Box::from([VirtualKeyCode::Escape])) {
+        if core_storage.is_pressed(&[VirtualKeyCode::Escape]) {
             Trans::Pop
+        } else if core_storage.is_pressed(&[VirtualKeyCode::X]) {
+            if self.choosing == 1 {
+                Trans::Sequence(vec![Trans::Pop, Trans::Pop])
+            } else {
+                self.choosing = 1;
+                Trans::None
+            }
         } else {
             Trans::None
         }

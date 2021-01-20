@@ -197,6 +197,8 @@ impl ScriptManager {
     }
 
     pub fn load_scripts(&mut self) {
+        self.scripts.clear();
+        self.script_map.clear();
         let path = PathBuf::from(std::env::current_dir().unwrap().to_str().unwrap().to_owned() + "/script/");
         let dir = path.read_dir().unwrap();
         for file in dir {

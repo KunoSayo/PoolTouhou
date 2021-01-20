@@ -65,7 +65,7 @@ impl CoreStorage {
         }
     }
 
-    pub fn is_press(&self, keys: Box<[VirtualKeyCode]>) -> bool {
+    pub fn is_pressed(&self, keys: &[VirtualKeyCode]) -> bool {
         let last_input = &self.last_input;
         let cur_input = self.cur_input.as_ref().unwrap();
 

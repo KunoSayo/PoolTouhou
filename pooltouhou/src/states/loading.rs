@@ -7,6 +7,7 @@ use amethyst::{
     renderer::*,
 };
 use amethyst::audio::{FlacFormat, Mp3Format, OggFormat, SourceHandle, WavFormat};
+use amethyst_rendy::rendy::wsi::winit::VirtualKeyCode;
 
 use crate::component::{Enemy, EnemyBullet, PlayerBullet, Sheep};
 use crate::CoreStorage;
@@ -77,6 +78,15 @@ impl SimpleState for Loading {
     fn shadow_fixed_update(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         let mut core_storage = data.world.write_resource::<CoreStorage>();
         core_storage.swap_input();
+
+        #[cfg(feature = "debug-game")]
+        if core_storage.is_pressed(&[VirtualKeyCode::F3, VirtualKeyCode::T]) {
+            println!("reloading...");
+            {
+                let mut manager = data.world.write_resource::<ScriptManager>();
+                manager.load_scripts();
+            }
+        }
     }
 }
 

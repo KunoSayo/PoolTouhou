@@ -1,13 +1,13 @@
 use amethyst::{
     assets::Loader,
-    ecs::{Entity, prelude::Join, World},
+    ecs::{Entity, World},
     prelude::{Builder, WorldExt},
     ui::{Anchor, TtfFormat, UiText, UiTransform},
 };
 use amethyst::ui::LineMode;
 
 pub struct DebugText {
-    pub entity_count: Entity
+    pub debug_text_entity: Entity
 }
 
 pub fn setup_debug_text(world: &mut World) {
@@ -19,14 +19,13 @@ pub fn setup_debug_text(world: &mut World) {
     );
 
     let entity_count_transform = UiTransform::new(
-        "entity_count".to_string(), Anchor::BottomRight, Anchor::BottomLeft,
+        "debug_text_trans".into(), Anchor::BottomRight, Anchor::BottomLeft,
         -200., 0., 1., 200., 40.,
     );
 
-    let entities_now = (&world.entities()).join().count().to_string();
     let text = UiText::new(
         font.clone(),
-        "entities: ".to_owned() + &entities_now,
+        "".into(),
         [1., 1., 1., 1.],
         20.,
         LineMode::Wrap,
@@ -39,5 +38,5 @@ pub fn setup_debug_text(world: &mut World) {
         .build();
 
 
-    world.insert(DebugText { entity_count });
+    world.insert(DebugText { debug_text_entity: entity_count });
 }

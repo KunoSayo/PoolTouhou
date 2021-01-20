@@ -20,7 +20,7 @@ impl<'a> System<'a> for DebugSystem {
         Read<'a, Time>
     );
     fn run(&mut self, (entities, debug_text, mut ui_texts, time): Self::SystemData) {
-        if let Some(text) = ui_texts.get_mut(debug_text.entity_count) {
+        if let Some(text) = ui_texts.get_mut(debug_text.debug_text_entity) {
             self.delta += time.delta_real_time().as_secs_f32();
             self.count += 1;
             if self.delta >= 1.0 {
@@ -28,7 +28,11 @@ impl<'a> System<'a> for DebugSystem {
                 self.delta = 0.0;
                 self.count = 0;
             }
-            text.text = format!("fps:{:.2}\nentities: {}", self.fps, (&entities).par_join().count());
+            if cfg!(feature = "debug-game") {
+                text.text = format!("fps:{:.2}\nentities: {}", self.fps, (&entities).par_join().count());
+            } else {
+                text.text = format!("fps:{:.2}", self.fps);
+            }
         }
     }
 }

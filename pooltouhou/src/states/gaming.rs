@@ -9,7 +9,7 @@ use amethyst::{
 };
 use amethyst::core::ecs::Join;
 
-use crate::component::{Enemy, Sheep};
+use crate::component::{Enemy, EnemyBullet, InvertColorAnimation, PlayerBullet, Sheep};
 use crate::CoreStorage;
 use crate::handles::ResourcesHandles;
 use crate::script::{ScriptGameData, ScriptManager};
@@ -62,6 +62,21 @@ impl SimpleState for Gaming {
         println!("Gaming state started.");
     }
 
+    fn on_stop(&mut self, data: StateData<'_, GameData<'_, '_>>) {
+        println!("deleting game entities...");
+        let world = data.world;
+        let e: Vec<_> = (&world.entities(), &world.read_component::<Enemy>()).join().map(|(x, _)| x).collect();
+        world.delete_entities(&e).unwrap();
+        let e: Vec<_> = (&world.entities(), &world.read_component::<EnemyBullet>()).join().map(|(x, _)| x).collect();
+        world.delete_entities(&e).unwrap();
+        let e: Vec<_> = (&world.entities(), &world.read_component::<Player>()).join().map(|(x, _)| x).collect();
+        world.delete_entities(&e).unwrap();
+        let e: Vec<_> = (&world.entities(), &world.read_component::<PlayerBullet>()).join().map(|(x, _)| x).collect();
+        world.delete_entities(&e).unwrap();
+        let e: Vec<_> = (&world.entities(), &world.read_component::<InvertColorAnimation>()).join().map(|(x, _)| x).collect();
+        world.delete_entities(&e).unwrap();
+    }
+
     fn fixed_update(&mut self, data: StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
         let world = data.world;
         let mut core_storage = world.write_resource::<CoreStorage>();
@@ -81,8 +96,8 @@ impl SimpleState for Gaming {
                 }
             }
 
-            if core_storage.is_press(Box::from([VirtualKeyCode::Escape])) {
-                return Trans::Push(Box::new(Pausing {}));
+            if core_storage.is_pressed(&[VirtualKeyCode::Escape]) {
+                return Trans::Push(Box::new(Pausing::default()));
             }
 
             let cameras = world.read_component::<Camera>();
