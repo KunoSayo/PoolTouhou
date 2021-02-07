@@ -34,8 +34,8 @@ pub const PLAYER_Z: f32 = 0.0;
 pub struct CoreStorage {
     player: Option<Entity>,
     last_input: input::InputData,
-    cur_input: Option<input::InputData>,
-    temp_input: Option<input::InputData>,
+    cur_input: input::InputData,
+    temp_input: input::InputData,
     commands: Vec<ScriptGameCommand>,
     tick: u128,
     tick_sign: bool,
@@ -47,8 +47,8 @@ impl Default for CoreStorage {
         Self {
             player: None,
             last_input: input::InputData::empty(),
-            cur_input: Some(input::InputData::empty()),
-            temp_input: Some(input::InputData::empty()),
+            cur_input: input::InputData::empty(),
+            temp_input: input::InputData::empty(),
             commands: vec![],
             tick: 0,
             tick_sign: false,
@@ -59,15 +59,13 @@ impl Default for CoreStorage {
 
 impl CoreStorage {
     pub fn swap_input(&mut self) {
-        if self.temp_input.is_some() {
-            self.last_input = self.cur_input.take().unwrap();
-            self.cur_input.replace(self.temp_input.take().unwrap());
-        }
+        std::mem::swap(&mut self.last_input, &mut self.cur_input);
+        std::mem::swap(&mut self.cur_input, &mut self.temp_input);
     }
 
     pub fn is_pressed(&self, keys: &[VirtualKeyCode]) -> bool {
         let last_input = &self.last_input;
-        let cur_input = self.cur_input.as_ref().unwrap();
+        let cur_input = &self.cur_input;
 
         let any_last_not_input = keys.iter().any(|key| !last_input.pressing.contains(key));
         let all_cur_input = keys.iter().all(|key| cur_input.pressing.contains(key));

@@ -283,7 +283,7 @@ fn process_player(data: &mut GameSystemData) -> Transform {
     if let Some(entity) = data.core.player {
         let player = data.players.get_mut(entity).unwrap();
         let pos = data.transforms.get_mut(entity).unwrap();
-        let input = data.core.cur_input.as_ref().unwrap();
+        let input = &data.core.cur_input;
         let is_walk = input.pressing.contains(&VirtualKeyCode::LShift);
         let (mov_x, mov_y) = input.get_move(if is_walk {
             player.walk_speed

@@ -74,8 +74,7 @@ impl SimpleState for Loading {
         }
     }
 
-
-    fn shadow_fixed_update(&mut self, data: StateData<'_, GameData<'_, '_>>) {
+    fn shadow_update(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         let mut core_storage = data.world.write_resource::<CoreStorage>();
         core_storage.swap_input();
 

@@ -84,7 +84,7 @@ impl SimpleState for Gaming {
             core_storage.tick_sign = true;
             let mut transforms = world.write_component::<Transform>();
             if let Some(player) = core_storage.player {
-                let input = core_storage.cur_input.as_ref().unwrap();
+                let input = &core_storage.cur_input;
 
                 if let Some(pos) = transforms.get_mut(player) {
                     if input.pressing.contains(&VirtualKeyCode::Q) {

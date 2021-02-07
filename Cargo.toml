@@ -4,5 +4,8 @@ members = [
     "pool_script"
 ]
 
+
 [profile.release]
+opt-level = 3
 lto = "fat"
+panic = 'unwind'

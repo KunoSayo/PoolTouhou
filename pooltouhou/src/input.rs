@@ -69,14 +69,12 @@ impl<'s> System<'s> for InputDataSystem {
         Write<'s, CoreStorage>
     );
     fn run(&mut self, (data, mut core): Self::SystemData) {
-        let mut cur = InputData::empty();
-        for key in data.keys_that_are_down() {
-            cur.pressing.insert(key);
-        }
+        let mut cur = &mut core.temp_input;
+        cur.pressing.clear();
+        cur.pressing.extend(data.keys_that_are_down());
         if let Some((x, y)) = data.mouse_position() {
             cur.x = x;
             cur.y = y;
         }
-        core.temp_input.replace(cur);
     }
 }
