@@ -204,7 +204,7 @@ pub fn try_parse_expression(raw_str: &str, context: &Context) -> Result<Expressi
             }
         }
         if let Ok(op) = Operator::try_from(&s[index..index + 1]) {
-            if parsing_value && index == begin && op == Operator::SUB {
+            if parsing_value && index == begin && op == Operator::SUB && (expression.tree.len() == expression.op.len()) {
                 index += 1;
                 while s[index..index + 1].chars().next().unwrap().is_ascii_digit() {
                     index += 1;
@@ -286,6 +286,12 @@ mod test {
 
         let mut value = try_parse_expression("1-2+3", &context).unwrap();
         assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(2.0));
+        let mut value = try_parse_expression("2*3*5+1", &context).unwrap();
+        assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(31.0));
+        let mut value = try_parse_expression("(1+2)-(1+2)", &context).unwrap();
+        assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(0.0));
+        let mut value = try_parse_expression("(1+2)-1", &context).unwrap();
+        assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(2.0));
         let mut value = try_parse_expression("-1-2+3", &context).unwrap();
         assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(0.0));
         let mut value = try_parse_expression("1+2*3", &context).unwrap();
@@ -304,5 +310,10 @@ mod test {
 
         let mut value = try_parse_expression("1 + 2 <= 3", &context).unwrap();
         assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(1.0));
+
+        let mut value = try_parse_expression("(2+(1+2-3)*6-0.7)*3+2.4-15", &context).unwrap();
+        assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(-8.7));
+        let mut value = try_parse_expression("3*8-2*1.5+7-4*2+1", &context).unwrap();
+        assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(21.0));
     }
 }

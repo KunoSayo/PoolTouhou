@@ -4,17 +4,18 @@ use amethyst::{
     prelude::{Builder, WorldExt},
     ui::{Anchor, TtfFormat, UiText, UiTransform},
 };
+use amethyst::assets::Progress;
 use amethyst::ui::LineMode;
 
 pub struct DebugText {
     pub debug_text_entity: Entity
 }
 
-pub fn setup_debug_text(world: &mut World) {
+pub fn setup_debug_text(world: &mut World, progress: impl Progress) {
     let font = world.read_resource::<Loader>().load(
-        "font/simhei.ttf",
+        "font/cjkFonts_allseto_v1.11.ttf",
         TtfFormat,
-        (),
+        progress,
         &world.read_resource(),
     );
 

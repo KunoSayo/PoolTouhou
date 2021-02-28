@@ -46,7 +46,7 @@ impl SimpleState for Loading {
 
         setup_camera(world);
 
-        crate::ui::debug::setup_debug_text(world);
+        crate::ui::debug::setup_debug_text(world, &mut self.progress);
 
         let mut script_manager = ScriptManager::default();
         script_manager.load_scripts();
