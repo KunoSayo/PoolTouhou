@@ -31,18 +31,17 @@ mod audio;
 
 pub const PLAYER_Z: f32 = 0.0;
 
-pub struct CoreStorage {
+pub struct GameCore {
     player: Option<Entity>,
     last_input: input::InputData,
     cur_input: input::InputData,
     temp_input: input::InputData,
     commands: Vec<ScriptGameCommand>,
     tick: u128,
-    tick_sign: bool,
     al: audio::OpenalData,
 }
 
-impl Default for CoreStorage {
+impl Default for GameCore {
     fn default() -> Self {
         Self {
             player: None,
@@ -51,16 +50,16 @@ impl Default for CoreStorage {
             temp_input: input::InputData::empty(),
             commands: vec![],
             tick: 0,
-            tick_sign: false,
             al: audio::OpenalData::default(),
         }
     }
 }
 
-impl CoreStorage {
+impl GameCore {
     pub fn swap_input(&mut self) {
         std::mem::swap(&mut self.last_input, &mut self.cur_input);
         std::mem::swap(&mut self.cur_input, &mut self.temp_input);
+        self.temp_input.pressing.clear();
     }
 
     pub fn is_pressed(&self, keys: &[VirtualKeyCode]) -> bool {
@@ -94,8 +93,6 @@ fn main() -> amethyst::Result<()> {
         .with_bundle(TransformBundle::new())?
         .with_bundle(InputBundle::<StringBindings>::new())?
         .with_bundle(UiBundle::<StringBindings>::new())?
-        .with(input::InputDataSystem, "main_input_system", &["input_system"])
-        .with(systems::GameSystem, "main_game_system", &["main_input_system"])
         .with(systems::AnimationSystem, "main_anime_system", &[])
         .with(systems::DebugSystem::default(), "debug_system", &[]);
     let mut game = Application::build(assets_dir, states::Loading::default())?

@@ -45,7 +45,7 @@ impl ScriptManager {
         if let Some(index) = self.script_map.get(name) {
             self.scripts[*index].data_count
         } else {
-            panic!("There is no script with name: ".to_owned() + name)
+            panic!("There is no script with name:  {}", name)
         }
     }
 
@@ -55,7 +55,7 @@ impl ScriptManager {
         } else if let Some(script) = self.load_script(name) {
             script.data_count
         } else {
-            panic!("There is no script with name: ".to_owned() + name)
+            panic!("There is no script with name:  {}", name)
         }
     }
 

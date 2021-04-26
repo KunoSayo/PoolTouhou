@@ -10,22 +10,31 @@ use amethyst::audio::{FlacFormat, Mp3Format, OggFormat, SourceHandle, WavFormat}
 use amethyst_rendy::rendy::wsi::winit::VirtualKeyCode;
 
 use crate::component::{Enemy, EnemyBullet, PlayerBullet, Sheep};
-use crate::CoreStorage;
+use crate::{GameCore, input};
 use crate::handles::ResourcesHandles;
 use crate::script::ScriptManager;
 use crate::states::{ARENA_HEIGHT, ARENA_WIDTH, Gaming, load_sprite_sheet};
+use amethyst::core::ecs::{Dispatcher, DispatcherBuilder};
 
 pub type ProgressType = ProgressCounter;
 
 #[derive(Default)]
-pub struct Loading {
-    progress: ProgressType
+pub struct Loading<'a, 'b> {
+    progress: ProgressType,
+    input_dispatcher: Option<Dispatcher<'a, 'b>>,
 }
 
 
-impl SimpleState for Loading {
+impl SimpleState for Loading<'_, '_> {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         let world = data.world;
+        let mut dispatcher_builder = DispatcherBuilder::new();
+        dispatcher_builder.add(input::InputDataSystem, "main_input_system", &[]);
+        let mut dispatcher = dispatcher_builder.build();
+        dispatcher.setup(world);
+
+        self.input_dispatcher = Some(dispatcher);
+
         world.register::<Sheep>();
         world.register::<Enemy>();
         world.register::<PlayerBullet>();
@@ -76,7 +85,10 @@ impl SimpleState for Loading {
 
 
     fn shadow_fixed_update(&mut self, data: StateData<'_, GameData<'_, '_>>) {
-        let mut core_storage = data.world.write_resource::<CoreStorage>();
+        if let Some(dispatcher) = self.input_dispatcher.as_mut() {
+            dispatcher.dispatch(data.world);
+        }
+        let mut core_storage = data.world.write_resource::<GameCore>();
         core_storage.swap_input();
 
         #[cfg(feature = "debug-game")]

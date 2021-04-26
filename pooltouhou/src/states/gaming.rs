@@ -7,29 +7,42 @@ use amethyst::{
     prelude::*,
     renderer::*,
 };
-use amethyst::core::ecs::Join;
+use amethyst::core::ecs::{Join, DispatcherBuilder, System};
 
 use crate::component::{Enemy, EnemyBullet, InvertColorAnimation, PlayerBullet, Sheep};
-use crate::CoreStorage;
+use crate::{GameCore, input};
 use crate::handles::ResourcesHandles;
 use crate::script::{ScriptGameData, ScriptManager};
 use crate::script::script_context::{ScriptContext, TempGameContext};
 use crate::states::{ARENA_WIDTH, load_sprite_sheet};
 use crate::states::pausing::Pausing;
 use crate::systems::game_system::CollideType;
-use crate::systems::Player;
+use crate::systems::{Player, GameSystem};
+use amethyst::shred::Dispatcher;
+use amethyst::core::ArcThreadPool;
 
 #[derive(Default)]
-pub struct Gaming;
+pub struct Gaming<'a, 'b> {
+    dispatcher: Option<Dispatcher<'a, 'b>>,
+}
 
-impl SimpleState for Gaming {
+impl SimpleState for Gaming<'_, '_> {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         let world = data.world;
+
+        {
+            let mut game_dispatcher_builder = DispatcherBuilder::new();
+            game_dispatcher_builder.add(GameSystem, "main_gaming_system", &[]);
+            let mut game_dispatcher = game_dispatcher_builder.build();
+            game_dispatcher.setup(world);
+            self.dispatcher = Some(game_dispatcher);
+        }
+
 
         let player = setup_sheep(world);
         {
             //immutable borrow
-            let mut core_storage = world.write_resource::<CoreStorage>();
+            let mut core_storage = world.write_resource::<GameCore>();
             core_storage.player = Some(player);
         }
 
@@ -79,12 +92,19 @@ impl SimpleState for Gaming {
 
     fn fixed_update(&mut self, data: StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
         let world = data.world;
-        let mut core_storage = world.write_resource::<CoreStorage>();
-        if !core_storage.tick_sign {
-            core_storage.tick_sign = true;
-            let mut transforms = world.write_component::<Transform>();
+        let mut core_storage = world.write_resource::<GameCore>();
+
+
+        if core_storage.is_pressed(&[VirtualKeyCode::Escape]) {
+            return Trans::Push(Box::new(Pausing::default()));
+        }
+
+
+        if let Some(mut dispatcher) = self.dispatcher.as_mut() {
+            //update game
             if let Some(player) = core_storage.player {
                 let input = &core_storage.cur_input;
+                let mut transforms = world.write_component::<Transform>();
 
                 if let Some(pos) = transforms.get_mut(player) {
                     if input.pressing.contains(&VirtualKeyCode::Q) {
@@ -95,26 +115,27 @@ impl SimpleState for Gaming {
                     }
                 }
             }
-
-            if core_storage.is_pressed(&[VirtualKeyCode::Escape]) {
-                return Trans::Push(Box::new(Pausing::default()));
-            }
-
-            let cameras = world.read_component::<Camera>();
-            if let Some((camera, transform, _)) = (&cameras, &transforms, &world.entities()).join().next() {
-                let mut inverse_args = world.write_resource::<crate::render::CameraUniformArgs>();
-                let projection = &camera.matrix;
-                let view = &transform.view_matrix();
-                inverse_args.projection = [[projection.m11, projection.m21, projection.m31, projection.m41],
-                    [projection.m12, projection.m22, projection.m32, projection.m42],
-                    [projection.m13, projection.m23, projection.m33, projection.m43],
-                    [projection.m14, projection.m24, projection.m34, projection.m44]].into();
-                inverse_args.view = [[view.m11, view.m21, view.m31, view.m41],
-                    [view.m12, view.m22, view.m32, view.m42],
-                    [view.m13, view.m23, view.m33, view.m43],
-                    [view.m14, view.m24, view.m34, view.m44]].into();
-            }
+            drop(core_storage);
+            dispatcher.dispatch(&world);
         }
+
+        let mut transforms = world.write_component::<Transform>();
+
+        let cameras = world.read_component::<Camera>();
+        if let Some((camera, transform, _)) = (&cameras, &transforms, &world.entities()).join().next() {
+            let mut inverse_args = world.write_resource::<crate::render::CameraUniformArgs>();
+            let projection = &camera.matrix;
+            let view = &transform.view_matrix();
+            inverse_args.projection = [[projection.m11, projection.m21, projection.m31, projection.m41],
+                [projection.m12, projection.m22, projection.m32, projection.m42],
+                [projection.m13, projection.m23, projection.m33, projection.m43],
+                [projection.m14, projection.m24, projection.m34, projection.m44]].into();
+            inverse_args.view = [[view.m11, view.m21, view.m31, view.m41],
+                [view.m12, view.m22, view.m32, view.m42],
+                [view.m13, view.m23, view.m33, view.m43],
+                [view.m14, view.m24, view.m34, view.m44]].into();
+        }
+
 
         Trans::None
     }

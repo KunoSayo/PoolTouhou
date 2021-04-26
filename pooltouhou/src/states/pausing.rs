@@ -3,7 +3,7 @@ use amethyst::{
     prelude::*,
 };
 
-use crate::CoreStorage;
+use crate::GameCore;
 
 #[derive(Default)]
 pub struct Pausing {
@@ -13,7 +13,7 @@ pub struct Pausing {
 impl SimpleState for Pausing {
     fn fixed_update(&mut self, data: StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
         let world = data.world;
-        let core_storage = world.read_resource::<CoreStorage>();
+        let core_storage = world.read_resource::<GameCore>();
 
         if core_storage.is_pressed(&[VirtualKeyCode::Escape]) {
             Trans::Pop
