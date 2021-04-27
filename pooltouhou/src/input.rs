@@ -8,7 +8,7 @@ use amethyst::{
 
 use crate::GameCore;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct InputData {
     pub x: f32,
     pub y: f32,
@@ -69,7 +69,15 @@ impl<'s> System<'s> for InputDataSystem {
         Write<'s, GameCore>
     );
     fn run(&mut self, (data, mut core): Self::SystemData) {
-        let mut cur = &mut core.temp_input;
+        core.swap_frame_input();
+
+        for ref x in data.keys_that_are_down() {
+            core.cache_input.pressing.insert(*x);
+        }
+
+        let mut cur = &mut core.cur_frame_input;
+
+        cur.pressing.clear();
         cur.pressing.extend(data.keys_that_are_down());
         if let Some((x, y)) = data.mouse_position() {
             cur.x = x;

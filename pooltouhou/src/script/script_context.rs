@@ -125,7 +125,8 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                 self.context.reset();
                 break;
             }
-            let command = self.desc.code[self.context.pointer];
+            //SAFETY: we checked the bound && it is unsigned.
+            let command = unsafe { self.desc.code.get_unchecked(self.context.pointer) };
             self.context.pointer += 1;
             match command {
                 0 => {

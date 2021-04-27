@@ -7,19 +7,19 @@ use amethyst::{
     prelude::*,
     renderer::*,
 };
-use amethyst::core::ecs::{Join, DispatcherBuilder, System};
+use amethyst::core::ecs::{Join, DispatcherBuilder};
 
 use crate::component::{Enemy, EnemyBullet, InvertColorAnimation, PlayerBullet, Sheep};
-use crate::{GameCore, input};
+use crate::{GameCore};
 use crate::handles::ResourcesHandles;
 use crate::script::{ScriptGameData, ScriptManager};
 use crate::script::script_context::{ScriptContext, TempGameContext};
 use crate::states::{ARENA_WIDTH, load_sprite_sheet};
 use crate::states::pausing::Pausing;
-use crate::systems::game_system::CollideType;
+use crate::systems::game_system::{CollideType};
 use crate::systems::{Player, GameSystem};
 use amethyst::shred::Dispatcher;
-use amethyst::core::ArcThreadPool;
+use std::time::Duration;
 
 #[derive(Default)]
 pub struct Gaming<'a, 'b> {
@@ -90,8 +90,9 @@ impl SimpleState for Gaming<'_, '_> {
         world.delete_entities(&e).unwrap();
     }
 
-    fn fixed_update(&mut self, data: StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
-        let world = data.world;
+
+    fn update(&mut self, data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
+        let world = &mut data.world;
         let mut core_storage = world.write_resource::<GameCore>();
 
 
@@ -99,27 +100,42 @@ impl SimpleState for Gaming<'_, '_> {
             return Trans::Push(Box::new(Pausing::default()));
         }
 
+        let now = std::time::SystemTime::now();
+        let one_frame_d = Duration::from_secs_f64(1.0 / 60.0);
+        if now.duration_since(core_storage.next_tick_time).is_ok() {
+            if let Some(dispatcher) = self.dispatcher.as_mut() {
+                //update game
 
-        if let Some(mut dispatcher) = self.dispatcher.as_mut() {
-            //update game
-            if let Some(player) = core_storage.player {
-                let input = &core_storage.cur_input;
-                let mut transforms = world.write_component::<Transform>();
+                core_storage.tick_input();
 
-                if let Some(pos) = transforms.get_mut(player) {
-                    if input.pressing.contains(&VirtualKeyCode::Q) {
-                        pos.prepend_rotation_x_axis(std::f32::consts::FRAC_1_PI * 15.0 / 180.0);
-                    }
-                    if input.pressing.contains(&VirtualKeyCode::E) {
-                        pos.prepend_rotation_x_axis(-std::f32::consts::FRAC_1_PI * 15.0 / 180.0);
+                if let Some(player) = core_storage.player {
+                    let input = &core_storage.cur_input;
+                    let mut transforms = world.write_component::<Transform>();
+
+                    if let Some(pos) = transforms.get_mut(player) {
+                        if input.pressing.contains(&VirtualKeyCode::Q) {
+                            pos.prepend_rotation_x_axis(std::f32::consts::FRAC_1_PI * 15.0 / 180.0);
+                        }
+                        if input.pressing.contains(&VirtualKeyCode::E) {
+                            pos.prepend_rotation_x_axis(-std::f32::consts::FRAC_1_PI * 15.0 / 180.0);
+                        }
                     }
                 }
+                drop(core_storage);
+                dispatcher.dispatch(&world);
+                let mut core_storage = world.write_resource::<GameCore>();
+                let after_tick = std::time::SystemTime::now();
+                let may_next = core_storage.next_tick_time.checked_add(one_frame_d)
+                    .unwrap();
+                if after_tick.duration_since(may_next).is_ok() {
+                    core_storage.next_tick_time = after_tick.checked_add(one_frame_d).unwrap();
+                } else {
+                    core_storage.next_tick_time = may_next;
+                }
             }
-            drop(core_storage);
-            dispatcher.dispatch(&world);
         }
 
-        let mut transforms = world.write_component::<Transform>();
+        let transforms = world.read_component::<Transform>();
 
         let cameras = world.read_component::<Camera>();
         if let Some((camera, transform, _)) = (&cameras, &transforms, &world.entities()).join().next() {

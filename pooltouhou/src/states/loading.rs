@@ -83,22 +83,22 @@ impl SimpleState for Loading<'_, '_> {
         }
     }
 
-
-    fn shadow_fixed_update(&mut self, data: StateData<'_, GameData<'_, '_>>) {
+    fn shadow_update(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         if let Some(dispatcher) = self.input_dispatcher.as_mut() {
             dispatcher.dispatch(data.world);
         }
-        let mut core_storage = data.world.write_resource::<GameCore>();
-        core_storage.swap_input();
 
         #[cfg(feature = "debug-game")]
-        if core_storage.is_pressed(&[VirtualKeyCode::F3, VirtualKeyCode::T]) {
-            println!("reloading...");
             {
-                let mut manager = data.world.write_resource::<ScriptManager>();
-                manager.load_scripts();
+                let mut core_storage = data.world.read_resource::<GameCore>();
+                if core_storage.is_pressed(&[VirtualKeyCode::F3, VirtualKeyCode::T]) {
+                    println!("reloading...");
+                    {
+                        let mut manager = data.world.write_resource::<ScriptManager>();
+                        manager.load_scripts();
+                    }
+                }
             }
-        }
     }
 }
 

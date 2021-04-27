@@ -14,6 +14,8 @@ use amethyst::{
 use amethyst::core::frame_limiter::FrameRateLimitStrategy;
 
 use crate::script::ScriptGameCommand;
+use crate::input::InputData;
+use std::mem::swap;
 
 mod script;
 
@@ -31,12 +33,16 @@ mod audio;
 
 pub const PLAYER_Z: f32 = 0.0;
 
+
 pub struct GameCore {
     player: Option<Entity>,
     last_input: input::InputData,
     cur_input: input::InputData,
-    temp_input: input::InputData,
+    cache_input: input::InputData,
+    last_frame_input: input::InputData,
+    cur_frame_input: input::InputData,
     commands: Vec<ScriptGameCommand>,
+    next_tick_time: std::time::SystemTime,
     tick: u128,
     al: audio::OpenalData,
 }
@@ -47,8 +53,11 @@ impl Default for GameCore {
             player: None,
             last_input: input::InputData::empty(),
             cur_input: input::InputData::empty(),
-            temp_input: input::InputData::empty(),
+            cache_input: InputData::default(),
+            last_frame_input: InputData::default(),
+            cur_frame_input: input::InputData::empty(),
             commands: vec![],
+            next_tick_time: std::time::SystemTime::now(),
             tick: 0,
             al: audio::OpenalData::default(),
         }
@@ -56,15 +65,21 @@ impl Default for GameCore {
 }
 
 impl GameCore {
-    pub fn swap_input(&mut self) {
-        std::mem::swap(&mut self.last_input, &mut self.cur_input);
-        std::mem::swap(&mut self.cur_input, &mut self.temp_input);
-        self.temp_input.pressing.clear();
+    #[inline]
+    pub fn tick_input(&mut self) {
+        swap(&mut self.last_input, &mut self.cur_input);
+        swap(&mut self.cur_input, &mut self.cache_input);
+        self.cache_input.pressing.clear();
+    }
+
+    #[inline]
+    pub fn swap_frame_input(&mut self) {
+        swap(&mut self.cur_frame_input, &mut self.last_frame_input);
     }
 
     pub fn is_pressed(&self, keys: &[VirtualKeyCode]) -> bool {
-        let last_input = &self.last_input;
-        let cur_input = &self.cur_input;
+        let last_input = &self.last_frame_input;
+        let cur_input = &self.cur_frame_input;
 
         let any_last_not_input = keys.iter().any(|key| !last_input.pressing.contains(key));
         let all_cur_input = keys.iter().all(|key| cur_input.pressing.contains(key));

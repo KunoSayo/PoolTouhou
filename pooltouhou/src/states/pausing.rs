@@ -11,8 +11,8 @@ pub struct Pausing {
 }
 
 impl SimpleState for Pausing {
-    fn fixed_update(&mut self, data: StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
-        let world = data.world;
+    fn update(&mut self, data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
+        let world = &mut data.world;
         let core_storage = world.read_resource::<GameCore>();
 
         if core_storage.is_pressed(&[VirtualKeyCode::Escape]) {
