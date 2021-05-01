@@ -12,6 +12,7 @@ pub type ProgressType = ProgressCounter;
 pub mod gaming;
 pub mod pausing;
 pub mod loading;
+pub mod menu;
 
 pub const ARENA_WIDTH: f32 = 1600.0;
 pub const ARENA_HEIGHT: f32 = 900.0;

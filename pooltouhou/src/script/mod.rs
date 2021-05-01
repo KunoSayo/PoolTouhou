@@ -41,7 +41,7 @@ pub struct ScriptManager {
 }
 
 impl ScriptManager {
-    pub fn get_script_data_count(&self, name: &String) -> u8 {
+    pub fn get_script_data_count(&self, name: &str) -> u8 {
         if let Some(index) = self.script_map.get(name) {
             self.scripts[*index].data_count
         } else {
@@ -49,7 +49,7 @@ impl ScriptManager {
         }
     }
 
-    pub fn load_script_data_count(&mut self, name: &String) -> u8 {
+    pub fn load_script_data_count(&mut self, name: &str) -> u8 {
         if let Some(index) = self.script_map.get(name) {
             self.scripts[*index].data_count
         } else if let Some(script) = self.load_script(name) {
@@ -59,7 +59,7 @@ impl ScriptManager {
         }
     }
 
-    pub fn get_script(&mut self, name: &String) -> Option<&ScriptDesc> {
+    pub fn get_script(&mut self, name: &str) -> Option<&ScriptDesc> {
         if let Some(index) = self.script_map.get(name) {
             self.scripts.get(*index)
         } else {
@@ -67,7 +67,7 @@ impl ScriptManager {
         }
     }
 
-    pub(crate) fn load_script(&mut self, name: &String) -> Option<&ScriptDesc> {
+    pub(crate) fn load_script(&mut self, name: &str) -> Option<&ScriptDesc> {
         println!("loading script: {}", name);
         let path = PathBuf::from(std::env::current_dir().unwrap().to_str().unwrap().to_owned() + "/script/" + name + ".pthpsb");
         if let Ok(file) = File::open(&path) {
@@ -188,7 +188,7 @@ impl ScriptManager {
                 tick_function,
             };
             self.scripts.push(script);
-            self.script_map.insert(name.clone(), index);
+            self.script_map.insert(name.into(), index);
             return self.scripts.get(index);
         } else {
             eprintln!("Script not found in {:?}", path);

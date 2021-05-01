@@ -6,9 +6,10 @@ use amethyst::{
 };
 use amethyst::assets::Progress;
 use amethyst::ui::LineMode;
+use crate::handles::ResourcesHandles;
 
 pub struct DebugText {
-    pub debug_text_entity: Entity
+    pub debug_text_entity: Entity,
 }
 
 pub fn setup_debug_text(world: &mut World, progress: impl Progress) {
@@ -19,13 +20,15 @@ pub fn setup_debug_text(world: &mut World, progress: impl Progress) {
         &world.read_resource(),
     );
 
+    world.write_resource::<ResourcesHandles>().fonts.insert("default".into(), font.clone());
+
     let entity_count_transform = UiTransform::new(
         "debug_text_trans".into(), Anchor::BottomRight, Anchor::BottomLeft,
         -200., 0., 1., 200., 40.,
     );
 
     let text = UiText::new(
-        font.clone(),
+        font,
         "".into(),
         [1., 1., 1., 1.],
         20.,

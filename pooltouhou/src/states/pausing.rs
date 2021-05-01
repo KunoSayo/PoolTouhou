@@ -7,7 +7,7 @@ use crate::GameCore;
 
 #[derive(Default)]
 pub struct Pausing {
-    choosing: u8
+    choosing: u8,
 }
 
 impl SimpleState for Pausing {

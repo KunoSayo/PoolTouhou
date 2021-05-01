@@ -14,7 +14,7 @@ use amethyst::{
 use amethyst::core::frame_limiter::FrameRateLimitStrategy;
 
 use crate::script::ScriptGameCommand;
-use crate::input::InputData;
+use crate::input::RawInputData;
 use std::mem::swap;
 
 mod script;
@@ -36,11 +36,13 @@ pub const PLAYER_Z: f32 = 0.0;
 
 pub struct GameCore {
     player: Option<Entity>,
-    last_input: input::InputData,
-    cur_input: input::InputData,
-    cache_input: input::InputData,
-    last_frame_input: input::InputData,
-    cur_frame_input: input::InputData,
+    cur_game_input: input::GameInputData,
+    last_input: input::RawInputData,
+    cur_input: input::RawInputData,
+    cache_input: input::RawInputData,
+    last_frame_input: input::RawInputData,
+    cur_frame_input: input::RawInputData,
+    cur_frame_game_input: input::GameInputData,
     commands: Vec<ScriptGameCommand>,
     next_tick_time: std::time::SystemTime,
     tick: u128,
@@ -51,11 +53,13 @@ impl Default for GameCore {
     fn default() -> Self {
         Self {
             player: None,
-            last_input: input::InputData::empty(),
-            cur_input: input::InputData::empty(),
-            cache_input: InputData::default(),
-            last_frame_input: InputData::default(),
-            cur_frame_input: input::InputData::empty(),
+            cur_game_input: Default::default(),
+            last_input: input::RawInputData::empty(),
+            cur_input: input::RawInputData::empty(),
+            cache_input: RawInputData::default(),
+            last_frame_input: RawInputData::default(),
+            cur_frame_input: input::RawInputData::empty(),
+            cur_frame_game_input: Default::default(),
             commands: vec![],
             next_tick_time: std::time::SystemTime::now(),
             tick: 0,
@@ -69,6 +73,7 @@ impl GameCore {
     pub fn tick_input(&mut self) {
         swap(&mut self.last_input, &mut self.cur_input);
         swap(&mut self.cur_input, &mut self.cache_input);
+        self.cur_game_input.tick_mut(&self.cur_input);
         self.cache_input.pressing.clear();
     }
 
@@ -76,6 +81,12 @@ impl GameCore {
     pub fn swap_frame_input(&mut self) {
         swap(&mut self.cur_frame_input, &mut self.last_frame_input);
     }
+
+    #[inline]
+    pub fn tick_game_frame_input(&mut self) {
+        self.cur_frame_game_input.tick_mut(&self.cur_frame_input);
+    }
+
 
     pub fn is_pressed(&self, keys: &[VirtualKeyCode]) -> bool {
         let last_input = &self.last_frame_input;

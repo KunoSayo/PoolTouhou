@@ -9,13 +9,112 @@ use amethyst::{
 use crate::GameCore;
 
 #[derive(Debug, Default)]
-pub struct InputData {
+pub struct RawInputData {
     pub x: f32,
     pub y: f32,
     pub pressing: HashSet<VirtualKeyCode>,
 }
 
-impl InputData {
+#[derive(Debug, Default)]
+pub struct GameInputData {
+    pub shoot: u32,
+    pub slow: u32,
+    pub bomb: u32,
+    pub sp: u32,
+    pub up: u32,
+    pub down: u32,
+    pub left: u32,
+    pub right: u32,
+    pub direction: (i32, i32),
+    pub enter: u32,
+    pub esc: u32,
+}
+
+fn get_direction(up: u32, down: u32, left: u32, right: u32) -> (i32, i32) {
+    //left x-
+    //right x+
+    //up y+
+    //down y-
+    match (up, down, left, right) {
+        (x, y, w, z) if x == y && w == z => (0, 0),
+        (x, y, 0, v) if x == y => (1, 0),
+        (x, y, v, 0) if x == y => (-1, 0),
+        (0, _, x, y) if x == y => (0, -1),
+        (_, 0, x, y) if x == y => (0, 1),
+        _ => {
+            if up > down {
+                //go down
+                if left > right {
+                    //go right
+                    (1, -1)
+                } else {
+                    //go left
+                    (-1, -1)
+                }
+            } else {
+                //go up
+                if left > right {
+                    //go right
+                    (1, 1)
+                } else {
+                    //go left
+                    (-1, 1)
+                }
+            }
+        }
+    }
+}
+
+impl From<&RawInputData> for GameInputData {
+    fn from(r: &RawInputData) -> Self {
+        let up = r.pressing.contains(&VirtualKeyCode::Up) as u32;
+        let down = r.pressing.contains(&VirtualKeyCode::Down) as u32;
+        let left = r.pressing.contains(&VirtualKeyCode::Left) as u32;
+        let right = r.pressing.contains(&VirtualKeyCode::Right) as u32;
+        let direction = get_direction(up, down, left, right);
+        Self {
+            shoot: r.pressing.contains(&VirtualKeyCode::Z) as u32,
+            slow: r.pressing.contains(&VirtualKeyCode::LShift) as u32,
+            bomb: r.pressing.contains(&VirtualKeyCode::X) as u32,
+            sp: r.pressing.contains(&VirtualKeyCode::C) as u32,
+            up,
+            down,
+            left,
+            right,
+            direction,
+            enter: (r.pressing.contains(&VirtualKeyCode::Return) || r.pressing.contains(&VirtualKeyCode::NumpadEnter)) as u32,
+            esc: r.pressing.contains(&VirtualKeyCode::Escape) as u32,
+        }
+    }
+}
+
+macro_rules! inc_or_zero {
+    ($e: expr, $b: expr) => {
+        if $b {
+            $e += 1;
+        } else {
+            $e = 0;
+        }
+    };
+}
+
+impl GameInputData {
+    pub fn tick_mut(&mut self, r: &RawInputData) {
+        inc_or_zero!(self.shoot, r.pressing.contains(&VirtualKeyCode::Z));
+        inc_or_zero!(self.slow, r.pressing.contains(&VirtualKeyCode::LShift));
+        inc_or_zero!(self.bomb, r.pressing.contains(&VirtualKeyCode::X));
+        inc_or_zero!(self.sp, r.pressing.contains(&VirtualKeyCode::C));
+        inc_or_zero!(self.up, r.pressing.contains(&VirtualKeyCode::Up));
+        inc_or_zero!(self.down, r.pressing.contains(&VirtualKeyCode::Down));
+        inc_or_zero!(self.left, r.pressing.contains(&VirtualKeyCode::Left));
+        inc_or_zero!(self.right, r.pressing.contains(&VirtualKeyCode::Right));
+        inc_or_zero!(self.enter, (r.pressing.contains(&VirtualKeyCode::Return) || r.pressing.contains(&VirtualKeyCode::NumpadEnter)));
+        inc_or_zero!(self.esc, r.pressing.contains(&VirtualKeyCode::Escape));
+        self.direction = get_direction(self.up, self.down, self.left, self.right);
+    }
+}
+
+impl RawInputData {
     pub fn empty() -> Self {
         Self {
             x: 0.0,
@@ -44,7 +143,7 @@ impl InputData {
     }
 }
 
-impl Clone for InputData {
+impl Clone for RawInputData {
     fn clone(&self) -> Self {
         Self {
             x: self.x,
@@ -83,5 +182,6 @@ impl<'s> System<'s> for InputDataSystem {
             cur.x = x;
             cur.y = y;
         }
+        core.tick_game_frame_input();
     }
 }

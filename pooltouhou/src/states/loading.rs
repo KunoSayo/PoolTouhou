@@ -15,6 +15,7 @@ use crate::handles::ResourcesHandles;
 use crate::script::ScriptManager;
 use crate::states::{ARENA_HEIGHT, ARENA_WIDTH, Gaming, load_sprite_sheet};
 use amethyst::core::ecs::{Dispatcher, DispatcherBuilder};
+use crate::states::menu::Menu;
 
 pub type ProgressType = ProgressCounter;
 
@@ -77,7 +78,7 @@ impl SimpleState for Loading<'_, '_> {
                 }
                 _ => {}
             }
-            Trans::Push(Box::new(Gaming::default()))
+            Trans::Push(Box::new(Menu::default()))
         } else {
             Trans::None
         }
@@ -143,10 +144,6 @@ fn load_sound(world: &mut World, name: String) {
 }
 
 fn load_sheep(world: &mut World, progress: &mut ProgressType) {
-    let mut pos = Transform::default();
-
-    pos.set_translation_xyz(ARENA_WIDTH * 0.5, 100.0, crate::PLAYER_Z);
-    // pos.set_scale(Vector3::new(1.0, 1.0, 1.0));
     load_texture(world, "sheep".to_string(), "sheep.ron".to_string(), progress);
     load_texture(world, "sheepBullet".into(), "sheepBullet.ron".into(), progress);
     {

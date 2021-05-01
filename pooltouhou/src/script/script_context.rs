@@ -28,7 +28,7 @@ impl ScriptContext {
 }
 
 impl ScriptContext {
-    pub fn execute_function(&mut self, name: &String, game_data: &mut ScriptGameData, script_manager: &mut ScriptManager, temp: &mut TempGameContext) -> Option<f32> {
+    pub fn execute_function(&mut self, name: &str, game_data: &mut ScriptGameData, script_manager: &mut ScriptManager, temp: &mut TempGameContext) -> Option<f32> {
         let function = script_manager.scripts.get(self.desc_index)
             .unwrap().functions.get(name).expect("no such function.");
         let mut function_context = FunctionContext::new(function.max_stack as usize);
@@ -43,7 +43,7 @@ impl ScriptContext {
         function_runner.execute(script_manager)
     }
 
-    pub fn exe_fn_if_present(&mut self, name: &String, game_data: &mut ScriptGameData, script_manager: &mut ScriptManager, temp: &mut TempGameContext) -> Option<f32> {
+    pub fn exe_fn_if_present(&mut self, name: &str, game_data: &mut ScriptGameData, script_manager: &mut ScriptManager, temp: &mut TempGameContext) -> Option<f32> {
         if let Some(function) = script_manager.scripts.get(self.desc_index).unwrap().functions.get(name) {
             let mut function_context = FunctionContext::new(function.max_stack as usize);
             let mut function_runner = FunctionRunner {

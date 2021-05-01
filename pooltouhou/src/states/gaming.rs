@@ -54,14 +54,14 @@ impl SimpleState for Gaming<'_, '_> {
 
         {
             let mut script_manager = world.get_mut::<ScriptManager>().unwrap();
-            let script = script_manager.get_script(&"main".to_string()).unwrap();
+            let script = script_manager.get_script("main").unwrap();
             let mut context = ScriptContext::new(&script, vec![]);
 
 
             let mut temp = TempGameContext {
                 tran: None,
             };
-            context.execute_function(&"start".to_string(), &mut game, &mut script_manager, &mut temp);
+            context.execute_function("start", &mut game, &mut script_manager, &mut temp);
         }
         for x in game.submit_command {
             match x {
@@ -185,8 +185,8 @@ fn setup_enemy(world: &mut World, (name, x, y, z, hp, collide, script_name, args
     let mut pos = Transform::default();
     pos.set_translation_xyz(x, y, z);
     let sprite_sheet_handle = load_sprite_sheet(world,
-                                                &*("texture/".to_owned() + &*name + ".png"),
-                                                &*("texture/".to_owned() + &*name + ".ron"), None);
+                                                &("texture/".to_owned() + &*name + ".png"),
+                                                &("texture/".to_owned() + &*name + ".ron"), None);
     let sprite_render = SpriteRender {
         sprite_sheet: sprite_sheet_handle,
         sprite_number: 0,

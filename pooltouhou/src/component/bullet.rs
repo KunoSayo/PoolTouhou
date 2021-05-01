@@ -7,7 +7,7 @@ use crate::systems::game_system::CollideType;
 
 #[derive(Default)]
 pub struct PlayerBullet {
-    pub damage: f32
+    pub damage: f32,
 }
 
 pub struct EnemyBullet {
