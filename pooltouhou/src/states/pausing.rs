@@ -4,6 +4,7 @@ use amethyst::{
 };
 
 use crate::GameCore;
+use crate::states::Gaming;
 
 #[derive(Default)]
 pub struct Pausing {
@@ -19,7 +20,8 @@ impl SimpleState for Pausing {
             Trans::Pop
         } else if core_storage.is_pressed(&[VirtualKeyCode::X]) {
             if self.choosing == 1 {
-                Trans::Sequence(vec![Trans::Pop, Trans::Pop])
+                //pop pause. switch gaming.
+                Trans::Sequence(vec![Trans::Pop, Trans::Switch(Box::new(Gaming::default()))])
             } else {
                 self.choosing = 1;
                 Trans::None

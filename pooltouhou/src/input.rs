@@ -37,8 +37,8 @@ fn get_direction(up: u32, down: u32, left: u32, right: u32) -> (i32, i32) {
     //down y-
     match (up, down, left, right) {
         (x, y, w, z) if x == y && w == z => (0, 0),
-        (x, y, 0, v) if x == y => (1, 0),
-        (x, y, v, 0) if x == y => (-1, 0),
+        (x, y, 0, _) if x == y => (1, 0),
+        (x, y, _, 0) if x == y => (-1, 0),
         (0, _, x, y) if x == y => (0, -1),
         (_, 0, x, y) if x == y => (0, 1),
         _ => {
@@ -108,9 +108,13 @@ impl GameInputData {
         inc_or_zero!(self.down, r.pressing.contains(&VirtualKeyCode::Down));
         inc_or_zero!(self.left, r.pressing.contains(&VirtualKeyCode::Left));
         inc_or_zero!(self.right, r.pressing.contains(&VirtualKeyCode::Right));
-        inc_or_zero!(self.enter, (r.pressing.contains(&VirtualKeyCode::Return) || r.pressing.contains(&VirtualKeyCode::NumpadEnter)));
+        inc_or_zero!(self.enter, r.pressing.contains(&VirtualKeyCode::Return) || r.pressing.contains(&VirtualKeyCode::NumpadEnter));
         inc_or_zero!(self.esc, r.pressing.contains(&VirtualKeyCode::Escape));
         self.direction = get_direction(self.up, self.down, self.left, self.right);
+    }
+
+    pub fn clear(&mut self) {
+        *self = Default::default();
     }
 }
 

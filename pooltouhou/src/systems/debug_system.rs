@@ -29,7 +29,7 @@ impl<'a> System<'a> for DebugSystem {
                 self.count = 0;
             }
             if cfg!(feature = "debug-game") {
-                text.text = format!("fps:{:.2}\nentities: {}", self.fps, (&entities).par_join().count());
+                text.text = format!("entities:{}\nfps:{:.2} ", (&entities).par_join().count(), self.fps);
             } else {
                 text.text = format!("fps:{:.2}", self.fps);
             }

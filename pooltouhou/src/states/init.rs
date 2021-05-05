@@ -13,11 +13,10 @@ use crate::component::{Enemy, EnemyBullet, PlayerBullet, Sheep};
 use crate::{GameCore, input};
 use crate::handles::ResourcesHandles;
 use crate::script::ScriptManager;
-use crate::states::{ARENA_HEIGHT, ARENA_WIDTH, Gaming, load_sprite_sheet};
+use crate::states::{ARENA_HEIGHT, ARENA_WIDTH, load_sprite_sheet, ProgressType};
 use amethyst::core::ecs::{Dispatcher, DispatcherBuilder};
 use crate::states::menu::Menu;
 
-pub type ProgressType = ProgressCounter;
 
 #[derive(Default)]
 pub struct Loading<'a, 'b> {
@@ -52,6 +51,7 @@ impl SimpleState for Loading<'_, '_> {
         load_texture(world, "circle_yellow".into(), "circle.ron".into(), &mut self.progress);
         load_texture(world, "circle_purple".into(), "circle.ron".into(), &mut self.progress);
         load_texture(world, "zzzz".into(), "zzzz.ron".to_string(), &mut self.progress);
+        load_texture(world, "mainbg".into(), "mainbg.ron".to_string(), &mut self.progress);
 
 
         setup_camera(world);
@@ -91,7 +91,7 @@ impl SimpleState for Loading<'_, '_> {
 
         #[cfg(feature = "debug-game")]
             {
-                let mut core_storage = data.world.read_resource::<GameCore>();
+                let core_storage = data.world.read_resource::<GameCore>();
                 if core_storage.is_pressed(&[VirtualKeyCode::F3, VirtualKeyCode::T]) {
                     println!("reloading...");
                     {
@@ -148,7 +148,7 @@ fn load_sheep(world: &mut World, progress: &mut ProgressType) {
     load_texture(world, "sheepBullet".into(), "sheepBullet.ron".into(), progress);
     {
         let mut texture_handle = world.try_fetch_mut::<ResourcesHandles>().unwrap();
-        let ss = texture_handle.textures.get("sheepBullet").unwrap();
+        let ss = texture_handle.sprites.get("sheepBullet").unwrap();
         texture_handle.player_bullet = Some(ss.clone());
     }
 }
@@ -163,6 +163,6 @@ fn load_texture_with_path(world: &mut World, name: String, path: String, ron: St
     let handle = load_sprite_sheet(world, &path,
                                    &("texture/".to_owned() + &ron), Some(progress));
     let mut texture_handle = world.try_fetch_mut::<ResourcesHandles>().unwrap();
-    texture_handle.textures.insert(name, SpriteRender { sprite_sheet: handle, sprite_number: 0 });
+    texture_handle.sprites.insert(name, SpriteRender { sprite_sheet: handle, sprite_number: 0 });
 }
 

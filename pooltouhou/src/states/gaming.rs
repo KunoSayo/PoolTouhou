@@ -31,6 +31,11 @@ impl SimpleState for Gaming<'_, '_> {
         let world = data.world;
 
         {
+            let mut core_storage = world.write_resource::<GameCore>();
+            core_storage.tick_input();
+            core_storage.cur_game_input.clear();
+        }
+        {
             let mut game_dispatcher_builder = DispatcherBuilder::new();
             game_dispatcher_builder.add(GameSystem, "main_gaming_system", &[]);
             let mut game_dispatcher = game_dispatcher_builder.build();
@@ -167,7 +172,7 @@ fn setup_sheep(world: &mut World) -> Entity {
     let sprite_render = {
         let texture_handle = world.fetch::<ResourcesHandles>();
 
-        texture_handle.textures.get("sheep").unwrap().clone()
+        texture_handle.sprites.get("sheep").unwrap().clone()
     };
 
     world.create_entity()
@@ -194,7 +199,7 @@ fn setup_enemy(world: &mut World, (name, x, y, z, hp, collide, script_name, args
 
     {
         let mut texture_handle = world.fetch_mut::<ResourcesHandles>();
-        texture_handle.textures.insert(name, sprite_render.clone());
+        texture_handle.sprites.insert(name, sprite_render.clone());
     }
 
     let script_manager = world.get_mut::<ScriptManager>().unwrap();

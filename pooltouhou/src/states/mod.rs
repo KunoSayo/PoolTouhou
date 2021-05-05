@@ -5,14 +5,15 @@ use amethyst::{
 };
 
 pub use gaming::Gaming;
-pub use loading::Loading;
+pub use init::Loading;
 
 pub type ProgressType = ProgressCounter;
 
 pub mod gaming;
 pub mod pausing;
-pub mod loading;
+pub mod init;
 pub mod menu;
+pub mod load;
 
 pub const ARENA_WIDTH: f32 = 1600.0;
 pub const ARENA_HEIGHT: f32 = 900.0;

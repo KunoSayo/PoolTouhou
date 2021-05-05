@@ -1,28 +1,27 @@
 use amethyst::{
-    core::{
-        components::Transform
-    },
     ecs::Entity,
-    input::VirtualKeyCode,
     prelude::*,
-    renderer::*,
 };
-use amethyst::core::ecs::{Join, DispatcherBuilder};
 
 use crate::{GameCore};
 use crate::handles::ResourcesHandles;
 use amethyst::ui::{UiTransform, Anchor, UiText, LineMode};
 use std::convert::TryInto;
+use crate::states::Gaming;
+use crate::states::load::LoadState;
+use amethyst::core::Transform;
+use nalgebra::Vector3;
 
 
-const BUTTON_COUNT: usize = 6;
-const BUTTON_NAME: [&str; BUTTON_COUNT] = ["Start", "Network", "Profile", "Option", "我觉得这里有个按钮", "Exit"];
+const BUTTON_COUNT: usize = 9;
+const BUTTON_NAME: [&str; BUTTON_COUNT] = ["Singleplayer", "Multiplayer", "Extra", "Profile", "Replay", "Music Room", "Option", "Cloud", "Exit"];
 
 pub struct Menu {
     select: u8,
     con: bool,
     time: std::time::SystemTime,
     texts: Option<[Entity; BUTTON_COUNT]>,
+    used_e: Vec<Entity>,
 }
 
 impl Default for Menu {
@@ -32,6 +31,7 @@ impl Default for Menu {
             con: false,
             time: std::time::SystemTime::now(),
             texts: None,
+            used_e: vec![],
         }
     }
 }
@@ -39,6 +39,19 @@ impl Default for Menu {
 impl SimpleState for Menu {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         let world = data.world;
+
+        let main_bg = {
+            let handles = world.read_resource::<ResourcesHandles>();
+            handles.sprites.get("mainbg").unwrap().clone()
+        };
+        self.used_e.push(world.create_entity().with(main_bg)
+            .with({
+                let mut tran = Transform::default();
+                tran.set_translation_xyz(1600.0 / 2.0, 900.0 / 2.0, 1.0);
+                tran
+            })
+            .build());
+
         let font = world.write_resource::<ResourcesHandles>().fonts.get("default")
             .expect("get default font to show menu failed").clone();
 
@@ -51,22 +64,29 @@ impl SimpleState for Menu {
                 font.clone(),
                 BUTTON_NAME[i].into(),
                 [1., 1., 1., 1.],
-                20.,
+                36.,
                 LineMode::Wrap,
-                Anchor::MiddleRight,
+                Anchor::TopLeft,
             );
             let tran = UiTransform::new(
-                "".into(), Anchor::Middle, Anchor::Middle,
-                0., -((i * 40) as f32), 1., 200., 40.,
+                "".into(), Anchor::TopLeft, Anchor::TopLeft,
+                60., -380.0 - ((i * 55) as f32), 1., 996.1, 55.,
             );
-            ui_text.insert(*e, text);
-            ui_tran.insert(*e, tran);
+            ui_text.insert(*e, text).unwrap();
+            ui_tran.insert(*e, tran).unwrap();
         }
 
-        self.texts = Some(ee.try_into().unwrap())
+        self.texts = Some(ee.try_into().unwrap());
     }
 
-    fn on_stop(&mut self, data: StateData<'_, GameData<'_, '_>>) {}
+    fn on_pause(&mut self, data: StateData<'_, GameData<'_, '_>>) {
+        if let Some(texts) = self.texts.take() {
+            for e in &texts {
+                data.world.delete_entity(*e).unwrap();
+            }
+        }
+        data.world.delete_entities(&self.used_e);
+    }
 
 
     fn update(&mut self, data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
@@ -77,8 +97,15 @@ impl SimpleState for Menu {
         //make sure the screen is right
         //check enter / shoot first
         if input.shoot > 0 || input.enter > 0 {
-            if self.select == BUTTON_COUNT as u8 - 1 {
-                return Trans::Quit;
+            const EXIT_IDX: u8 = (BUTTON_COUNT - 1) as u8;
+            match self.select {
+                0 => {
+                    return LoadState::wait_load(Trans::Push(Box::new(Gaming::default())), 1.0);
+                }
+                EXIT_IDX => {
+                    return Trans::Quit;
+                }
+                _ => {}
             }
         }
 

@@ -19,6 +19,7 @@ impl<'a> System<'a> for AnimationSystem {
     );
     fn run(&mut self, (entities, mut invert_color_circles, mut invert_color_animations, time): Self::SystemData) {
         let delta_second = time.delta_time().as_secs_f32();
+        //invert color (biu)
         for (entity, mut anime) in (&entities, &mut invert_color_animations).join() {
             if let Some(circle) = invert_color_circles.get_mut(entity) {
                 anime.last_seconds -= delta_second;
