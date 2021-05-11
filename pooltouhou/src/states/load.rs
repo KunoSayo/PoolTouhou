@@ -1,21 +1,9 @@
 use amethyst::{
     assets::*,
-    core::{
-        components::Transform
-    },
     prelude::*,
-    renderer::*,
 };
-use amethyst::audio::{FlacFormat, Mp3Format, OggFormat, SourceHandle, WavFormat};
-use amethyst_rendy::rendy::wsi::winit::VirtualKeyCode;
 
-use crate::component::{Enemy, EnemyBullet, PlayerBullet, Sheep};
-use crate::{GameCore, input};
-use crate::handles::ResourcesHandles;
-use crate::script::ScriptManager;
-use crate::states::{ARENA_HEIGHT, ARENA_WIDTH, load_sprite_sheet, ProgressType};
-use amethyst::core::ecs::{Dispatcher, DispatcherBuilder};
-use crate::states::menu::Menu;
+use crate::states::{ProgressType};
 
 
 pub struct LoadState {
@@ -26,8 +14,8 @@ pub struct LoadState {
 }
 
 impl LoadState {
-    pub fn wait_load(trans: SimpleTrans, seconds: f32) -> SimpleTrans {
-        Trans::Push(Box::new(
+    pub fn switch_wait_load(trans: SimpleTrans, seconds: f32) -> SimpleTrans {
+        Trans::Switch(Box::new(
             Self {
                 progress: None,
                 seconds,

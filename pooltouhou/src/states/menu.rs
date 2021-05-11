@@ -10,7 +10,7 @@ use std::convert::TryInto;
 use crate::states::Gaming;
 use crate::states::load::LoadState;
 use amethyst::core::Transform;
-use nalgebra::Vector3;
+use amethyst_rendy::palette::rgb::Rgba;
 
 
 const BUTTON_COUNT: usize = 9;
@@ -21,6 +21,7 @@ pub struct Menu {
     con: bool,
     time: std::time::SystemTime,
     texts: Option<[Entity; BUTTON_COUNT]>,
+    select_text: Option<Entity>,
     used_e: Vec<Entity>,
 }
 
@@ -31,6 +32,7 @@ impl Default for Menu {
             con: false,
             time: std::time::SystemTime::now(),
             texts: None,
+            select_text: None,
             used_e: vec![],
         }
     }
@@ -57,56 +59,75 @@ impl SimpleState for Menu {
 
 
         let ee = world.create_iter().take(BUTTON_COUNT).collect::<Vec<_>>();
-        let mut ui_tran = world.write_component::<UiTransform>();
-        let mut ui_text = world.write_component::<UiText>();
-        for (i, e) in ee.iter().enumerate() {
-            let text = UiText::new(
-                font.clone(),
-                BUTTON_NAME[i].into(),
-                [1., 1., 1., 1.],
-                36.,
-                LineMode::Wrap,
-                Anchor::TopLeft,
-            );
-            let tran = UiTransform::new(
-                "".into(), Anchor::TopLeft, Anchor::TopLeft,
-                60., -380.0 - ((i * 55) as f32), 1., 996.1, 55.,
-            );
-            ui_text.insert(*e, text).unwrap();
-            ui_tran.insert(*e, tran).unwrap();
+        let selecting_entity = world.create_entity().build();
+        {
+            let mut ui_tran = world.write_component::<UiTransform>();
+            let mut ui_text = world.write_component::<UiText>();
+            for (i, e) in ee.iter().enumerate() {
+                let text = UiText::new(
+                    font.clone(),
+                    BUTTON_NAME[i].into(),
+                    [1., 1., 1., 1.],
+                    36.,
+                    LineMode::Wrap,
+                    Anchor::TopLeft,
+                );
+                let tran = UiTransform::new(
+                    "".into(), Anchor::TopLeft, Anchor::TopLeft,
+                    60., -380.0 - ((i * 55) as f32), 1., 996.1, 55.,
+                );
+                if self.select == i as u8 {
+                    let mut text = text.clone();
+                    let mut tran = tran.clone();
+                    selecting_offset(&mut text, &mut tran);
+                    ui_text.insert(selecting_entity, text).unwrap();
+                    ui_tran.insert(selecting_entity, tran).unwrap();
+                }
+                ui_text.insert(*e, text).unwrap();
+                ui_tran.insert(*e, tran).unwrap();
+            }
         }
-
         self.texts = Some(ee.try_into().unwrap());
+        self.select_text = Some(selecting_entity);
     }
 
-    fn on_pause(&mut self, data: StateData<'_, GameData<'_, '_>>) {
+    fn on_stop(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         if let Some(texts) = self.texts.take() {
             for e in &texts {
                 data.world.delete_entity(*e).unwrap();
             }
         }
-        data.world.delete_entities(&self.used_e);
+        if let Some(e) = self.select_text.take() {
+            data.world.delete_entity(e).unwrap();
+        }
+
+        data.world.delete_entities(&self.used_e).unwrap();
+        self.used_e.clear();
     }
 
-
     fn update(&mut self, data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
+        const EXIT_IDX: u8 = (BUTTON_COUNT - 1) as u8;
+
         let now = std::time::SystemTime::now();
         let core = data.world.read_resource::<GameCore>();
         let input = &core.cur_frame_game_input;
 
+        let last_select = self.select;
         //make sure the screen is right
         //check enter / shoot first
         if input.shoot > 0 || input.enter > 0 {
-            const EXIT_IDX: u8 = (BUTTON_COUNT - 1) as u8;
             match self.select {
                 0 => {
-                    return LoadState::wait_load(Trans::Push(Box::new(Gaming::default())), 1.0);
+                    return LoadState::switch_wait_load(Trans::Push(Box::new(Gaming::default())), 1.0);
                 }
                 EXIT_IDX => {
                     return Trans::Quit;
                 }
                 _ => {}
             }
+        }
+        if input.bomb == 1 {
+            self.select = EXIT_IDX;
         }
 
         let just_change = input.up == 1 || input.down == 1;
@@ -115,19 +136,12 @@ impl SimpleState for Menu {
                 x if x > 0 => {
                     self.time = now;
                     self.con = !just_change;
-                    if self.select == 0 {
-                        self.select = (BUTTON_COUNT - 1) as u8;
-                    } else {
-                        self.select -= 1;
-                    }
+                    self.select = get_previous(self.select, BUTTON_COUNT as _);
                 }
                 x if x < 0 => {
                     self.time = now;
                     self.con = !just_change;
-                    self.select += 1;
-                    if self.select == BUTTON_COUNT as u8 {
-                        self.select = 0;
-                    }
+                    self.select = get_next(self.select, BUTTON_COUNT as _);
                 }
                 _ => {
                     self.con = false;
@@ -145,7 +159,47 @@ impl SimpleState for Menu {
                     text.color = [0.5, 0.5, 0.5, 1.];
                 }
             }
+            if last_select != self.select {
+                if let Some(select_entity) = self.select_text {
+                    let mut trans = data.world.write_component::<UiTransform>();
+
+                    let n_text = text.get(text_entities[self.select as usize]).unwrap().clone();
+                    let n_tran = trans.get(text_entities[self.select as usize]).unwrap().clone();
+                    let mut text = text.get_mut(select_entity).unwrap();
+                    let mut tran = trans.get_mut(select_entity).unwrap();
+                    *text = n_text;
+                    *tran = n_tran;
+                    selecting_offset(&mut text, &mut tran);
+                }
+            }
         }
         Trans::None
+    }
+}
+
+#[inline]
+pub fn selecting_offset(text: &mut UiText, tran: &mut UiTransform) {
+    text.color = [136.0 / 256.0, 136.0 / 256.0, 136.0 / 256.0, 1.0];
+    tran.local_x += 3.0;
+    tran.local_y -= 3.0;
+    tran.local_z -= 0.9961;
+}
+
+#[inline]
+pub fn get_previous(cur_idx: u8, max_len: u8) -> u8 {
+    if cur_idx == 0 {
+        max_len - 1
+    } else {
+        cur_idx - 1
+    }
+}
+
+#[inline]
+pub fn get_next(cur_idx: u8, max_len: u8) -> u8 {
+    let cur_idx = cur_idx + 1;
+    if cur_idx == max_len {
+        0
+    } else {
+        cur_idx
     }
 }

@@ -11,7 +11,6 @@ pub struct InvertColorAnimation {
     pub transform: Option<Transform>,
 }
 
-
 impl Component for InvertColorAnimation {
     type Storage = DenseVecStorage<Self>;
 }
