@@ -17,6 +17,7 @@ derivative = "2.1.1"
 amethyst_rendy = "0.15.3"
 alto = "3.0.4"
 rodio = "0.11.0"
+gfx-hal = "0.3.1"
 
 # https://amethyst.rs/doc
 

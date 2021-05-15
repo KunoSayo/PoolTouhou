@@ -10,7 +10,6 @@ use std::convert::TryInto;
 use crate::states::Gaming;
 use crate::states::load::LoadState;
 use amethyst::core::Transform;
-use amethyst_rendy::palette::rgb::Rgba;
 
 
 const BUTTON_COUNT: usize = 9;

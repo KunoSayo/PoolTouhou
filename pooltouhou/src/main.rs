@@ -46,11 +46,18 @@ pub struct GameCore {
     commands: Vec<ScriptGameCommand>,
     next_tick_time: std::time::SystemTime,
     tick: u128,
-    al: audio::OpenalData,
+    al: Option<audio::OpenalData>,
 }
 
 impl Default for GameCore {
     fn default() -> Self {
+        let alto = match audio::OpenalData::new() {
+            Ok(a) => Some(a),
+            Err(e) => {
+                eprintln!("load openal failed for {}", e);
+                None
+            }
+        };
         Self {
             player: None,
             cur_game_input: Default::default(),
@@ -63,7 +70,7 @@ impl Default for GameCore {
             commands: vec![],
             next_tick_time: std::time::SystemTime::now(),
             tick: 0,
-            al: audio::OpenalData::default(),
+            al: alto,
         }
     }
 }
@@ -107,14 +114,17 @@ fn main() -> amethyst::Result<()> {
     let assets_dir = res_root.join("assets");
     let game_data = GameDataBuilder::default()
         .with_bundle(RenderingBundle::<DefaultBackend>::new()
-            .with_plugin(
-                RenderToWindow::from_config_path(display_config_path)?
-                    .with_clear([0.0, 0.0, 0.0, 1.0])
-            )
-            .with_plugin(RenderFlat2D::default())
-            .with_plugin(RenderFlat3D::default())
-            .with_plugin(RenderUi::default())
-            .with_plugin(render::RenderInvertColorCircle::default())
+                         .with_plugin(render::blit::BlitToWindow::new(amethyst::renderer::bundle::Target::Main, render::WINDOW, true))
+                         .with_plugin(
+                             RenderToWindow::from_config_path(display_config_path)?
+                                 .with_clear([0.0, 0.0, 0.0, 1.0])
+                                 .with_target(render::WINDOW)
+                         )
+                         .with_plugin(RenderFlat2D::default())
+                         .with_plugin(RenderFlat3D::default())
+                         .with_plugin(RenderUi::default())
+                         .with_plugin(render::RenderInvertColorCircle::default())
+                     // .with_plugin(render::water_wave::RenderWaterWave::default().with_target(render::PTH_MAIN))
         )?
         .with_bundle(TransformBundle::new())?
         .with_bundle(InputBundle::<StringBindings>::new())?

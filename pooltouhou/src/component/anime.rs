@@ -1,6 +1,6 @@
 use amethyst::{
     core::components::Transform,
-    ecs::prelude::{Component, DenseVecStorage},
+    ecs::prelude::{Component, HashMapStorage},
 };
 
 #[derive(Default)]
@@ -12,5 +12,16 @@ pub struct InvertColorAnimation {
 }
 
 impl Component for InvertColorAnimation {
-    type Storage = DenseVecStorage<Self>;
+    type Storage = HashMapStorage<Self>;
+}
+
+#[derive(Default)]
+pub struct WaterWave {
+    pub radius: f32,
+    pub lambda: f32,
+    pub src: Transform,
+}
+
+impl Component for WaterWave {
+    type Storage = HashMapStorage<Self>;
 }

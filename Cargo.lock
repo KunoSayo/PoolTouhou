@@ -2624,6 +2624,7 @@ dependencies = [
  "amethyst_rendy",
  "derivative 2.1.1",
  "failure",
+ "gfx-hal",
  "glsl-layout",
  "lazy_static 1.4.0",
  "nalgebra",

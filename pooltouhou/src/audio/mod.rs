@@ -6,16 +6,16 @@ pub struct OpenalData {
     ctx: Context,
 }
 
-impl Default for OpenalData {
-    fn default() -> Self {
-        let alto = Alto::load_default().expect("failed to get alto.");
-        let device = alto.open(None).expect("open device failed.");
-        let ctx = device.new_context(None).expect("get context failed.");
-        Self {
+impl OpenalData {
+    pub(crate) fn new() -> Result<Self, Box<dyn std::error::Error>> {
+        let alto = Alto::load_default()?;
+        let device = alto.open(None)?;
+        let ctx = device.new_context(None)?;
+        Ok(Self {
             alto,
             device,
             ctx,
-        }
+        })
     }
 }
 

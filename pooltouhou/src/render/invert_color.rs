@@ -4,7 +4,7 @@ use amethyst::{
     core::{
         components::Transform,
         ecs::{
-            Component, DenseVecStorage, DispatcherBuilder, Join, ReadStorage, SystemData, World,
+            Component, DispatcherBuilder, Join, ReadStorage, SystemData, World,
         },
     },
     prelude::*,
@@ -31,10 +31,12 @@ use amethyst::error::Error;
 use amethyst_rendy::submodules::DynamicIndexBuffer;
 use derivative::*;
 use glsl_layout::*;
+use crate::render::PthCameraUniformArgs;
+use amethyst::core::ecs::HashMapStorage;
 
 lazy_static::lazy_static! {
     static ref VERTEX: SpirvShader = PathBufShaderInfo::new(
-        PathBuf::from(std::env::current_dir().unwrap().to_str().unwrap().to_owned() + "/assets/shaders/circle.vert"),
+        PathBuf::from(std::env::current_dir().unwrap().to_str().unwrap().to_owned() + "/assets/shaders/normal3d.vert"),
         ShaderKind::Vertex,
         SourceLanguage::GLSL,
        "main",
@@ -72,7 +74,7 @@ impl<B: Backend> RenderGroupDesc<B, World> for InvertColorDesc {
         _buffers: Vec<NodeBuffer>,
         _images: Vec<NodeImage>,
     ) -> Result<Box<dyn RenderGroup<B, World>>, failure::Error> {
-        let env = DynamicUniform::new(factory, pso::ShaderStageFlags::VERTEX)?;
+        let env = DynamicUniform::new(factory, pso::ShaderStageFlags::VERTEX | pso::ShaderStageFlags::FRAGMENT)?;
         let vertex = DynamicVertexBuffer::new();
         let index = DynamicIndexBuffer::new();
 
@@ -100,7 +102,7 @@ impl<B: Backend> RenderGroupDesc<B, World> for InvertColorDesc {
 pub struct DrawInvertColor<B: Backend> {
     pipeline: B::GraphicsPipeline,
     pipeline_layout: B::PipelineLayout,
-    env: DynamicUniform<B, CameraUniformArgs>,
+    env: DynamicUniform<B, PthCameraUniformArgs>,
     vertex: DynamicVertexBuffer<B, InvertColorVertexArg>,
     indices: DynamicIndexBuffer<B, u16>,
     index_count: usize,
@@ -118,7 +120,7 @@ impl<B: Backend> RenderGroup<B, World> for DrawInvertColor<B> {
     ) -> PrepareResult {
         let (inverse_color_circles, ) = <(ReadStorage<'_, InvertColorCircle>, )>::fetch(world);
 
-        let uniform_args = world.read_resource::<CameraUniformArgs>();
+        let uniform_args = world.read_resource::<PthCameraUniformArgs>();
 
         // Write to our DynamicUniform
         self.env.write(factory, index, uniform_args.std140());
@@ -127,7 +129,9 @@ impl<B: Backend> RenderGroup<B, World> for DrawInvertColor<B> {
         let old_index_count = self.index_count;
         //4个顶点画圆
         let vertex_count = (inverse_color_circles.count() * 4) as usize;
-        self.index_count = vertex_count + vertex_count / 2;
+        //这不就是raw_count *6么 【恼】
+        //当初什么破代码 就留在这里看戏好了 :qp:
+        self.index_count = vertex_count + vertex_count >> 1;
         let changed = old_index_count != self.index_count;
         let vertex_data_iter = (&inverse_color_circles).join().flat_map(|circle| { circle.get_args() });
 
@@ -256,7 +260,16 @@ fn build_custom_pipeline<B: Backend>(
 
 /// A [RenderPlugin] for our custom plugin
 #[derive(Default, Debug)]
-pub struct RenderInvertColorCircle {}
+pub struct RenderInvertColorCircle {
+    target: Target,
+}
+
+impl RenderInvertColorCircle {
+    pub fn with_target(mut self, target: Target) -> Self {
+        self.target = target;
+        self
+    }
+}
 
 impl<B: Backend> RenderPlugin<B> for RenderInvertColorCircle {
     fn on_build<'a, 'b>(
@@ -266,7 +279,7 @@ impl<B: Backend> RenderPlugin<B> for RenderInvertColorCircle {
     ) -> Result<(), Error> {
         // Add the required components to the world ECS
         world.register::<InvertColorCircle>();
-        world.insert(CameraUniformArgs {
+        world.insert(PthCameraUniformArgs {
             projection: [[1.0, 0.0, 0.0, 0.0],
                 [0.0, 1.0, 0.0, 0.0],
                 [0.0, 0.0, 1.0, 0.0],
@@ -282,7 +295,7 @@ impl<B: Backend> RenderPlugin<B> for RenderInvertColorCircle {
         _factory: &mut Factory<B>,
         _world: &World,
     ) -> Result<(), Error> {
-        plan.extend_target(Target::Main, |ctx| {
+        plan.extend_target(self.target, |ctx| {
             // Add our Description
             ctx.add(RenderOrder::DisplayPostEffects, InvertColorDesc::new().builder())?;
             Ok(())
@@ -310,13 +323,6 @@ impl AsVertex for InvertColorVertexArg {
 }
 
 
-#[derive(Clone, Copy, Debug, AsStd140)]
-#[repr(C, align(4))]
-pub struct CameraUniformArgs {
-    pub projection: mat4,
-    pub view: mat4,
-}
-
 #[derive(Debug, Default)]
 pub struct InvertColorCircle {
     pub pos: Transform,
@@ -324,7 +330,7 @@ pub struct InvertColorCircle {
 }
 
 impl Component for InvertColorCircle {
-    type Storage = DenseVecStorage<Self>;
+    type Storage = HashMapStorage<Self>;
 }
 
 impl InvertColorCircle {
@@ -338,7 +344,7 @@ impl InvertColorCircle {
                     1 => [self.radius + tran.x, self.radius + tran.y, tran.z].into(),
                     2 => [-self.radius + tran.x, -self.radius + tran.y, tran.z].into(),
                     3 => [self.radius + tran.x, -self.radius + tran.y, tran.z].into(),
-                    _ => panic!("?")
+                    _ => unreachable!("?")
                 }
             }
             ,
@@ -347,7 +353,7 @@ impl InvertColorCircle {
                 1 => [1.0, 1.0].into(),
                 2 => [0.0, 0.0].into(),
                 3 => [1.0, 0.0].into(),
-                _ => panic!("?")
+                _ => unreachable!("?")
             },
         }));
         vec

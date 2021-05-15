@@ -144,7 +144,7 @@ impl SimpleState for Gaming<'_, '_> {
 
         let cameras = world.read_component::<Camera>();
         if let Some((camera, transform, _)) = (&cameras, &transforms, &world.entities()).join().next() {
-            let mut inverse_args = world.write_resource::<crate::render::CameraUniformArgs>();
+            let mut inverse_args = world.write_resource::<crate::render::PthCameraUniformArgs>();
             let projection = &camera.matrix;
             let view = &transform.view_matrix();
             inverse_args.projection = [[projection.m11, projection.m21, projection.m31, projection.m41],
