@@ -7,27 +7,20 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rand = "*"
-amethyst = "0.15.3"
-nalgebra = "0.19.0"
+env_logger = "0.8.3"
+log = "0.4.14"
+wgpu = "^0.7"
+wgpu_glyph = "0.11"
+winit = "0.24"
+pollster = "0.2.3"
+futures = "*"
 lazy_static = "1.4.0"
 glsl-layout = "0.3.2"
-failure = "0.1.8"
-derivative = "2.1.1"
-amethyst_rendy = "0.15.3"
+
 alto = "3.0.4"
 rodio = "0.11.0"
-gfx-hal = "0.3.1"
 
 # https://amethyst.rs/doc
 
 [features]
-default = ["vulkan", "shader-compiler"]
-empty = ["amethyst/empty"]
-metal = ["amethyst/metal"]
-vulkan = ["amethyst/vulkan"]
-profiler = ["amethyst/profiler"]
-
-shader-compiler = ["amethyst/shader-compiler"]
-no-slow-safety-checks = ["amethyst/no-slow-safety-checks"]
 debug-game = []

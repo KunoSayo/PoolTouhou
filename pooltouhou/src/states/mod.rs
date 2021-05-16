@@ -1,62 +1,34 @@
-use amethyst::{
-    assets::*,
-    prelude::*,
-    renderer::*,
-};
-
-pub use gaming::Gaming;
-pub use init::Loading;
-
-pub type ProgressType = ProgressCounter;
-
-pub mod gaming;
-pub mod pausing;
-pub mod init;
-pub mod menu;
-pub mod load;
+// pub use gaming::Gaming;
+// pub use init::Loading;
+//
+//
+// pub mod gaming;
+// pub mod pausing;
+// pub mod init;
+// pub mod menu;
+// pub mod load;
 
 pub const ARENA_WIDTH: f32 = 1600.0;
 pub const ARENA_HEIGHT: f32 = 900.0;
 
-pub fn load_sprite_sheet(world: &mut World, path: &str, ron_name: &str, mut progress: Option<&mut ProgressType>) -> Handle<SpriteSheet> {
-    // Load the sprite sheet necessary to render the graphics.
-    // The texture is the pixel data
-    // `texture_handle` is a cloneable reference to the texture
-    let is_some = progress.is_some();
-    let texture_handle = {
-        let loader = world.read_resource::<Loader>();
-        let texture_storage = world.read_resource::<AssetStorage<Texture>>();
-        if is_some {
-            loader.load(
-                path,
-                ImageFormat::default(),
-                &mut **progress.as_mut().unwrap(),
-                &texture_storage,
-            )
-        } else {
-            loader.load(
-                path,
-                ImageFormat::default(),
-                (),
-                &texture_storage,
-            )
-        }
-    };
-    let loader = world.read_resource::<Loader>();
-    let sprite_sheet_store = world.read_resource::<AssetStorage<SpriteSheet>>();
-    if is_some {
-        loader.load(
-            ron_name, // Here we load the associated ron file
-            SpriteSheetFormat(texture_handle),
-            &mut **progress.as_mut().unwrap(),
-            &sprite_sheet_store,
-        )
-    } else {
-        loader.load(
-            ron_name, // Here we load the associated ron file
-            SpriteSheetFormat(texture_handle),
-            (),
-            &sprite_sheet_store,
-        )
-    }
+pub enum StateTransform {
+    Push(Box<dyn GameState>),
+    Pop,
+    Switch(Box<dyn GameState>),
+    Exit,
+    None,
+}
+
+pub trait GameState {
+    fn start(&mut self) {}
+
+    fn update(&mut self) -> StateTransform { StateTransform::None }
+
+    fn shadow_update(&mut self) {}
+
+    fn render(&mut self) {}
+
+    fn shadow_render(&mut self) {}
+
+    fn stop(&mut self) {}
 }
