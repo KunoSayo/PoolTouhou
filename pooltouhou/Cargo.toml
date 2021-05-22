@@ -14,13 +14,17 @@ wgpu_glyph = "0.11"
 winit = "0.24"
 pollster = "0.2.3"
 futures = "*"
+image = "*"
 lazy_static = "1.4.0"
 glsl-layout = "0.3.2"
 
 alto = "3.0.4"
 rodio = "0.11.0"
+shaderc = "0.7"
 
 # https://amethyst.rs/doc
 
 [features]
 debug-game = []
+
+shader-compiler = ["shaderc/build-from-source"]

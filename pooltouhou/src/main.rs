@@ -1,6 +1,7 @@
 mod handles;
 mod states;
 mod systems;
+mod render;
 
 use std::mem::swap;
 use winit::event::{VirtualKeyCode, Event, WindowEvent};
@@ -9,7 +10,12 @@ use winit::window::Window;
 use crate::handles::ResourcesHandles;
 use wgpu_glyph::ab_glyph::FontVec;
 use std::sync::Arc;
-use wgpu::{RenderPassDescriptor, RenderPassColorAttachmentDescriptor, LoadOp, Color, Operations};
+use wgpu::{RenderPassDescriptor, RenderPassColorAttachmentDescriptor, LoadOp, Color, Operations, ShaderModuleDescriptor};
+use std::sync::Mutex;
+use futures::executor::{LocalPool};
+use shaderc::ShaderKind;
+use crate::states::GameState;
+use std::time::Duration;
 
 
 // https://doc.rust-lang.org/book/
@@ -89,20 +95,21 @@ pub const PLAYER_Z: f32 = 0.0;
 // }
 
 
-struct GraphicsState {
+pub struct GraphicsState {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
     swapchain_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
     size: winit::dpi::PhysicalSize<u32>,
-    mouse_pressed: bool,
     staging_belt: wgpu::util::StagingBelt,
     glyph_brush: wgpu_glyph::GlyphBrush<()>,
+    handles: ResourcesHandles,
 }
 
 impl GraphicsState {
-    async fn new(window: &Window, res: &mut ResourcesHandles) -> Self {
+    async fn new(window: &Window) -> Self {
+        let mut res = ResourcesHandles::default();
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
@@ -142,9 +149,12 @@ impl GraphicsState {
         let staging_belt = wgpu::util::StagingBelt::new(1024);
 
         res.load_font("default", "cjkFonts_allseto_v1.11.ttf");
+        res.load_with_compile_shader("2dt.v", "normal2dtexture.vert", "main", ShaderKind::Vertex);
+        res.load_with_compile_shader("2dt.f", "normal2dtexture.frag", "main", ShaderKind::Fragment);
 
         let glyph_brush =
-            wgpu_glyph::GlyphBrushBuilder::using_font(res.fonts.get("default").unwrap().clone()).build(&device, swapchain_desc.format);
+            wgpu_glyph::GlyphBrushBuilder::using_font(res.fonts.read().unwrap()
+                .get("default").unwrap().clone()).build(&device, swapchain_desc.format);
 
         Self {
             surface,
@@ -153,9 +163,9 @@ impl GraphicsState {
             swapchain_desc,
             swap_chain,
             size,
-            mouse_pressed: false,
             staging_belt,
             glyph_brush,
+            handles: res,
         }
     }
 }
@@ -180,6 +190,7 @@ impl GraphicsState {
                 }],
                 depth_stencil_attachment: None,
             });
+
             systems::debug_system::DEBUG.render(self, dt, &frame.view, &mut encoder)
         }
         self.queue.submit(Some(encoder.finish()));
@@ -187,34 +198,67 @@ impl GraphicsState {
 }
 
 impl PthData {
-    pub fn render_thread(&mut self) {
-        let mut last_render_time = std::time::SystemTime::now();
+    pub fn render_thread(&self) {
+        log::info!("created render thread.");
+        let mut last_render_time = std::time::Instant::now();
         loop {
-            let mut now = std::time::SystemTime::now();
-            let dur = match now.duration_since(last_render_time) {
-                Ok(dur) => dur.as_secs_f32(),
-                Err(e) => e.duration().as_secs_f32()
-            };
+            let now = std::time::Instant::now();
+            let dur = now.duration_since(last_render_time);
 
             {
-                let state = &mut self.graphics_state;
-                state.render_once(dur);
+                let mut state = self.graphics_state.lock()
+                    .expect("lock graphics failed");
+                state.render_once(dur.as_secs_f32());
             }
             last_render_time = now;
+            std::thread::yield_now();
+        }
+    }
+
+    pub fn logic_thread(&self) {
+        log::info!("created logic thread.");
+
+        let mut last_tick_time = std::time::SystemTime::now();
+
+        let interval = Duration::from_secs_f64(1.0 / 60.0);
+        let one_ms = Duration::from_millis(1);
+        loop {
+            //tick here
+
+            let now = std::time::SystemTime::now();
+            let dur = match now.duration_since(last_tick_time) {
+                Ok(dur) => dur,
+                Err(e) => Duration::from_secs(1)
+            };
+            if dur < interval {
+                if let Some(d) = (dur - interval).checked_sub(one_ms) {
+                    std::thread::sleep(d);
+                }
+            }
+            if dur > 2 * interval {
+                last_tick_time = std::time::SystemTime::now();
+            } else {
+                last_tick_time = now;
+            }
+
             std::thread::yield_now();
         }
     }
 }
 
 pub struct PthData {
-    res_handles: ResourcesHandles,
-    graphics_state: GraphicsState,
+    graphics_state: Mutex<GraphicsState>,
+    states: Mutex<Vec<Box<dyn GameState>>>,
+}
+
+pub struct LogicData {
+    futures: futures::executor::LocalPool,
 }
 
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::builder()
-        .filter_level(log::LevelFilter::Info)
+        .filter_level(if cfg!(feature = "debug-game") { log::LevelFilter::Debug } else { log::LevelFilter::Info })
         .init();
     log::info!("Starting up...");
     // let app_root = application_root_dir().expect("get app root dir failed.");
@@ -247,6 +291,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let event_loop = winit::event_loop::EventLoop::new();
 
+    log::info!("going to build window");
     let window = winit::window::WindowBuilder::new()
         .with_title("PoolTouhou")
         .with_inner_size(winit::dpi::PhysicalSize::new(1600, 900))
@@ -257,14 +302,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap();
 
 
-    let mut res = ResourcesHandles::default();
-    let state = pollster::block_on(GraphicsState::new(&window, &mut res));
+    log::info!("building graphics state.");
+    let state = pollster::block_on(GraphicsState::new(&window));
 
-    let mut pth = PthData {
-        res_handles: res,
-        graphics_state: state,
-    };
-    std::thread::spawn(move || { pth.render_thread() });
+    let pth = Arc::new(PthData {
+        graphics_state: Mutex::new(state),
+        states: Mutex::new(vec![Box::new(crate::states::init::Loading::default())]),
+    });
+
+    {
+        let c_pth = pth.clone();
+        std::thread::spawn(move || { c_pth.render_thread() });
+    }
+    log::info!("going to run event loop");
+    std::thread::spawn(move || { pth.logic_thread() });
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::WindowEvent {

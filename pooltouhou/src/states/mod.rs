@@ -1,12 +1,21 @@
+use std::sync::atomic::AtomicU32;
+use std::sync::Arc;
+
 // pub use gaming::Gaming;
 // pub use init::Loading;
 //
 //
 // pub mod gaming;
 // pub mod pausing;
-// pub mod init;
+pub mod init;
 // pub mod menu;
 // pub mod load;
+
+#[derive(Default)]
+pub struct Progress {
+    num_loadings: Arc<AtomicU32>,
+    num_finishes: Arc<AtomicU32>,
+}
 
 pub const ARENA_WIDTH: f32 = 1600.0;
 pub const ARENA_HEIGHT: f32 = 900.0;
@@ -19,7 +28,7 @@ pub enum StateTransform {
     None,
 }
 
-pub trait GameState {
+pub trait GameState: Send + 'static {
     fn start(&mut self) {}
 
     fn update(&mut self) -> StateTransform { StateTransform::None }

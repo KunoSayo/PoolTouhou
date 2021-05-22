@@ -1,168 +1,69 @@
-// use amethyst::{
-//     assets::*,
-//     core::{
-//         components::Transform
-//     },
-//     prelude::*,
-//     renderer::*,
-// };
-// use amethyst::audio::{FlacFormat, Mp3Format, OggFormat, SourceHandle, WavFormat};
-// use amethyst_rendy::rendy::wsi::winit::VirtualKeyCode;
-//
-// use crate::component::{Enemy, EnemyBullet, PlayerBullet, Sheep};
-// use crate::{GameCore, input};
-// use crate::handles::ResourcesHandles;
-// use crate::script::ScriptManager;
-// use crate::states::{ARENA_HEIGHT, ARENA_WIDTH, load_sprite_sheet, ProgressType};
-// use amethyst::core::ecs::{Dispatcher, DispatcherBuilder};
-// use crate::states::menu::Menu;
-//
-//
-// #[derive(Default)]
-// pub struct Loading<'a, 'b> {
-//     progress: ProgressType,
-//     input_dispatcher: Option<Dispatcher<'a, 'b>>,
-// }
-//
-//
-// impl SimpleState for Loading<'_, '_> {
-//     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
-//         let world = data.world;
-//         let mut dispatcher_builder = DispatcherBuilder::new();
-//         dispatcher_builder.add(input::InputDataSystem, "main_input_system", &[]);
-//         let mut dispatcher = dispatcher_builder.build();
-//         dispatcher.setup(world);
-//
-//         self.input_dispatcher = Some(dispatcher);
-//
-//         world.register::<Sheep>();
-//         world.register::<Enemy>();
-//         world.register::<PlayerBullet>();
-//         world.register::<EnemyBullet>();
-//         world.insert(ResourcesHandles::default());
-//
-//         load_sheep(world, &mut self.progress);
-//
-//
-//         load_texture(world, "bullet".into(), "bullet.ron".into(), &mut self.progress);
-//         load_texture(world, "circle_red".into(), "circle.ron".into(), &mut self.progress);
-//         load_texture(world, "circle_blue".into(), "circle.ron".into(), &mut self.progress);
-//         load_texture(world, "circle_green".into(), "circle.ron".into(), &mut self.progress);
-//         load_texture(world, "circle_yellow".into(), "circle.ron".into(), &mut self.progress);
-//         load_texture(world, "circle_purple".into(), "circle.ron".into(), &mut self.progress);
-//         load_texture(world, "zzzz".into(), "zzzz.ron".to_string(), &mut self.progress);
-//         load_texture(world, "mainbg".into(), "mainbg.ron".to_string(), &mut self.progress);
-//
-//
-//         setup_camera(world);
-//
-//         crate::ui::debug::setup_debug_text(world, &mut self.progress);
-//
-//         let mut script_manager = ScriptManager::default();
-//         script_manager.load_scripts();
-//
-//
-//         world.insert(script_manager);
-//
-//         println!("Loading state started.");
-//     }
-//
-//     fn update(&mut self, _data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
-//         if self.progress.num_loading() == 0 {
-//             println!("loaded {} resources.", self.progress.num_finished());
-//             match self.progress.complete() {
-//                 Completion::Failed => {
-//                     for x in self.progress.errors() {
-//                         eprintln!("load {} failed for {}", x.asset_name, x.error);
-//                     }
-//                 }
-//                 _ => {}
-//             }
-//             Trans::Push(Box::new(Menu::default()))
-//         } else {
-//             Trans::None
-//         }
-//     }
-//
-//     fn shadow_update(&mut self, data: StateData<'_, GameData<'_, '_>>) {
-//         if let Some(dispatcher) = self.input_dispatcher.as_mut() {
-//             dispatcher.dispatch(data.world);
-//         }
-//
-//         #[cfg(feature = "debug-game")]
-//             {
-//                 let core_storage = data.world.read_resource::<GameCore>();
-//                 if core_storage.is_pressed(&[VirtualKeyCode::F3, VirtualKeyCode::T]) {
-//                     println!("reloading...");
-//                     {
-//                         let mut manager = data.world.write_resource::<ScriptManager>();
-//                         manager.load_scripts();
-//                     }
-//                 }
-//             }
-//     }
-// }
-//
-// fn setup_camera(world: &mut World) {
-//     let mut transform = Transform::default();
-//     // transform.set_translation_xyz(ARENA_WIDTH * 0.5, ARENA_HEIGHT * 0.5, 16.0);
-//     // let camera = Camera::from(camera::Projection::from(camera::Perspective
-//     // ::new(ARENA_WIDTH / ARENA_HEIGHT,
-//     //       std::f32::consts::FRAC_PI_6,
-//     //       0.1,
-//     //       3200.0)));
-//     transform.set_translation_xyz(0.0, 0.0, 16.0);
-//     let camera = camera::Camera::orthographic(0.0, ARENA_WIDTH, -ARENA_HEIGHT, 0.0,
-//                                               0.1, 32.0);
-//     world
-//         .create_entity()
-//         .with(camera)
-//         .with(transform)
-//         .build();
-// }
-//
-//
-// fn load_sound(world: &mut World, name: String) {
-//     let get_format = |s: &str| -> Box<dyn amethyst::assets::Format<_>> {
-//         match s {
-//             "wav" => Box::new(WavFormat),
-//             "ogg" => Box::new(OggFormat),
-//             "mp3" => Box::new(Mp3Format),
-//             "flac" => Box::new(FlacFormat),
-//             _ => {
-//                 panic!("Not supported format!");
-//             }
-//         }
-//     };
-//     let loader = world.read_resource::<Loader>();
-//     let handle: SourceHandle = loader
-//         .load(format!("sounds/{}", name),
-//               get_format(*name.split(".").collect::<Vec<&str>>().last().unwrap()),
-//               (), &world.read_resource());
-//     let mut handles = world.fetch_mut::<ResourcesHandles>();
-//     handles.sounds.insert(name, handle);
-// }
-//
-// fn load_sheep(world: &mut World, progress: &mut ProgressType) {
-//     load_texture(world, "sheep".to_string(), "sheep.ron".to_string(), progress);
-//     load_texture(world, "sheepBullet".into(), "sheepBullet.ron".into(), progress);
-//     {
-//         let mut texture_handle = world.try_fetch_mut::<ResourcesHandles>().unwrap();
-//         let ss = texture_handle.sprites.get("sheepBullet").unwrap();
-//         texture_handle.player_bullet = Some(ss.clone());
-//     }
-// }
-//
-//
-// fn load_texture(world: &mut World, name: String, ron: String, progress: &mut ProgressType) {
-//     let path = "texture/".to_owned() + &name + ".png";
-//     load_texture_with_path(world, name, path, ron, progress);
-// }
-//
-// fn load_texture_with_path(world: &mut World, name: String, path: String, ron: String, progress: &mut ProgressType) {
-//     let handle = load_sprite_sheet(world, &path,
-//                                    &("texture/".to_owned() + &ron), Some(progress));
-//     let mut texture_handle = world.try_fetch_mut::<ResourcesHandles>().unwrap();
-//     texture_handle.sprites.insert(name, SpriteRender { sprite_sheet: handle, sprite_number: 0 });
-// }
-//
+use crate::states::{Progress, GameState};
+
+#[derive(Default)]
+pub struct Loading {
+    progress: Progress,
+}
+
+
+impl GameState for Loading {
+    // fn on_start(&mut self) {
+    //
+    //     load_texture(world, "bullet".into(), "bullet.ron".into(), &mut self.progress);
+    //     load_texture(world, "circle_red".into(), "circle.ron".into(), &mut self.progress);
+    //     load_texture(world, "circle_blue".into(), "circle.ron".into(), &mut self.progress);
+    //     load_texture(world, "circle_green".into(), "circle.ron".into(), &mut self.progress);
+    //     load_texture(world, "circle_yellow".into(), "circle.ron".into(), &mut self.progress);
+    //     load_texture(world, "circle_purple".into(), "circle.ron".into(), &mut self.progress);
+    //     load_texture(world, "zzzz".into(), "zzzz.ron".to_string(), &mut self.progress);
+    //     load_texture(world, "mainbg".into(), "mainbg.ron".to_string(), &mut self.progress);
+    //
+    //
+    //     setup_camera(world);
+    //
+    //     crate::ui::debug::setup_debug_text(world, &mut self.progress);
+    //
+    //     let mut script_manager = ScriptManager::default();
+    //     script_manager.load_scripts();
+    //
+    //
+    //     world.insert(script_manager);
+    //
+    //     println!("Loading state started.");
+    // }
+
+    // fn update(&mut self, _data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
+    //     if self.progress.num_loading() == 0 {
+    //         println!("loaded {} resources.", self.progress.num_finished());
+    //         match self.progress.complete() {
+    //             Completion::Failed => {
+    //                 for x in self.progress.errors() {
+    //                     eprintln!("load {} failed for {}", x.asset_name, x.error);
+    //                 }
+    //             }
+    //             _ => {}
+    //         }
+    //         Trans::Push(Box::new(Menu::default()))
+    //     } else {
+    //         Trans::None
+    //     }
+    // }
+
+    // fn shadow_update(&mut self, data: StateData<'_, GameData<'_, '_>>) {
+    //     if let Some(dispatcher) = self.input_dispatcher.as_mut() {
+    //         dispatcher.dispatch(data.world);
+    //     }
+    //
+    //     #[cfg(feature = "debug-game")]
+    //         {
+    //             let core_storage = data.world.read_resource::<GameCore>();
+    //             if core_storage.is_pressed(&[VirtualKeyCode::F3, VirtualKeyCode::T]) {
+    //                 println!("reloading...");
+    //                 {
+    //                     let mut manager = data.world.write_resource::<ScriptManager>();
+    //                     manager.load_scripts();
+    //                 }
+    //             }
+    //         }
+    // }
+}

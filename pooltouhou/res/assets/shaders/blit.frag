@@ -11,6 +11,6 @@ layout(location = 0) in VertexData {
 layout(location = 0) out vec4 out_color;
 
 void main() {
-        out_color = texture(sampler2D(t, s), vertex.coord);
-//    out_color = texture(t, vertex.coord);
+    out_color = texture(sampler2D(t, s), vertex.coord);
+    //    out_color = texture(t, vertex.coord);
 }
