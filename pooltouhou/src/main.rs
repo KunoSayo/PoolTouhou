@@ -16,6 +16,7 @@ use futures::executor::{LocalPool};
 use shaderc::ShaderKind;
 use crate::states::GameState;
 use std::time::Duration;
+use std::sync::mpsc::Receiver;
 
 
 // https://doc.rust-lang.org/book/
@@ -170,13 +171,62 @@ impl GraphicsState {
     }
 }
 
-impl GraphicsState {
+
+enum WindowEventSync {
+    ChangeSize(u32, u32)
+}
+
+
+pub struct PthData {
+    graphics_state: GraphicsState,
+    states: Vec<Box<dyn GameState>>,
+    receiver: Receiver<WindowEventSync>,
+}
+
+impl PthData {
+    pub fn game_thread(&mut self) {
+        log::info!("created render thread.");
+        let mut last_render_time = std::time::Instant::now();
+        let mut last_tick_time = std::time::Instant::now();
+        let tick_interval = Duration::from_secs_f64(1.0 / 60.0);
+        loop {
+            while let Ok(event) = self.receiver.try_recv() {
+                match event {
+                    WindowEventSync::ChangeSize(_, _) => {}
+                }
+            }
+            {
+                let tick_now = std::time::Instant::now();
+
+                let tick_dur = tick_now.duration_since(last_tick_time);
+                if tick_dur > tick_interval {
+                    //tick here
+                    if tick_dur > 2 * tick_interval {
+                        last_tick_time = std::time::Instant::now();
+                    } else {
+                        last_tick_time = tick_now;
+                    }
+                }
+            }
+
+            {
+                let render_now = std::time::Instant::now();
+                let render_dur = render_now.duration_since(last_render_time);
+                self.render_once(render_dur.as_secs_f32());
+                last_render_time = render_now;
+            }
+
+            std::thread::yield_now();
+        }
+    }
+
     pub fn render_once(&mut self, dt: f32) {
-        let frame = self.swap_chain
+        let state = &mut self.graphics_state;
+        let frame = state.swap_chain
             .get_current_frame()
             .expect("Failed to acquire next swap chain texture")
             .output;
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Render Encoder") });
+        let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Render Encoder") });
         {
             let _ = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: None,
@@ -191,68 +241,17 @@ impl GraphicsState {
                 depth_stencil_attachment: None,
             });
 
-            systems::debug_system::DEBUG.render(self, dt, &frame.view, &mut encoder)
-        }
-        self.queue.submit(Some(encoder.finish()));
-    }
-}
-
-impl PthData {
-    pub fn render_thread(&self) {
-        log::info!("created render thread.");
-        let mut last_render_time = std::time::Instant::now();
-        loop {
-            let now = std::time::Instant::now();
-            let dur = now.duration_since(last_render_time);
-
-            {
-                let mut state = self.graphics_state.lock()
-                    .expect("lock graphics failed");
-                state.render_once(dur.as_secs_f32());
+            for game_state in &mut self.states {
+                game_state.shadow_render();
             }
-            last_render_time = now;
-            std::thread::yield_now();
-        }
-    }
-
-    pub fn logic_thread(&self) {
-        log::info!("created logic thread.");
-
-        let mut last_tick_time = std::time::SystemTime::now();
-
-        let interval = Duration::from_secs_f64(1.0 / 60.0);
-        let one_ms = Duration::from_millis(1);
-        loop {
-            //tick here
-
-            let now = std::time::SystemTime::now();
-            let dur = match now.duration_since(last_tick_time) {
-                Ok(dur) => dur,
-                Err(e) => Duration::from_secs(1)
-            };
-            if dur < interval {
-                if let Some(d) = (dur - interval).checked_sub(one_ms) {
-                    std::thread::sleep(d);
-                }
-            }
-            if dur > 2 * interval {
-                last_tick_time = std::time::SystemTime::now();
-            } else {
-                last_tick_time = now;
+            if let Some(g) = self.states.last_mut() {
+                g.render();
             }
 
-            std::thread::yield_now();
+            systems::debug_system::DEBUG.render(state, dt, &frame.view, &mut encoder)
         }
+        state.queue.submit(Some(encoder.finish()));
     }
-}
-
-pub struct PthData {
-    graphics_state: Mutex<GraphicsState>,
-    states: Mutex<Vec<Box<dyn GameState>>>,
-}
-
-pub struct LogicData {
-    futures: futures::executor::LocalPool,
 }
 
 
@@ -305,17 +304,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("building graphics state.");
     let state = pollster::block_on(GraphicsState::new(&window));
 
-    let pth = Arc::new(PthData {
-        graphics_state: Mutex::new(state),
-        states: Mutex::new(vec![Box::new(crate::states::init::Loading::default())]),
-    });
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let mut pth = PthData {
+        graphics_state: state,
+        states: vec![Box::new(crate::states::init::Loading::default())],
+        receiver,
+    };
 
-    {
-        let c_pth = pth.clone();
-        std::thread::spawn(move || { c_pth.render_thread() });
-    }
+    std::thread::spawn(move || { pth.game_thread() });
     log::info!("going to run event loop");
-    std::thread::spawn(move || { pth.logic_thread() });
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::WindowEvent {
@@ -323,6 +320,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ..
             } => {
                 *control_flow = ControlFlow::Exit
+            }
+            Event::WindowEvent {
+                event: WindowEvent::Resized(size),
+                ..
+            } => {
+                match sender.send(WindowEventSync::ChangeSize(size.width, size.height)) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        log::warn!("send window event failed: {}", e);
+                    }
+                }
             }
             _ => {
                 *control_flow = ControlFlow::Wait
