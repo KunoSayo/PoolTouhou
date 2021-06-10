@@ -1,5 +1,5 @@
-use std::sync::atomic::AtomicU32;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU32;
 
 // pub use gaming::Gaming;
 // pub use init::Loading;

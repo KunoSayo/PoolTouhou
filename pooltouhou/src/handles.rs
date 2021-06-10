@@ -1,13 +1,13 @@
 use std::collections::HashMap;
-
 use std::path::PathBuf;
-use wgpu_glyph::ab_glyph::{FontArc};
-use std::sync::{RwLock};
-use shaderc::ShaderKind;
-use wgpu::{Texture, TextureUsage, TextureDimension, TextureFormat, Extent3d, TextureCopyView, Origin3d, BindGroup};
-use crate::GraphicsState;
-use image::GenericImageView;
+use std::sync::RwLock;
 
+use image::GenericImageView;
+use shaderc::ShaderKind;
+use wgpu::{Extent3d, Origin3d, Texture, TextureCopyView, TextureDimension, TextureFormat, TextureUsage};
+use wgpu_glyph::ab_glyph::FontArc;
+
+use crate::GraphicsState;
 
 pub struct ResourcesHandles {
     pub res_root: PathBuf,

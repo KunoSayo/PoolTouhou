@@ -1,10 +1,11 @@
-use wgpu::{RenderPipeline, BindGroupLayoutDescriptor, BindGroupLayoutEntry, ShaderStage, BindingType, BufferBindingType, BufferSize, TextureSampleType, TextureViewDimension, PipelineLayout, ShaderFlags, CommandEncoder, RenderPass, VertexBufferLayout, VertexAttribute, VertexFormat, BindGroupEntry, BindingResource, BufferDescriptor, BufferUsage, Buffer, Texture, Sampler, BindGroup};
-use crate::GraphicsState;
-use crate::handles::ResourcesHandles;
 use std::borrow::Cow;
 
 use glsl_layout::*;
-use wgpu::util::{DeviceExt, BufferInitDescriptor};
+use wgpu::{BindGroup, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBindingType, BufferDescriptor, BufferUsage, PipelineLayout, RenderPass, RenderPipeline, Sampler, ShaderFlags, ShaderStage, Texture, TextureSampleType, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
+
+use crate::GraphicsState;
+use crate::handles::ResourcesHandles;
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, AsStd140)]
 #[repr(C, align(4))]

@@ -1,10 +1,11 @@
 # PoolTouhou
 
 ## Info
+
 ...
 
-
 ## ..
+
 ..
 
 ## Credit

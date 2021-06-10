@@ -1,23 +1,19 @@
+use std::sync::mpsc::Receiver;
+use std::time::Duration;
+
+use shaderc::ShaderKind;
+use wgpu::{Color, LoadOp, Operations, RenderPassColorAttachmentDescriptor, RenderPassDescriptor};
+use winit::event::{Event, WindowEvent};
+use winit::event_loop::ControlFlow;
+use winit::window::Window;
+
+use crate::handles::ResourcesHandles;
+use crate::states::GameState;
+
 mod handles;
 mod states;
 mod systems;
 mod render;
-
-use std::mem::swap;
-use winit::event::{VirtualKeyCode, Event, WindowEvent};
-use winit::event_loop::ControlFlow;
-use winit::window::Window;
-use crate::handles::ResourcesHandles;
-use wgpu_glyph::ab_glyph::FontVec;
-use std::sync::Arc;
-use wgpu::{RenderPassDescriptor, RenderPassColorAttachmentDescriptor, LoadOp, Color, Operations, ShaderModuleDescriptor};
-use std::sync::Mutex;
-use futures::executor::{LocalPool};
-use shaderc::ShaderKind;
-use crate::states::GameState;
-use std::time::Duration;
-use std::sync::mpsc::Receiver;
-
 
 // https://doc.rust-lang.org/book/
 
@@ -332,6 +328,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             }
+            Event::WindowEvent {
+                event: WindowEvent::KeyboardInput {
+                    input,
+                    is_synthetic,
+                    ..
+                }, ..
+            } => {
+                if !is_synthetic {
+                    if let Some(key) = input.virtual_keycode {
+                        //todo: send the key...
+                    }
+                }
+            }
+            Event::WindowEvent {
+                event: WindowEvent::ReceivedCharacter(c),
+                ..
+            } => {
+                //todo: process text input
+            }
+            Event::MainEventsCleared => {}
             _ => {
                 *control_flow = ControlFlow::Wait
             }

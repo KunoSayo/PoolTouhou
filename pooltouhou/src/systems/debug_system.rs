@@ -1,8 +1,10 @@
 use std::cell::Cell;
 use std::sync::atomic::{AtomicU16, Ordering};
-use crate::GraphicsState;
-use wgpu::{TextureView, CommandEncoder};
+
+use wgpu::{CommandEncoder, TextureView};
 use wgpu_glyph::GlyphCruncher;
+
+use crate::GraphicsState;
 
 pub struct DebugSystem {
     count: AtomicU16,

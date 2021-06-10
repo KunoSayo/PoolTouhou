@@ -1,4 +1,4 @@
-use crate::states::{Progress, GameState};
+use crate::states::{GameState, Progress};
 
 #[derive(Default)]
 pub struct Loading {

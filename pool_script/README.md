@@ -1,12 +1,13 @@
 # PoolScript
+
 ## Thanks  SwiteFaster!
 
-Player z : 0
-Camera z : 16
+Player z : 0 Camera z : 16
 
 Use BE.
 
 ### Begin Game Data
+
 * B0: pos_x
 * B1: pos_y
 * B2: pos_z
@@ -16,6 +17,7 @@ Use BE.
 * B10: circle collide
 
 ### Begin Pointer Data
+
 * B0: const value (4B)
 * B1: game value (1B)
 * B2: script data value (1B)
@@ -24,10 +26,13 @@ Use BE.
 * B9: no data
 
 ### Begin File Data
-* 4B : Version  
-* 1B : f32 Data Count  
+
+* 4B : Version
+* 1B : f32 Data Count
 * 2B : Function Name Bytes
+
 #### Function Data
+
 * B0: end
 * B1: loop
 * B2: ret (pointer)
