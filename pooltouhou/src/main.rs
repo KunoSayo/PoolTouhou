@@ -1,19 +1,25 @@
+use std::collections::HashSet;
+use std::rc::Rc;
 use std::sync::mpsc::Receiver;
+use std::thread::Thread;
 use std::time::Duration;
 
+use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
 use shaderc::ShaderKind;
-use wgpu::{Color, LoadOp, Operations, RenderPassColorAttachmentDescriptor, RenderPassDescriptor};
-use winit::event::{Event, WindowEvent};
+use wgpu::{Color, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor};
+use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
 use winit::window::Window;
 
 use crate::handles::ResourcesHandles;
-use crate::states::GameState;
+use crate::render::texture2d::Texture2DRender;
+use crate::states::{GameState, StateData, Trans};
 
 mod handles;
 mod states;
 mod systems;
 mod render;
+mod input;
 
 // https://doc.rust-lang.org/book/
 
@@ -22,12 +28,8 @@ pub const PLAYER_Z: f32 = 0.0;
 // pub struct GameCore {
 //     player: Option<Player>,
 //     cur_game_input: input::GameInputData,
-//     last_input: input::RawInputData,
-//     cur_input: input::RawInputData,
 //     cache_input: input::RawInputData,
-//     last_frame_input: input::RawInputData,
-//     cur_frame_input: input::RawInputData,
-//     cur_frame_game_input: input::GameInputData,
+
 //     commands: Vec<ScriptGameCommand>,
 //     next_tick_time: std::time::SystemTime,
 //     tick: u128,
@@ -101,7 +103,8 @@ pub struct GraphicsState {
     size: winit::dpi::PhysicalSize<u32>,
     staging_belt: wgpu::util::StagingBelt,
     glyph_brush: wgpu_glyph::GlyphBrush<()>,
-    handles: ResourcesHandles,
+    handles: Rc<ResourcesHandles>,
+    render2d: Texture2DRender,
 }
 
 impl GraphicsState {
@@ -136,7 +139,7 @@ impl GraphicsState {
 
         let swapchain_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-            format: adapter.get_swap_chain_preferred_format(&surface),
+            format: adapter.get_swap_chain_preferred_format(&surface).expect("get format from swap chain failed"),
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
@@ -146,13 +149,14 @@ impl GraphicsState {
         let staging_belt = wgpu::util::StagingBelt::new(1024);
 
         res.load_font("default", "cjkFonts_allseto_v1.11.ttf");
-        res.load_with_compile_shader("2dt.v", "normal2dtexture.vert", "main", ShaderKind::Vertex);
-        res.load_with_compile_shader("2dt.f", "normal2dtexture.frag", "main", ShaderKind::Fragment);
+        res.load_with_compile_shader("n2dt.v", "normal2dtexture.vert", "main", ShaderKind::Vertex);
+        res.load_with_compile_shader("n2dt.f", "normal2dtexture.frag", "main", ShaderKind::Fragment);
 
         let glyph_brush =
-            wgpu_glyph::GlyphBrushBuilder::using_font(res.fonts.read().unwrap()
+            wgpu_glyph::GlyphBrushBuilder::using_font(res.fonts.get_mut()
                 .get("default").unwrap().clone()).build(&device, swapchain_desc.format);
 
+        let render2d = Texture2DRender::new(&device, swapchain_desc.format.into(), &mut res);
         Self {
             surface,
             device,
@@ -162,41 +166,125 @@ impl GraphicsState {
             size,
             staging_belt,
             glyph_brush,
-            handles: res,
+            handles: Rc::new(res),
+            render2d,
         }
     }
 }
 
 
 enum WindowEventSync {
-    ChangeSize(u32, u32)
+    ///(pressed keys, released keys)
+    KeysChange(Box<HashSet<VirtualKeyCode>>, Box<HashSet<VirtualKeyCode>>),
+    ChangeSize(u32, u32),
 }
 
+pub struct Pools {
+    io_pool: ThreadPool,
+    render_pool: LocalPool,
+    render_spawner: LocalSpawner,
+}
+
+impl Default for Pools {
+    fn default() -> Self {
+        let render_pool = LocalPool::new();
+        let render_spawner = render_pool.spawner();
+        Self {
+            io_pool: ThreadPool::builder().pool_size(3).name_prefix("pth io").create().expect("Create pth io thread pool failed"),
+            render_pool,
+            render_spawner,
+        }
+    }
+}
 
 pub struct PthData {
     graphics_state: GraphicsState,
+    pools: Pools,
     states: Vec<Box<dyn GameState>>,
     receiver: Receiver<WindowEventSync>,
+    inputs: input::BakedInputs,
+    running_game_thread: bool,
 }
 
 impl PthData {
-    pub fn game_thread(&mut self) {
+    fn game_thread_run(&mut self) {
         log::info!("created render thread.");
         let mut last_render_time = std::time::Instant::now();
         let mut last_tick_time = std::time::Instant::now();
         let tick_interval = Duration::from_secs_f64(1.0 / 60.0);
-        loop {
+
+        {
+            let state_data = StateData {
+                pools: &mut self.pools,
+                inputs: &self.inputs,
+                graphics_state: &mut self.graphics_state,
+            };
+
+            self.states.last_mut().unwrap().start(&state_data);
+        }
+
+        while self.running_game_thread {
             while let Ok(event) = self.receiver.try_recv() {
                 match event {
-                    WindowEventSync::ChangeSize(_, _) => {}
+                    WindowEventSync::ChangeSize(width, height) => {
+                        let swapchain_desc = wgpu::SwapChainDescriptor {
+                            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+                            format: self.graphics_state.swapchain_desc.format,
+                            width,
+                            height,
+                            present_mode: wgpu::PresentMode::Fifo,
+                        };
+                        self.graphics_state.swap_chain = self.graphics_state.device.create_swap_chain(&self.graphics_state.surface, &swapchain_desc);
+                    }
+                    WindowEventSync::KeysChange(pressed, released) => {
+                        self.inputs.process(pressed, released);
+                    }
                 }
             }
+            self.inputs.swap_frame();
+
             {
                 let tick_now = std::time::Instant::now();
 
                 let tick_dur = tick_now.duration_since(last_tick_time);
                 if tick_dur > tick_interval {
-                    //tick here
+                    self.inputs.tick();
+
+                    let state_data = StateData {
+                        pools: &mut self.pools,
+                        inputs: &self.inputs,
+                        graphics_state: &mut self.graphics_state,
+                    };
+                    for x in &mut self.states {
+                        x.shadow_update(&state_data);
+                    }
+
+
+                    if let Some(last) = self.states.last_mut() {
+                        match last.update(&state_data) {
+                            Trans::Push(x) => { self.states.push(x); }
+                            Trans::Pop => {
+                                last.stop(&state_data);
+                                self.states.pop().unwrap();
+                            }
+                            Trans::Switch(x) => {
+                                last.stop(&state_data);
+                                *self.states.last_mut().unwrap() = x;
+                            }
+                            Trans::Exit => {
+                                while let Some(mut last) = self.states.pop() {
+                                    last.stop(&state_data);
+                                }
+                                self.running_game_thread = false;
+                                break;
+                            }
+                            Trans::None => {}
+                        }
+                    } else {
+                        println!("There is no states to run. Why run game thread?");
+                        self.running_game_thread = false;
+                    }
+
                     if tick_dur > 2 * tick_interval {
                         last_tick_time = std::time::Instant::now();
                     } else {
@@ -209,6 +297,7 @@ impl PthData {
                 let render_now = std::time::Instant::now();
                 let render_dur = render_now.duration_since(last_render_time);
                 self.render_once(render_dur.as_secs_f32());
+                self.pools.render_pool.try_run_one();
                 last_render_time = render_now;
             }
 
@@ -216,7 +305,7 @@ impl PthData {
         }
     }
 
-    pub fn render_once(&mut self, dt: f32) {
+    fn render_once(&mut self, dt: f32) {
         let state = &mut self.graphics_state;
         let frame = state.swap_chain
             .get_current_frame()
@@ -226,8 +315,8 @@ impl PthData {
         {
             let _ = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: None,
-                color_attachments: &[RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.view,
+                color_attachments: &[RenderPassColorAttachment {
+                    view: &frame.view,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color::BLACK),
@@ -237,52 +326,43 @@ impl PthData {
                 depth_stencil_attachment: None,
             });
 
-            for game_state in &mut self.states {
-                game_state.shadow_render();
-            }
-            if let Some(g) = self.states.last_mut() {
-                g.render();
-            }
+            {
+                let state_data = StateData {
+                    pools: &mut self.pools,
+                    inputs: &self.inputs,
+                    graphics_state: state,
+                };
 
+                for game_state in &mut self.states {
+                    game_state.shadow_render(&state_data);
+                }
+                if let Some(g) = self.states.last_mut() {
+                    g.render(&state_data);
+                }
+            }
             systems::debug_system::DEBUG.render(state, dt, &frame.view, &mut encoder)
         }
         state.queue.submit(Some(encoder.finish()));
+    }
+
+    fn new(graphics_state: GraphicsState, game_state: impl GameState, receiver: Receiver<WindowEventSync>) -> Self {
+        Self {
+            graphics_state,
+            pools: Default::default(),
+            states: vec![Box::new(game_state)],
+            receiver,
+            inputs: Default::default(),
+            running_game_thread: true,
+        }
     }
 }
 
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::builder()
-        .filter_level(if cfg!(feature = "debug-game") { log::LevelFilter::Debug } else { log::LevelFilter::Info })
+        .filter_level(log::LevelFilter::Info)
         .init();
     log::info!("Starting up...");
-    // let app_root = application_root_dir().expect("get app root dir failed.");
-    // let res_root = if app_root.join("res").exists() { app_root.join("res") } else { app_root };
-    // let display_config_path = res_root.join("config").join("display.ron");
-    // let assets_dir = res_root.join("assets");
-    // let game_data = GameDataBuilder::default()
-    //     .with_bundle(RenderingBundle::<DefaultBackend>::new()
-    //                      .with_plugin(render::blit::BlitToWindow::new(amethyst::renderer::bundle::Target::Main, render::WINDOW, true))
-    //                      .with_plugin(
-    //                          RenderToWindow::from_config_path(display_config_path)?
-    //                              .with_clear([0.0, 0.0, 0.0, 1.0])
-    //                              .with_target(render::WINDOW)
-    //                      )
-    //                      .with_plugin(RenderFlat2D::default())
-    //                      .with_plugin(RenderFlat3D::default())
-    //                      .with_plugin(RenderUi::default())
-    //                      .with_plugin(render::RenderInvertColorCircle::default())
-    //                  // .with_plugin(render::water_wave::RenderWaterWave::default().with_target(render::PTH_MAIN))
-    //     )?
-    //     .with_bundle(TransformBundle::new())?
-    //     .with_bundle(InputBundle::<StringBindings>::new())?
-    //     .with_bundle(UiBundle::<StringBindings>::new())?
-    //     .with(systems::AnimationSystem, "main_anime_system", &[])
-    //     .with(systems::DebugSystem::default(), "debug_system", &[]);
-    // let mut game = Application::build(assets_dir, states::Loading::default())?
-    //     .with_frame_limit(FrameRateLimitStrategy::Unlimited, 0)
-    //     .build(game_data)?;
-    // game.run();
 
     let event_loop = winit::event_loop::EventLoop::new();
 
@@ -296,19 +376,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build(&event_loop)
         .unwrap();
 
-
     log::info!("building graphics state.");
-    let state = pollster::block_on(GraphicsState::new(&window));
 
     let (sender, receiver) = std::sync::mpsc::channel();
-    let mut pth = PthData {
-        graphics_state: state,
-        states: vec![Box::new(crate::states::init::Loading::default())],
-        receiver,
-    };
 
-    std::thread::spawn(move || { pth.game_thread() });
+    std::thread::spawn(move || {
+        let state = pollster::block_on(GraphicsState::new(&window));
+        let mut pth = PthData::new(state, crate::states::init::Loading::default(), receiver);
+        pth.game_thread_run();
+    });
     log::info!("going to run event loop");
+    let mut pressed_keys = Box::new(HashSet::new());
+    let mut released_keys = Box::new(HashSet::new());
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::WindowEvent {
@@ -337,7 +416,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             } => {
                 if !is_synthetic {
                     if let Some(key) = input.virtual_keycode {
-                        //todo: send the key...
+                        match input.state {
+                            ElementState::Pressed => {
+                                pressed_keys.insert(key);
+                            }
+                            ElementState::Released => {
+                                released_keys.insert(key);
+                            }
+                        }
                     }
                 }
             }
@@ -347,7 +433,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             } => {
                 //todo: process text input
             }
-            Event::MainEventsCleared => {}
+            Event::MainEventsCleared => {
+                if !pressed_keys.is_empty() || !released_keys.is_empty() {
+                    match sender.send(WindowEventSync::KeysChange(std::mem::take(&mut pressed_keys), std::mem::take(&mut released_keys))) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            log::warn!("send window event failed: {}", e);
+                        }
+                    }
+                }
+            }
             _ => {
                 *control_flow = ControlFlow::Wait
             }

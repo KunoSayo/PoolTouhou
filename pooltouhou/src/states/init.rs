@@ -1,69 +1,55 @@
-use crate::states::{GameState, Progress};
+use std::time::Instant;
 
-#[derive(Default)]
+use winit::event::VirtualKeyCode;
+
+use crate::handles::{CounterProgress, Progress};
+use crate::states::{GameState, StateData, Trans};
+use crate::states::menu::Menu;
+
 pub struct Loading {
-    progress: Progress,
+    progress: CounterProgress,
+    start: Instant,
 }
 
+impl Default for Loading {
+    fn default() -> Self {
+        Self {
+            progress: Default::default(),
+            start: Instant::now(),
+        }
+    }
+}
 
 impl GameState for Loading {
-    // fn on_start(&mut self) {
-    //
-    //     load_texture(world, "bullet".into(), "bullet.ron".into(), &mut self.progress);
-    //     load_texture(world, "circle_red".into(), "circle.ron".into(), &mut self.progress);
-    //     load_texture(world, "circle_blue".into(), "circle.ron".into(), &mut self.progress);
-    //     load_texture(world, "circle_green".into(), "circle.ron".into(), &mut self.progress);
-    //     load_texture(world, "circle_yellow".into(), "circle.ron".into(), &mut self.progress);
-    //     load_texture(world, "circle_purple".into(), "circle.ron".into(), &mut self.progress);
-    //     load_texture(world, "zzzz".into(), "zzzz.ron".to_string(), &mut self.progress);
-    //     load_texture(world, "mainbg".into(), "mainbg.ron".to_string(), &mut self.progress);
-    //
-    //
-    //     setup_camera(world);
-    //
-    //     crate::ui::debug::setup_debug_text(world, &mut self.progress);
-    //
-    //     let mut script_manager = ScriptManager::default();
-    //     script_manager.load_scripts();
-    //
-    //
-    //     world.insert(script_manager);
-    //
-    //     println!("Loading state started.");
-    // }
+    fn start(&mut self, data: &StateData) {
+        log::info!("loading state start");
+        self.start = Instant::now();
+        let graphics_state = &data.graphics_state;
+        let handles = &graphics_state.handles;
+        let pools = &data.pools;
+        handles.load_texture_static("bullet", "bullet.png", graphics_state, pools, self.progress.create_tracker());
+        handles.load_texture_static("circle_red", "circle_red.png", graphics_state, pools, self.progress.create_tracker());
+        handles.load_texture_static("circle_blue", "circle_blue.png", graphics_state, pools, self.progress.create_tracker());
+        handles.load_texture_static("circle_green", "circle_green.png", graphics_state, pools, self.progress.create_tracker());
+        handles.load_texture_static("circle_yellow", "circle_yellow.png", graphics_state, pools, self.progress.create_tracker());
+        handles.load_texture_static("circle_purple", "circle_purple.png", graphics_state, pools, self.progress.create_tracker());
+        handles.load_texture_static("zzzz", "zzzz.png", graphics_state, pools, self.progress.create_tracker());
+        handles.load_texture_static("mainbg", "mainbg.png", graphics_state, pools, self.progress.create_tracker());
+        handles.load_texture_static("暗夜", "暗夜.png", graphics_state, pools, self.progress.create_tracker());
+        handles.load_texture_static("sheepBullet", "sheepBullet.png", graphics_state, pools, self.progress.create_tracker());
+        handles.load_texture_static("sheep", "sheep.png", graphics_state, pools, self.progress.create_tracker());
+    }
 
-    // fn update(&mut self, _data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
-    //     if self.progress.num_loading() == 0 {
-    //         println!("loaded {} resources.", self.progress.num_finished());
-    //         match self.progress.complete() {
-    //             Completion::Failed => {
-    //                 for x in self.progress.errors() {
-    //                     eprintln!("load {} failed for {}", x.asset_name, x.error);
-    //                 }
-    //             }
-    //             _ => {}
-    //         }
-    //         Trans::Push(Box::new(Menu::default()))
-    //     } else {
-    //         Trans::None
-    //     }
-    // }
+    fn update(&mut self, _: &StateData) -> Trans {
+        if self.progress.num_loading() == 0 {
+            log::info!("loaded {} resources in {}ms.", self.progress.num_finished(), self.start.elapsed().as_millis());
+            Trans::Push(Box::new(Menu::default()))
+        } else {
+            Trans::None
+        }
+    }
 
-    // fn shadow_update(&mut self, data: StateData<'_, GameData<'_, '_>>) {
-    //     if let Some(dispatcher) = self.input_dispatcher.as_mut() {
-    //         dispatcher.dispatch(data.world);
-    //     }
-    //
-    //     #[cfg(feature = "debug-game")]
-    //         {
-    //             let core_storage = data.world.read_resource::<GameCore>();
-    //             if core_storage.is_pressed(&[VirtualKeyCode::F3, VirtualKeyCode::T]) {
-    //                 println!("reloading...");
-    //                 {
-    //                     let mut manager = data.world.write_resource::<ScriptManager>();
-    //                     manager.load_scripts();
-    //                 }
-    //             }
-    //         }
-    // }
+    fn shadow_update(&mut self, _data: &StateData) {
+        //todo: reload
+    }
 }

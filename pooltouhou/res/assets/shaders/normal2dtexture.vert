@@ -6,19 +6,17 @@ layout(std140, set = 0, binding = 0) uniform OutInfo {
 
 
 layout(location = 0) in vec2 pos;
-layout(location = 1) in vec2 coord;
-layout(location = 2) in vec4 color;
+layout(location = 1) in vec2 icoord;
+layout(location = 2) in vec4 icolor;
 
-layout(location = 0) out VertexData {
-    vec2 coord;
-    vec4 color;
-} vertex;
 
+layout(location = 0) out vec2 coord;
+layout(location = 1) out vec4 color;
 
 void main() {
-    vertex.coord = coord;
-    vertex.color = color;
+    coord = icoord;
+    color = icolor;
 
 
-    gl_Position = projection * view * vec4((pos.x / outSize.x) * 2 - 1, (pos.y / outSize.y) * 2 - 1, 0.0, 1.0);
+    gl_Position = vec4((pos.x / outSize.x) * 2 - 1, (pos.y / outSize.y) * 2 - 1, 0.0, 1.0);
 }

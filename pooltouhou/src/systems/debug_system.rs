@@ -15,7 +15,7 @@ pub struct DebugSystem {
 pub static DEBUG: DebugSystem = DebugSystem {
     count: AtomicU16::new(0),
     delta: Cell::new(0.0),
-    fps: Cell::new(0.0),
+    fps: Cell::new(60.0),
 };
 
 //What's the difference between use static mut and this?

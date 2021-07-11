@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use glsl_layout::*;
-use wgpu::{BindGroup, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBindingType, BufferDescriptor, BufferUsage, PipelineLayout, RenderPass, RenderPipeline, Sampler, ShaderFlags, ShaderStage, Texture, TextureSampleType, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
+use wgpu::{BindGroup, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBinding, BufferBindingType, BufferDescriptor, BufferUsage, PipelineLayout, RenderPass, RenderPipeline, ShaderFlags, ShaderStage, TextureSampleType, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 use crate::GraphicsState;
@@ -32,8 +32,8 @@ pub struct Texture2DRender {
 const OBJ_COUNT_IN_BUFFER: usize = 4096;
 
 impl Texture2DRender {
-    pub fn new(state: &mut GraphicsState, handles: &mut ResourcesHandles) -> Self {
-        let vertex_bind_group_layout = state.device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+    pub fn new(device: &wgpu::Device, target_color_state: wgpu::ColorTargetState, handles: &mut ResourcesHandles) -> Self {
+        let vertex_bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: None,
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
@@ -47,7 +47,7 @@ impl Texture2DRender {
             }],
         });
 
-        let frag_bind_group_layout = state.device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let frag_bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: None,
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
@@ -70,52 +70,59 @@ impl Texture2DRender {
         });
         //done bind group
 
-        let vertex_buffer = state.device.create_buffer(&BufferDescriptor {
+        let vertex_buffer = device.create_buffer(&BufferDescriptor {
             label: None,
             size: (std::mem::size_of::<Texture2DVertexData>() * OBJ_COUNT_IN_BUFFER) as u64,
             usage: BufferUsage::VERTEX,
             mapped_at_creation: false,
         });
 
-        let index_buffer = state.device.create_buffer_init(&BufferInitDescriptor {
+        let vertex_uni_buffer = device.create_buffer(&BufferDescriptor {
+            label: None,
+            size: (std::mem::size_of::<f32>() * 2) as u64,
+            usage: BufferUsage::UNIFORM,
+            mapped_at_creation: false,
+        });
+
+        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: None,
             contents: &[0, 1, 2, 1, 2, 3],
             usage: BufferUsage::INDEX,
         });
 
-        let pipeline_layout = state.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
             bind_group_layouts: &[&vertex_bind_group_layout, &frag_bind_group_layout],
             push_constant_ranges: &[],
         });
 
-        let vertex_bind_group = state.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let vertex_uni_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &vertex_bind_group_layout,
             entries: &[BindGroupEntry {
                 binding: 0,
-                resource: BindingResource::Buffer {
-                    buffer: &vertex_buffer,
+                resource: BindingResource::Buffer(BufferBinding {
+                    buffer: &vertex_uni_buffer,
                     offset: 0,
                     size: None,
-                },
+                }),
             }],
         });
 
-        let vert = state.device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+        let vert = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             label: None,
-            source: wgpu::ShaderSource::SpirV(Cow::from(handles.shaders.read().unwrap().get("n2dt.v").unwrap())),
+            source: wgpu::ShaderSource::SpirV(Cow::from(handles.shaders.get_mut().get("n2dt.v").unwrap())),
             flags: ShaderFlags::all(),
         });
 
-        let frag = state.device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+        let frag = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             label: None,
-            source: wgpu::ShaderSource::SpirV(Cow::from(handles.shaders.read().unwrap().get("n2dt.f").unwrap())),
+            source: wgpu::ShaderSource::SpirV(Cow::from(handles.shaders.get_mut().get("n2dt.f").unwrap())),
             flags: ShaderFlags::all(),
         });
 
         let vertex_len = std::mem::size_of::<Texture2DVertexData>();
-        let render_pipeline = state.device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: None,
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
@@ -125,7 +132,7 @@ impl Texture2DRender {
                     array_stride: vertex_len as u64,
                     step_mode: Default::default(),
                     attributes: &[VertexAttribute {
-                        format: VertexFormat::Float2,
+                        format: VertexFormat::Float32x2,
                         offset: 0,
                         shader_location: 0,
                     }],
@@ -133,7 +140,7 @@ impl Texture2DRender {
                     array_stride: vertex_len as u64,
                     step_mode: Default::default(),
                     attributes: &[VertexAttribute {
-                        format: VertexFormat::Float2,
+                        format: VertexFormat::Float32x2,
                         offset: 2 * 4,
                         shader_location: 1,
                     }],
@@ -141,7 +148,7 @@ impl Texture2DRender {
                     array_stride: vertex_len as u64,
                     step_mode: Default::default(),
                     attributes: &[VertexAttribute {
-                        format: VertexFormat::Float4,
+                        format: VertexFormat::Float32x2,
                         offset: (2 + 2) * 4,
                         shader_location: 2,
                     }],
@@ -150,7 +157,7 @@ impl Texture2DRender {
             fragment: Some(wgpu::FragmentState {
                 module: &frag,
                 entry_point: "main",
-                targets: &[state.swapchain_desc.format.into()],
+                targets: &[target_color_state],
             }),
             primitive: Default::default(),
             depth_stencil: None,
@@ -158,7 +165,7 @@ impl Texture2DRender {
         });
 
         Self {
-            vertex_bind_group,
+            vertex_bind_group: vertex_uni_bind_group,
             pipeline_layout,
             render_pipeline,
             vertex_buffer,

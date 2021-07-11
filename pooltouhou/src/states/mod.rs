@@ -1,6 +1,9 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicU32;
 
+use crate::{GraphicsState, Pools, PthData};
+use crate::input::BakedInputs;
+
 // pub use gaming::Gaming;
 // pub use init::Loading;
 //
@@ -8,19 +11,13 @@ use std::sync::atomic::AtomicU32;
 // pub mod gaming;
 // pub mod pausing;
 pub mod init;
-// pub mod menu;
+pub mod menu;
 // pub mod load;
-
-#[derive(Default)]
-pub struct Progress {
-    num_loadings: Arc<AtomicU32>,
-    num_finishes: Arc<AtomicU32>,
-}
 
 pub const ARENA_WIDTH: f32 = 1600.0;
 pub const ARENA_HEIGHT: f32 = 900.0;
 
-pub enum StateTransform {
+pub enum Trans {
     Push(Box<dyn GameState>),
     Pop,
     Switch(Box<dyn GameState>),
@@ -28,16 +25,22 @@ pub enum StateTransform {
     None,
 }
 
+pub struct StateData<'a> {
+    pub(crate) pools: &'a mut Pools,
+    pub(crate) inputs: &'a BakedInputs,
+    pub(crate) graphics_state: &'a mut GraphicsState,
+}
+
 pub trait GameState: Send + 'static {
-    fn start(&mut self) {}
+    fn start(&mut self, _: &StateData) {}
 
-    fn update(&mut self) -> StateTransform { StateTransform::None }
+    fn update(&mut self, _: &StateData) -> Trans { Trans::None }
 
-    fn shadow_update(&mut self) {}
+    fn shadow_update(&mut self, _: &StateData) {}
 
-    fn render(&mut self) {}
+    fn render(&mut self, _: &StateData) -> Trans { Trans::None }
 
-    fn shadow_render(&mut self) {}
+    fn shadow_render(&mut self, _: &StateData) {}
 
-    fn stop(&mut self) {}
+    fn stop(&mut self, _: &StateData) {}
 }
