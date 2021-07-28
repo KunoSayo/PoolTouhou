@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicU16, Ordering};
 use wgpu::{CommandEncoder, TextureView};
 use wgpu_glyph::GlyphCruncher;
 
-use crate::GraphicsState;
+use crate::{GraphicsState, MainRendererData};
 
 pub struct DebugSystem {
     count: AtomicU16,
@@ -22,7 +22,9 @@ pub static DEBUG: DebugSystem = DebugSystem {
 unsafe impl Sync for DebugSystem {}
 
 impl DebugSystem {
-    pub(crate) fn render(&self, state: &mut GraphicsState, dt: f32, target: &TextureView, encoder: &mut CommandEncoder) {
+    pub(crate) fn render(&self, state: &mut GraphicsState, render: &mut MainRendererData, dt: f32, target: &TextureView) {
+        let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Debug Encoder") });
+
         let delta = self.delta.get() + dt;
 
         self.count.fetch_add(1, Ordering::Relaxed);
@@ -51,22 +53,23 @@ impl DebugSystem {
                 ..wgpu_glyph::Section::default()
             };
 
-            if let Some(rect) = state.glyph_brush.glyph_bounds(section.clone()) {
+            if let Some(rect) = render.glyph_brush.glyph_bounds(section.clone()) {
                 section.screen_position.0 = state.swapchain_desc.width as f32 - rect.width();
                 section.screen_position.1 = state.swapchain_desc.height as f32 - rect.height();
             }
-            state.glyph_brush.queue(section);
-            state.glyph_brush
+            render.glyph_brush.queue(section);
+            render.glyph_brush
                 .draw_queued(
                     &state.device,
-                    &mut state.staging_belt,
-                    encoder,
+                    &mut render.staging_belt,
+                    &mut encoder,
                     target,
                     state.swapchain_desc.width,
                     state.swapchain_desc.height,
                 )
                 .expect("Draw queued!");
         }
-        state.staging_belt.finish();
+        render.staging_belt.finish();
+        state.queue.submit(Some(encoder.finish()));
     }
 }

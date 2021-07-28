@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicU32;
 
-use crate::{GraphicsState, Pools, PthData};
+use crate::{GraphicsState, MainRendererData, Pools, PthData, RenderViews};
 use crate::input::BakedInputs;
 
 // pub use gaming::Gaming;
@@ -29,18 +29,20 @@ pub struct StateData<'a> {
     pub(crate) pools: &'a mut Pools,
     pub(crate) inputs: &'a BakedInputs,
     pub(crate) graphics_state: &'a mut GraphicsState,
+    pub(crate) render: &'a mut MainRendererData,
+    pub(crate) views: Option<&'a RenderViews<'a>>,
 }
 
 pub trait GameState: Send + 'static {
-    fn start(&mut self, _: &StateData) {}
+    fn start(&mut self, _: &mut StateData) {}
 
-    fn update(&mut self, _: &StateData) -> Trans { Trans::None }
+    fn update(&mut self, _: &mut StateData) -> Trans { Trans::None }
 
     fn shadow_update(&mut self, _: &StateData) {}
 
-    fn render(&mut self, _: &StateData) -> Trans { Trans::None }
+    fn render(&mut self, _: &mut StateData) -> Trans { Trans::None }
 
     fn shadow_render(&mut self, _: &StateData) {}
 
-    fn stop(&mut self, _: &StateData) {}
+    fn stop(&mut self, _: &mut StateData) {}
 }

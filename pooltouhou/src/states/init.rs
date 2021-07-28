@@ -21,7 +21,7 @@ impl Default for Loading {
 }
 
 impl GameState for Loading {
-    fn start(&mut self, data: &StateData) {
+    fn start(&mut self, data: &mut StateData) {
         log::info!("loading state start");
         self.start = Instant::now();
         let graphics_state = &data.graphics_state;
@@ -40,7 +40,7 @@ impl GameState for Loading {
         handles.load_texture_static("sheep", "sheep.png", graphics_state, pools, self.progress.create_tracker());
     }
 
-    fn update(&mut self, _: &StateData) -> Trans {
+    fn update(&mut self, _: &mut StateData) -> Trans {
         if self.progress.num_loading() == 0 {
             log::info!("loaded {} resources in {}ms.", self.progress.num_finished(), self.start.elapsed().as_millis());
             Trans::Push(Box::new(Menu::default()))

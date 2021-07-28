@@ -1838,6 +1838,7 @@ name = "pooltouhou"
 version = "0.1.0"
 dependencies = [
  "alto",
+ "bytemuck",
  "env_logger",
  "futures",
  "glsl-layout",
@@ -1845,6 +1846,7 @@ dependencies = [
  "lazy_static 1.4.0",
  "log",
  "pollster",
+ "rayon",
  "rodio",
  "shaderc",
  "wgpu",

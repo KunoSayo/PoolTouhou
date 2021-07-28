@@ -1,3 +1,6 @@
+use std::convert::TryInto;
+
+use crate::render::texture2d::{Texture2DObject, Texture2DVertexData};
 use crate::states::{GameState, StateData, Trans};
 
 // use amethyst::{
@@ -22,6 +25,7 @@ pub struct Menu {
     con: bool,
     time: std::time::SystemTime,
     select_text: u8,
+    background: Option<Texture2DObject>,
 }
 
 impl Default for Menu {
@@ -31,12 +35,40 @@ impl Default for Menu {
             con: false,
             time: std::time::SystemTime::now(),
             select_text: 0,
+            background: None
         }
     }
 }
 
 impl GameState for Menu {
-    fn start(&mut self, data: &StateData) {
+    fn start(&mut self, data: &mut StateData) {
+        let tex = *data.graphics_state.handles.texture_map.read().unwrap().get("mainbg").expect("Where is the bg tex?");
+        let w = data.graphics_state.swapchain_desc.width as f32;
+        let h = data.graphics_state.swapchain_desc.height as f32;
+        self.background = Some(Texture2DObject {
+            vertex: (0..4).map(|x| {
+                Texture2DVertexData {
+                    pos: match x {
+                        0 => [0.0, h],
+                        1 => [w, h],
+                        2 => [0.0, 0.0],
+                        3 => [w, 0.0],
+                        _ => unreachable!()
+                    },
+                    coord: match x {
+                        0 => [0.0, 0.0],
+                        1 => [1.0, 0.0],
+                        2 => [0.0, 1.0],
+                        3 => [1.0, 1.0],
+                        _ => unreachable!()
+                    },
+                }
+            }).collect::<Vec<_>>().try_into().unwrap(),
+            z: 0.0,
+            tex,
+        });
+
+        data.render.render2d.add_tex(data.graphics_state, tex);
         //     let world = data.world;
         //
         //     let main_bg = {
@@ -89,7 +121,7 @@ impl GameState for Menu {
     }
 
 
-    fn update(&mut self, data: &StateData) -> Trans {
+    fn update(&mut self, data: &mut StateData) -> Trans {
         // const EXIT_IDX: u8 = (BUTTON_COUNT - 1) as u8;
         //
         // let now = std::time::SystemTime::now();
@@ -157,6 +189,11 @@ impl GameState for Menu {
         //         }
         //     }
         // }
+        Trans::None
+    }
+
+    fn render(&mut self, data: &mut StateData) -> Trans {
+        data.render.render2d.render(data.graphics_state, &data.views.unwrap().screen, &[self.background.as_ref().unwrap()]);
         Trans::None
     }
 }

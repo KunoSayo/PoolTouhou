@@ -3,24 +3,30 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicU16, Ordering};
 
 use futures::task::{LocalSpawn, LocalSpawnExt, SpawnExt};
 use image::GenericImageView;
 use shaderc::ShaderKind;
-use wgpu::{Extent3d, ImageCopyTexture, Origin3d, Texture, TextureDimension, TextureFormat, TextureUsage};
+use wgpu::{Extent3d, ImageCopyTexture, Origin3d, TextureDimension, TextureFormat, TextureUsage};
 use wgpu_glyph::ab_glyph::FontArc;
 
 use crate::{GraphicsState, Pools};
 
+pub struct Texture {
+    pub texture: wgpu::Texture,
+    pub view: wgpu::TextureView,
+    pub sampler: wgpu::Sampler,
+}
+
 pub struct ResourcesHandles {
     pub res_root: PathBuf,
     assets_dir: PathBuf,
-    pub fonts: RefCell<HashMap<String, FontArc>>,
-    pub shaders: RefCell<HashMap<String, Vec<u32>>>,
-    pub textures: RefCell<Vec<Texture>>,
-    pub texture_map: RefCell<HashMap<String, usize>>,
+    pub fonts: RwLock<HashMap<String, FontArc>>,
+    pub shaders: RwLock<HashMap<String, Vec<u32>>>,
+    pub textures: RwLock<Vec<Texture>>,
+    pub texture_map: RwLock<HashMap<String, usize>>,
 }
 
 #[derive(Default)]
@@ -50,7 +56,7 @@ pub trait Progress {
     fn create_tracker(&self) -> Self::Tracker;
 }
 
-pub trait ProgressTracker: 'static {
+pub trait ProgressTracker: 'static + Send {
     fn end_loading(&mut self);
 
     fn new_error_num(&mut self);
@@ -130,7 +136,7 @@ impl ResourcesHandles {
         let font_arc = wgpu_glyph::ab_glyph::FontArc::try_from_vec(
             std::fs::read(target)
                 .expect("read font file failed")).unwrap();
-        self.fonts.get_mut().insert(name.to_string(), font_arc);
+        self.fonts.get_mut().unwrap().insert(name.to_string(), font_arc);
     }
 
     pub fn load_with_compile_shader(&mut self, name: &str, file_path: &str, entry: &str, shader_kind: ShaderKind) {
@@ -143,7 +149,7 @@ impl ResourcesHandles {
                 if compile.get_num_warnings() > 0 {
                     log::warn!("compile shader warnings: {}", compile.get_warning_messages())
                 }
-                self.shaders.get_mut().insert(name.to_string(), compile.as_binary().to_vec());
+                self.shaders.get_mut().unwrap().insert(name.to_string(), compile.as_binary().to_vec());
             }
             Err(e) => {
                 log::warn!("compile shader {} error: {}", file_path, e);
@@ -151,17 +157,14 @@ impl ResourcesHandles {
         }
     }
 
-    fn load_texture_static_inner(self: Rc<Self>, name: &'static str, file_path: &'static str,
+    fn load_texture_static_inner(self: Arc<Self>, name: &'static str, file_path: &'static str,
                                  state: &GraphicsState, pools: &Pools, mut progress: impl ProgressTracker) {
         let state = unsafe { std::mem::transmute::<_, &'static GraphicsState>(state) };
         let target = self.assets_dir.join("texture").join(file_path);
-        let load_future = pools.io_pool.spawn_with_handle(async {
-            image::load_from_memory(&std::fs::read(target)
-                .expect("read texture file failed"))
-        }).expect("use io pool to read image failed");
+        pools.io_pool.spawn_ok(async move {
+            let image = image::load_from_memory(&std::fs::read(target)
+                .expect("read texture file failed"));
 
-        pools.render_spawner.spawn_local(async move {
-            let image = load_future.await;
             match image {
                 Ok(image) => {
                     let rgba = image.to_rgba8();
@@ -179,7 +182,7 @@ impl ResourcesHandles {
                         sample_count: 1,
                         dimension: TextureDimension::D2,
                         format: TextureFormat::Rgba8UnormSrgb,
-                        usage: TextureUsage::COPY_SRC | TextureUsage::COPY_DST,
+                        usage: TextureUsage::COPY_DST | TextureUsage::SAMPLED,
                     });
                     state.queue.write_texture(
                         ImageCopyTexture {
@@ -194,23 +197,44 @@ impl ResourcesHandles {
                             rows_per_image: Some((height).try_into().unwrap()),
                         },
                         size);
+                    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+                    let sampler = state.device.create_sampler(&wgpu::SamplerDescriptor {
+                        address_mode_u: wgpu::AddressMode::ClampToEdge,
+                        address_mode_v: wgpu::AddressMode::ClampToEdge,
+                        address_mode_w: wgpu::AddressMode::ClampToEdge,
+                        mag_filter: wgpu::FilterMode::Linear,
+                        min_filter: wgpu::FilterMode::Linear,
+                        mipmap_filter: wgpu::FilterMode::Nearest,
+                        compare: None,
+                        lod_min_clamp: -100.0,
+                        lod_max_clamp: 100.0,
+                        ..wgpu::SamplerDescriptor::default()
+                    });
                     {
-                        let mut textures = self.textures.borrow_mut();
-                        let mut map = self.texture_map.borrow_mut();
-                        let idx = textures.len();
-                        textures.push(texture);
+                        let idx = {
+                            let mut textures = self.textures.write().unwrap();
+                            let idx = textures.len();
+                            textures.push(Texture {
+                                texture,
+                                view,
+                                sampler,
+                            });
+                            idx
+                        };
+                        let mut map = self.texture_map.write().unwrap();
                         map.insert(name.to_string(), idx);
                     }
+                    state.queue.submit(None);
                 }
                 Err(e) => {
                     log::warn!("load image error: {}", e);
                     progress.new_error_num();
                 }
             }
-        }).expect("use render pool to spawn ");
+        });
     }
 
-    pub fn load_texture_static(self: &Rc<Self>, name: &'static str, file_path: &'static str,
+    pub fn load_texture_static(self: &Arc<Self>, name: &'static str, file_path: &'static str,
                                state: &GraphicsState, pools: &Pools, mut progress: impl ProgressTracker) {
         self.clone().load_texture_static_inner(name, file_path, state, pools, progress);
     }

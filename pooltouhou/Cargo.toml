@@ -15,9 +15,10 @@ winit = "0.24"
 pollster = "0.2.3"
 futures = {version = "*", features = ["thread-pool"]}
 image = "*"
+rayon = "*"
 lazy_static = "1.4.0"
 glsl-layout = "0.3.2"
-
+bytemuck = "*"
 alto = "3.0.4"
 rodio = "0.11.0"
 shaderc = "0.7"

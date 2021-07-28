@@ -1,12 +1,12 @@
 use std::collections::HashSet;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::mpsc::Receiver;
 use std::thread::Thread;
 use std::time::Duration;
 
 use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
 use shaderc::ShaderKind;
-use wgpu::{Color, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor};
+use wgpu::{Color, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, TextureView};
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
 use winit::window::Window;
@@ -25,75 +25,6 @@ mod input;
 
 pub const PLAYER_Z: f32 = 0.0;
 
-// pub struct GameCore {
-//     player: Option<Player>,
-//     cur_game_input: input::GameInputData,
-//     cache_input: input::RawInputData,
-
-//     commands: Vec<ScriptGameCommand>,
-//     next_tick_time: std::time::SystemTime,
-//     tick: u128,
-//     al: Option<audio::OpenalData>,
-// }
-//
-// impl Default for GameCore {
-//     fn default() -> Self {
-//         let alto = match audio::OpenalData::new() {
-//             Ok(a) => Some(a),
-//             Err(e) => {
-//                 eprintln!("load openal failed for {}", e);
-//                 None
-//             }
-//         };
-//         Self {
-//             player: None,
-//             cur_game_input: Default::default(),
-//             last_input: input::RawInputData::empty(),
-//             cur_input: input::RawInputData::empty(),
-//             cache_input: RawInputData::default(),
-//             last_frame_input: RawInputData::default(),
-//             cur_frame_input: input::RawInputData::empty(),
-//             cur_frame_game_input: Default::default(),
-//             commands: vec![],
-//             next_tick_time: std::time::SystemTime::now(),
-//             tick: 0,
-//             al: alto,
-//         }
-//     }
-// }
-//
-// impl GameCore {
-//     #[inline]
-//     pub fn tick_input(&mut self) {
-//         swap(&mut self.last_input, &mut self.cur_input);
-//         swap(&mut self.cur_input, &mut self.cache_input);
-//         self.cur_game_input.tick_mut(&self.cur_input);
-//         self.cache_input.pressing.clear();
-//     }
-//
-//     #[inline]
-//     pub fn swap_frame_input(&mut self) {
-//         swap(&mut self.cur_frame_input, &mut self.last_frame_input);
-//     }
-//
-//     #[inline]
-//     pub fn tick_game_frame_input(&mut self) {
-//         self.cur_frame_game_input.tick_mut(&self.cur_frame_input);
-//     }
-//
-//
-//     pub fn is_pressed(&self, keys: &[VirtualKeyCode]) -> bool {
-//         let last_input = &self.last_frame_input;
-//         let cur_input = &self.cur_frame_input;
-//
-//         let any_last_not_input = keys.iter().any(|key| !last_input.pressing.contains(key));
-//         let all_cur_input = keys.iter().all(|key| cur_input.pressing.contains(key));
-//
-//         return any_last_not_input && all_cur_input;
-//     }
-// }
-
-
 pub struct GraphicsState {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -101,10 +32,17 @@ pub struct GraphicsState {
     swapchain_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
     size: winit::dpi::PhysicalSize<u32>,
+    handles: Arc<ResourcesHandles>,
+}
+
+pub struct MainRendererData {
+    render2d: Texture2DRender,
     staging_belt: wgpu::util::StagingBelt,
     glyph_brush: wgpu_glyph::GlyphBrush<()>,
-    handles: Rc<ResourcesHandles>,
-    render2d: Texture2DRender,
+}
+
+pub struct RenderViews<'a> {
+    screen: &'a TextureView,
 }
 
 impl GraphicsState {
@@ -146,17 +84,11 @@ impl GraphicsState {
         };
         let swap_chain = device.create_swap_chain(&surface, &swapchain_desc);
 
-        let staging_belt = wgpu::util::StagingBelt::new(1024);
 
         res.load_font("default", "cjkFonts_allseto_v1.11.ttf");
         res.load_with_compile_shader("n2dt.v", "normal2dtexture.vert", "main", ShaderKind::Vertex);
         res.load_with_compile_shader("n2dt.f", "normal2dtexture.frag", "main", ShaderKind::Fragment);
 
-        let glyph_brush =
-            wgpu_glyph::GlyphBrushBuilder::using_font(res.fonts.get_mut()
-                .get("default").unwrap().clone()).build(&device, swapchain_desc.format);
-
-        let render2d = Texture2DRender::new(&device, swapchain_desc.format.into(), &mut res);
         Self {
             surface,
             device,
@@ -164,10 +96,7 @@ impl GraphicsState {
             swapchain_desc,
             swap_chain,
             size,
-            staging_belt,
-            glyph_brush,
-            handles: Rc::new(res),
-            render2d,
+            handles: Arc::new(res),
         }
     }
 }
@@ -199,6 +128,7 @@ impl Default for Pools {
 
 pub struct PthData {
     graphics_state: GraphicsState,
+    render: MainRendererData,
     pools: Pools,
     states: Vec<Box<dyn GameState>>,
     receiver: Receiver<WindowEventSync>,
@@ -214,13 +144,15 @@ impl PthData {
         let tick_interval = Duration::from_secs_f64(1.0 / 60.0);
 
         {
-            let state_data = StateData {
+            let mut state_data = StateData {
                 pools: &mut self.pools,
                 inputs: &self.inputs,
                 graphics_state: &mut self.graphics_state,
+                render: &mut self.render,
+                views: None,
             };
 
-            self.states.last_mut().unwrap().start(&state_data);
+            self.states.last_mut().unwrap().start(&mut state_data);
         }
 
         while self.running_game_thread {
@@ -250,10 +182,12 @@ impl PthData {
                 if tick_dur > tick_interval {
                     self.inputs.tick();
 
-                    let state_data = StateData {
+                    let mut state_data = StateData {
                         pools: &mut self.pools,
                         inputs: &self.inputs,
                         graphics_state: &mut self.graphics_state,
+                        render: &mut self.render,
+                        views: None,
                     };
                     for x in &mut self.states {
                         x.shadow_update(&state_data);
@@ -261,19 +195,22 @@ impl PthData {
 
 
                     if let Some(last) = self.states.last_mut() {
-                        match last.update(&state_data) {
-                            Trans::Push(x) => { self.states.push(x); }
+                        match last.update(&mut state_data) {
+                            Trans::Push(mut x) => {
+                                x.start(&mut state_data);
+                                self.states.push(x);
+                            }
                             Trans::Pop => {
-                                last.stop(&state_data);
+                                last.stop(&mut state_data);
                                 self.states.pop().unwrap();
                             }
                             Trans::Switch(x) => {
-                                last.stop(&state_data);
+                                last.stop(&mut state_data);
                                 *self.states.last_mut().unwrap() = x;
                             }
                             Trans::Exit => {
                                 while let Some(mut last) = self.states.pop() {
-                                    last.stop(&state_data);
+                                    last.stop(&mut state_data);
                                 }
                                 self.running_game_thread = false;
                                 break;
@@ -311,8 +248,9 @@ impl PthData {
             .get_current_frame()
             .expect("Failed to acquire next swap chain texture")
             .output;
-        let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Render Encoder") });
+
         {
+            let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Clear Encoder") });
             let _ = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: None,
                 color_attachments: &[RenderPassColorAttachment {
@@ -325,29 +263,51 @@ impl PthData {
                 }],
                 depth_stencil_attachment: None,
             });
-
-            {
-                let state_data = StateData {
-                    pools: &mut self.pools,
-                    inputs: &self.inputs,
-                    graphics_state: state,
-                };
-
-                for game_state in &mut self.states {
-                    game_state.shadow_render(&state_data);
-                }
-                if let Some(g) = self.states.last_mut() {
-                    g.render(&state_data);
-                }
-            }
-            systems::debug_system::DEBUG.render(state, dt, &frame.view, &mut encoder)
+            state.queue.submit(Some(encoder.finish()));
         }
-        state.queue.submit(Some(encoder.finish()));
+        let views = RenderViews {
+            screen: &frame.view
+        };
+        {
+            let mut state_data = StateData {
+                pools: &mut self.pools,
+                inputs: &self.inputs,
+                graphics_state: state,
+                render: &mut self.render,
+                views: Some(&views),
+            };
+
+            for game_state in &mut self.states {
+                game_state.shadow_render(&state_data);
+            }
+            if let Some(g) = self.states.last_mut() {
+                g.render(&mut state_data);
+            }
+        }
+
+
+        systems::debug_system::DEBUG.render(state, &mut self.render, dt, &frame.view);
+        state.queue.submit(None);
     }
 
     fn new(graphics_state: GraphicsState, game_state: impl GameState, receiver: Receiver<WindowEventSync>) -> Self {
+        let staging_belt = wgpu::util::StagingBelt::new(1024);
+        let glyph_brush =
+            wgpu_glyph::GlyphBrushBuilder::using_font(graphics_state.handles.fonts.read().unwrap()
+                .get("default").unwrap().clone()).build(&graphics_state.device, graphics_state.swapchain_desc.format);
+
+        let render2d = Texture2DRender::new(&graphics_state.device,
+                                            graphics_state.swapchain_desc.format.into(),
+                                            &graphics_state.handles,
+                                            [graphics_state.swapchain_desc.width as f32, graphics_state.swapchain_desc.height as f32]);
+        let render = MainRendererData {
+            render2d,
+            staging_belt,
+            glyph_brush,
+        };
         Self {
             graphics_state,
+            render,
             pools: Default::default(),
             states: vec![Box::new(game_state)],
             receiver,
