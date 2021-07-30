@@ -71,7 +71,17 @@ impl GraphicsState {
             .await
             .unwrap();
 
-        let format = adapter.get_swap_chain_preferred_format(&surface).expect("get format from swap chain failed");
+        let mut format = adapter.get_swap_chain_preferred_format(&surface).expect("get format from swap chain failed");
+
+        log::info!("Adapter chose {:?} for swap chain format", format);
+        if format.describe().srgb {
+            unsafe {
+                let idx: i32 = std::mem::transmute(format);
+                format = std::mem::transmute(idx - 1);
+            }
+        }
+
+        log::info!("Using {:?} for swap chain format", format);
 
         let swapchain_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::RENDER_ATTACHMENT,

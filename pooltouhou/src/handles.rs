@@ -178,7 +178,7 @@ impl ResourcesHandles {
                         mip_level_count: 1,
                         sample_count: 1,
                         dimension: TextureDimension::D2,
-                        format: TextureFormat::Rgba8UnormSrgb,
+                        format: TextureFormat::Rgba8Unorm,
                         usage: TextureUsage::COPY_DST | TextureUsage::SAMPLED,
                     });
                     state.queue.write_texture(
