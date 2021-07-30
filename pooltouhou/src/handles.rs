@@ -1,12 +1,9 @@
-use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicU16, Ordering};
 
-use futures::task::{LocalSpawn, LocalSpawnExt, SpawnExt};
 use image::GenericImageView;
 use shaderc::ShaderKind;
 use wgpu::{Extent3d, ImageCopyTexture, Origin3d, TextureDimension, TextureFormat, TextureUsage};
@@ -235,7 +232,7 @@ impl ResourcesHandles {
     }
 
     pub fn load_texture_static(self: &Arc<Self>, name: &'static str, file_path: &'static str,
-                               state: &GraphicsState, pools: &Pools, mut progress: impl ProgressTracker) {
+                               state: &GraphicsState, pools: &Pools, progress: impl ProgressTracker) {
         self.clone().load_texture_static_inner(name, file_path, state, pools, progress);
     }
 }

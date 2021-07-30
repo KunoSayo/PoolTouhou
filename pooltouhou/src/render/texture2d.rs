@@ -1,12 +1,16 @@
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::convert::TryInto;
 use std::sync::Arc;
 
-use glsl_layout::*;
 use rayon::iter::*;
-use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBinding, BufferBindingType, BufferDescriptor, BufferUsage, CommandBufferDescriptor, IndexFormat, LoadOp, Operations, PipelineLayout, RenderPass, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, ShaderFlags, ShaderStage, TextureSampleType, TextureView, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
+use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry,
+           BindGroupLayout, BindGroupLayoutDescriptor,
+           BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
+           BufferBinding, BufferBindingType, BufferDescriptor, BufferUsage,
+           IndexFormat, LoadOp, Operations, RenderPassColorAttachment,
+           RenderPassDescriptor, RenderPipeline, ShaderFlags, ShaderStage, TextureSampleType,
+           TextureView, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 use crate::GraphicsState;
@@ -66,7 +70,6 @@ impl Ord for Texture2DObject {
 pub struct Texture2DRender {
     vertex_uni_buffer: Buffer,
     vertex_uni_bind_group: BindGroup,
-    pipeline_layout: PipelineLayout,
     frag_bind_group_layout: BindGroupLayout,
     render_pipeline: RenderPipeline,
     vertex_buffer: Buffer,
@@ -200,7 +203,6 @@ impl Texture2DRender {
         Self {
             vertex_uni_buffer,
             vertex_uni_bind_group,
-            pipeline_layout,
             frag_bind_group_layout,
             render_pipeline,
             vertex_buffer,

@@ -40,7 +40,7 @@ impl GameState for Loading {
         handles.load_texture_static("sheep", "sheep.png", graphics_state, pools, self.progress.create_tracker());
     }
 
-    fn update(&mut self, _: &mut StateData) -> Trans {
+    fn game_tick(&mut self, _: &mut StateData) -> Trans {
         if self.progress.num_loading() == 0 {
             log::info!("loaded {} resources in {}ms.", self.progress.num_finished(), self.start.elapsed().as_millis());
             Trans::Push(Box::new(Menu::default()))

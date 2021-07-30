@@ -1,7 +1,7 @@
 use std::cell::Cell;
 use std::sync::atomic::{AtomicU16, Ordering};
 
-use wgpu::{CommandEncoder, TextureView};
+use wgpu::TextureView;
 use wgpu_glyph::GlyphCruncher;
 
 use crate::{GraphicsState, MainRendererData};

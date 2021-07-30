@@ -34,6 +34,7 @@ pub struct BakedInputs {
 
     pub last_frame_input: input::RawInputData,
     pub cur_frame_input: input::RawInputData,
+    pub cur_frame_game_input: input::GameInputData,
 
     /// only swap in game tick
     pub cur_temp_game_input: input::RawInputData,
@@ -71,6 +72,7 @@ impl BakedInputs {
         swap(&mut self.cur_frame_input, &mut self.last_frame_input);
         //clone for not lose temp info
         self.cur_frame_input = self.cur_temp_input.clone();
+        self.cur_frame_game_input.tick_mut(&self.cur_frame_input);
     }
 
     /// save current game tick input to last

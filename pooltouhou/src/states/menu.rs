@@ -1,5 +1,7 @@
 use std::convert::TryInto;
 
+use wgpu_glyph::Text;
+
 use crate::render::texture2d::{Texture2DObject, Texture2DVertexData};
 use crate::states::{GameState, StateData, Trans};
 
@@ -24,18 +26,28 @@ pub struct Menu {
     select: u8,
     con: bool,
     time: std::time::SystemTime,
-    select_text: u8,
+    texts: Vec<wgpu_glyph::Section<'static>>,
     background: Option<Texture2DObject>,
 }
 
 impl Default for Menu {
     fn default() -> Self {
+        let mut texts = Vec::with_capacity(BUTTON_NAME.len());
+        for (i, text) in BUTTON_NAME.iter().enumerate() {
+            texts.push(wgpu_glyph::Section {
+                screen_position: (60.0, 380.0 + i as f32 * 55.0),
+                bounds: (9961.0, 9961.0),
+                layout: Default::default(),
+                text: vec![Text::new(text).with_color([1.0, 1.0, 1.0, 1.0])
+                    .with_scale(36.0)],
+            })
+        }
         Self {
             select: 0,
             con: false,
             time: std::time::SystemTime::now(),
-            select_text: 0,
-            background: None
+            texts,
+            background: None,
         }
     }
 }
@@ -69,142 +81,94 @@ impl GameState for Menu {
         });
 
         data.render.render2d.add_tex(data.graphics_state, tex);
-        //     let world = data.world;
-        //
-        //     let main_bg = {
-        //         let handles = world.read_resource::<ResourcesHandles>();
-        //         handles.sprites.get("mainbg").unwrap().clone()
-        //     };
-        //     self.used_e.push(world.create_entity().with(main_bg)
-        //         .with({
-        //             let mut tran = Transform::default();
-        //             tran.set_translation_xyz(1600.0 / 2.0, 900.0 / 2.0, 1.0);
-        //             tran
-        //         })
-        //         .build());
-        //
-        //     let font = world.write_resource::<ResourcesHandles>().fonts.get("default")
-        //         .expect("get default font to show menu failed").clone();
-        //
-        //
-        //     let ee = world.create_iter().take(BUTTON_COUNT).collect::<Vec<_>>();
-        //     let selecting_entity = world.create_entity().build();
-        //     {
-        //         let mut ui_tran = world.write_component::<UiTransform>();
-        //         let mut ui_text = world.write_component::<UiText>();
-        //         for (i, e) in ee.iter().enumerate() {
-        //             let text = UiText::new(
-        //                 font.clone(),
-        //                 BUTTON_NAME[i].into(),
-        //                 [1., 1., 1., 1.],
-        //                 36.,
-        //                 LineMode::Wrap,
-        //                 Anchor::TopLeft,
-        //             );
-        //             let tran = UiTransform::new(
-        //                 "".into(), Anchor::TopLeft, Anchor::TopLeft,
-        //                 60., -380.0 - ((i * 55) as f32), 1., 996.1, 55.,
-        //             );
-        //             if self.select == i as u8 {
-        //                 let mut text = text.clone();
-        //                 let mut tran = tran.clone();
-        //                 selecting_offset(&mut text, &mut tran);
-        //                 ui_text.insert(selecting_entity, text).unwrap();
-        //                 ui_tran.insert(selecting_entity, tran).unwrap();
-        //             }
-        //             ui_text.insert(*e, text).unwrap();
-        //             ui_tran.insert(*e, tran).unwrap();
-        //         }
-        //     }
-        //     self.texts = Some(ee.try_into().unwrap());
-        //     self.select_text = Some(selecting_entity);
-    }
-
-
-    fn update(&mut self, data: &mut StateData) -> Trans {
-        // const EXIT_IDX: u8 = (BUTTON_COUNT - 1) as u8;
-        //
-        // let now = std::time::SystemTime::now();
-        // let core = data.world.read_resource::<GameCore>();
-        // let input = &core.cur_frame_game_input;
-        //
-        // let last_select = self.select;
-        // //make sure the screen is right
-        // //check enter / shoot first
-        // if input.shoot > 0 || input.enter > 0 {
-        //     match self.select {
-        //         0 => {
-        //             return LoadState::switch_wait_load(Trans::Push(Box::new(Gaming::default())), 1.0);
-        //         }
-        //         EXIT_IDX => {
-        //             return Trans::Quit;
-        //         }
-        //         _ => {}
-        //     }
-        // }
-        // if input.bomb == 1 {
-        //     self.select = EXIT_IDX;
-        // }
-        //
-        // let just_change = input.up == 1 || input.down == 1;
-        // if input.up == 1 || input.down == 1 || now.duration_since(self.time).unwrap().as_secs_f32() > if self.con { 1. / 6. } else { 0.5 } {
-        //     match input.direction.1 {
-        //         x if x > 0 => {
-        //             self.time = now;
-        //             self.con = !just_change;
-        //             self.select = get_previous(self.select, BUTTON_COUNT as _);
-        //         }
-        //         x if x < 0 => {
-        //             self.time = now;
-        //             self.con = !just_change;
-        //             self.select = get_next(self.select, BUTTON_COUNT as _);
-        //         }
-        //         _ => {
-        //             self.con = false;
-        //         }
-        //     }
-        // }
-        //
-        // if let Some(text_entities) = self.texts {
-        //     let mut text = data.world.write_component::<UiText>();
-        //     for (i, entity) in text_entities.iter().enumerate() {
-        //         let text = text.get_mut(*entity).unwrap();
-        //         if i as u8 == self.select {
-        //             text.color = [1., 1., 1., 1.];
-        //         } else {
-        //             text.color = [0.5, 0.5, 0.5, 1.];
-        //         }
-        //     }
-        //     if last_select != self.select {
-        //         if let Some(select_entity) = self.select_text {
-        //             let mut trans = data.world.write_component::<UiTransform>();
-        //
-        //             let n_text = text.get(text_entities[self.select as usize]).unwrap().clone();
-        //             let n_tran = trans.get(text_entities[self.select as usize]).unwrap().clone();
-        //             let mut text = text.get_mut(select_entity).unwrap();
-        //             let mut tran = trans.get_mut(select_entity).unwrap();
-        //             *text = n_text;
-        //             *tran = n_tran;
-        //             selecting_offset(&mut text, &mut tran);
-        //         }
-        //     }
-        // }
-        Trans::None
     }
 
     fn render(&mut self, data: &mut StateData) -> Trans {
-        data.render.render2d.render(data.graphics_state, &data.views.unwrap().screen, &[self.background.as_ref().unwrap()]);
+        const EXIT_IDX: u8 = (BUTTON_COUNT - 1) as u8;
+
+        let screen = data.screens.unwrap().screen;
+        data.render.render2d.render(data.graphics_state, screen, &[self.background.as_ref().unwrap()]);
+        {
+            let mut encoder = data.graphics_state.device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Menu Text Encoder") });
+            let mut tran = self.texts[self.select as usize].screen_position;
+            tran.0 += 3.0;
+            tran.1 += 3.0;
+            let shadow = wgpu_glyph::Section {
+                screen_position: tran,
+                bounds: (9961.0, 9961.0),
+                layout: Default::default(),
+                text: vec![Text::new(BUTTON_NAME[self.select as usize])
+                    .with_color([136.0 / 256.0, 136.0 / 256.0, 136.0 / 256.0, 1.0])
+                    .with_scale(36.0)],
+            };
+            data.render.glyph_brush.queue(shadow);
+
+            for s in &self.texts {
+                data.render.glyph_brush.queue(s);
+            }
+
+            if let Err(e) = data.render.glyph_brush
+                .draw_queued(&data.graphics_state.device, &mut data.render.staging_belt, &mut encoder, screen,
+                             data.graphics_state.swapchain_desc.width,
+                             data.graphics_state.swapchain_desc.height) {
+                log::warn!("Render menu text failed for {}", e);
+            }
+            data.render.staging_belt.finish();
+            data.graphics_state.queue.submit(Some(encoder.finish()));
+        }
+
+
+        let now = std::time::SystemTime::now();
+        let input = &data.inputs.cur_frame_game_input;
+
+        //make sure the screen is right
+        //check enter / shoot first
+        if input.shoot > 0 || input.enter > 0 {
+            match self.select {
+                0 => {
+                    return Trans::None;
+                    // return LoadState::switch_wait_load(Trans::Push(Box::new(Gaming::default())), 1.0);
+                }
+                EXIT_IDX => {
+                    return Trans::Exit;
+                }
+                _ => {}
+            }
+        }
+        if input.bomb == 1 {
+            self.select = EXIT_IDX;
+        }
+
+        let just_change = input.up == 1 || input.down == 1;
+        if input.up == 1 || input.down == 1 || now.duration_since(self.time).unwrap().as_secs_f32() > if self.con { 1. / 6. } else { 0.5 } {
+            match input.direction.1 {
+                x if x > 0 => {
+                    self.time = now;
+                    self.con = !just_change;
+                    self.select = get_previous(self.select, BUTTON_COUNT as _);
+                }
+                x if x < 0 => {
+                    self.time = now;
+                    self.con = !just_change;
+                    self.select = get_next(self.select, BUTTON_COUNT as _);
+                }
+                _ => {
+                    self.con = false;
+                }
+            }
+        }
+
+        for (i, s) in self.texts.iter_mut().enumerate() {
+            if i as u8 == self.select {
+                s.text[0].extra.color = [1., 1., 1., 1.];
+            } else {
+                s.text[0].extra.color = [0.5, 0.5, 0.5, 1.];
+            }
+        }
         Trans::None
     }
 }
-
-// #[inline]
-// pub fn selecting_offset(text: &mut UiText, tran: &mut UiTransform) {
-//     text.color = [136.0 / 256.0, 136.0 / 256.0, 136.0 / 256.0, 1.0];
-//     tran.local_x += 3.0;
-//     tran.local_y -= 3.0;
-//     tran.local_z -= 0.9961;
-// }
 
 #[inline]
 pub fn get_previous(cur_idx: u8, max_len: u8) -> u8 {
