@@ -71,11 +71,7 @@ impl GraphicsState {
             .await
             .unwrap();
 
-        let mut format = adapter.get_swap_chain_preferred_format(&surface).expect("get format from swap chain failed");
-
-        if format.describe().srgb {
-            format = TextureFormat::Rgba8Unorm;
-        }
+        let format = adapter.get_swap_chain_preferred_format(&surface).expect("get format from swap chain failed");
 
         let swapchain_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
@@ -85,7 +81,6 @@ impl GraphicsState {
             present_mode: wgpu::PresentMode::Fifo,
         };
         let swap_chain = device.create_swap_chain(&surface, &swapchain_desc);
-
 
         res.load_font("default", "cjkFonts_allseto_v1.11.ttf");
         res.load_with_compile_shader("n2dt.v", "normal2dtexture.vert", "main", ShaderKind::Vertex);

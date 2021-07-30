@@ -269,6 +269,7 @@ impl PthData {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     env_logger::builder()
+        .filter_module("wgpu_core::device", log::LevelFilter::Warn)
         .filter_level(log::LevelFilter::Info)
         .init();
     log::info!("Starting up...");
