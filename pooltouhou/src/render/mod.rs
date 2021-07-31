@@ -64,11 +64,17 @@ pub struct RenderViews<'a> {
 
 impl GraphicsState {
     pub(super) async fn new(window: &Window) -> Self {
+        log::debug!("New graphics state");
         let mut res = ResourcesHandles::default();
         let size = window.inner_size();
+        log::debug!("Got window inner size {:?}", size);
 
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+        log::debug!("Got wgpu  instance {:?}", instance);
+
         let surface = unsafe { instance.create_surface(window) };
+        log::debug!("Created surface {:?}", surface);
+
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
@@ -76,6 +82,7 @@ impl GraphicsState {
             })
             .await
             .unwrap();
+        log::debug!("Got adapter {:?}", adapter);
 
         let (device, queue) = adapter
             .request_device(
@@ -91,6 +98,7 @@ impl GraphicsState {
             )
             .await
             .unwrap();
+        log::debug!("Requested device {:?} and queue {:?}", device, queue);
 
         let mut format = adapter.get_swap_chain_preferred_format(&surface).expect("get format from swap chain failed");
 

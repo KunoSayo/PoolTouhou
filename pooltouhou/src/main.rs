@@ -290,10 +290,11 @@ impl<Console: std::io::Write> std::io::Write for LogTarget<Console> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::builder()
+    env_logger::Builder::default()
         .filter_module("wgpu_core::device", log::LevelFilter::Warn)
         .filter_level(log::LevelFilter::Info)
         .target(Target::Pipe(Box::new(LogTarget::new(std::io::stderr()))))
+        .parse_default_env()
         .init();
     log::info!("Starting up...");
 
