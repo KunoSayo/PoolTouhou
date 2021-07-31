@@ -2,24 +2,22 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use shaderc::ShaderKind;
-use wgpu::{TextureFormat, TextureView};
+use wgpu::{BindGroup, BindGroupEntry, BindGroupLayout,
+           BindGroupLayoutDescriptor, BindGroupLayoutEntry,
+           BindingResource, BindingType, Buffer, BufferBinding,
+           BufferBindingType, BufferUsage, ShaderStage, TextureView};
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::window::Window;
 
 use crate::handles::ResourcesHandles;
 use crate::render::texture2d::Texture2DRender;
 
 pub mod texture2d;
+pub mod water_wave;
 
-// pub use invert_color::InvertColorCircle;
-// pub use invert_color::RenderInvertColorCircle;
-// use glsl_layout::*;
-//
-// use std::path::PathBuf;
-//
-// pub mod blit;
-// pub mod invert_color;
-// pub mod water_wave;
-//
+pub trait RenderEffect {
+    fn render(&self, src: &[&TextureView], dest: &TextureView);
+}
 
 pub struct GraphicsState {
     pub surface: wgpu::Surface,
@@ -28,14 +26,37 @@ pub struct GraphicsState {
     pub swapchain_desc: wgpu::SwapChainDescriptor,
     pub swap_chain: wgpu::SwapChain,
     pub handles: Arc<ResourcesHandles>,
+    pub views: HashMap<String, crate::handles::Texture>,
+    pub screen_uni_buffer: Buffer,
+    pub screen_uni_bind_layout: BindGroupLayout,
+    pub screen_uni_bind: BindGroup,
 }
 
 pub struct MainRendererData {
     pub render2d: Texture2DRender,
     pub staging_belt: wgpu::util::StagingBelt,
     pub glyph_brush: wgpu_glyph::GlyphBrush<()>,
-    pub views: HashMap<String, TextureView>,
 }
+
+impl MainRendererData {
+    pub fn new(state: &GraphicsState) -> Self {
+        let staging_belt = wgpu::util::StagingBelt::new(2048);
+        let glyph_brush =
+            wgpu_glyph::GlyphBrushBuilder::using_font(state.handles.fonts.read().unwrap()
+                .get("default").unwrap().clone())
+                .build(&state.device, state.swapchain_desc.format);
+
+
+        let render2d = Texture2DRender::new(&state, state.swapchain_desc.format.into(), &state.handles);
+
+        Self {
+            render2d,
+            staging_belt,
+            glyph_brush,
+        }
+    }
+}
+
 
 pub struct RenderViews<'a> {
     pub screen: &'a TextureView,
@@ -95,6 +116,39 @@ impl GraphicsState {
         res.load_font("default", "cjkFonts_allseto_v1.11.ttf");
         res.load_with_compile_shader("n2dt.v", "normal2dtexture.vert", "main", ShaderKind::Vertex);
         res.load_with_compile_shader("n2dt.f", "normal2dtexture.frag", "main", ShaderKind::Fragment);
+
+        let screen_uni_bind_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStage::VERTEX,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+        let size = [swapchain_desc.width as f32, swapchain_desc.height as f32];
+        let screen_uni_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: None,
+            usage: BufferUsage::UNIFORM,
+            contents: bytemuck::cast_slice(&size),
+        });
+        let screen_uni_bind = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &screen_uni_bind_layout,
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: BindingResource::Buffer(BufferBinding {
+                    buffer: &screen_uni_buffer,
+                    offset: 0,
+                    size: None,
+                }),
+            }],
+        });
+
         Self {
             surface,
             device,
@@ -102,6 +156,10 @@ impl GraphicsState {
             swapchain_desc,
             swap_chain,
             handles: Arc::new(res),
+            views: Default::default(),
+            screen_uni_buffer,
+            screen_uni_bind_layout,
+            screen_uni_bind,
         }
     }
 }

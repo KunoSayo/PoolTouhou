@@ -3,6 +3,7 @@ use std::fs::OpenOptions;
 use std::sync::mpsc::Receiver;
 use std::time::Duration;
 
+use env_logger::Target;
 use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
 use wgpu::{Color, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor};
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
@@ -237,22 +238,7 @@ impl PthData {
     }
 
     fn new(graphics_state: GraphicsState, game_state: impl GameState, receiver: Receiver<WindowEventSync>) -> Self {
-        let staging_belt = wgpu::util::StagingBelt::new(2048);
-        let glyph_brush =
-            wgpu_glyph::GlyphBrushBuilder::using_font(graphics_state.handles.fonts.read().unwrap()
-                .get("default").unwrap().clone())
-                .build(&graphics_state.device, graphics_state.swapchain_desc.format);
-
-        let render2d = Texture2DRender::new(&graphics_state.device,
-                                            graphics_state.swapchain_desc.format.into(),
-                                            &graphics_state.handles,
-                                            [graphics_state.swapchain_desc.width as f32, graphics_state.swapchain_desc.height as f32]);
-        let render = MainRendererData {
-            render2d,
-            staging_belt,
-            glyph_brush,
-            views: Default::default()
-        };
+        let render = MainRendererData::new(&graphics_state);
         Self {
             graphics_state,
             render,
@@ -265,12 +251,49 @@ impl PthData {
     }
 }
 
+struct LogTarget<Console: std::io::Write> {
+    log_file: Option<std::fs::File>,
+    c: Console,
+}
+
+impl<Console: std::io::Write> LogTarget<Console> {
+    fn new(c: Console) -> Self {
+        let log_file = std::fs::OpenOptions::new().read(true).write(true).truncate(true).create(true).open("latest.log");
+        if let Err(ref e) = log_file {
+            eprintln!("Open log file failed for {}", e);
+        }
+        Self {
+            log_file: log_file.ok(),
+            c,
+        }
+    }
+}
+
+impl<Console: std::io::Write> std::io::Write for LogTarget<Console> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        if let Some(file) = self.log_file.as_mut() {
+            if let Err(e) = file.write_all(&buf) {
+                eprintln!("Log into file failed for {}", e);
+            }
+        }
+        self.c.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        if let Some(file) = self.log_file.as_mut() {
+            if let Err(e) = file.flush() {
+                eprintln!("Flush log into file failed for {}", e);
+            }
+        }
+        self.c.flush()
+    }
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     env_logger::builder()
         .filter_module("wgpu_core::device", log::LevelFilter::Warn)
         .filter_level(log::LevelFilter::Info)
+        .target(Target::Pipe(Box::new(LogTarget::new(std::io::stderr()))))
         .init();
     log::info!("Starting up...");
 

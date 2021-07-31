@@ -15,6 +15,7 @@ use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 use crate::GraphicsState;
 use crate::handles::ResourcesHandles;
+use crate::render::MainRendererData;
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 #[repr(C, align(4))]
@@ -68,8 +69,6 @@ impl Ord for Texture2DObject {
 }
 
 pub struct Texture2DRender {
-    vertex_uni_buffer: Buffer,
-    vertex_uni_bind_group: BindGroup,
     frag_bind_group_layout: BindGroupLayout,
     render_pipeline: RenderPipeline,
     vertex_buffer: Buffer,
@@ -78,21 +77,8 @@ pub struct Texture2DRender {
 }
 
 impl Texture2DRender {
-    pub fn new(device: &wgpu::Device, target_color_state: wgpu::ColorTargetState, handles: &Arc<ResourcesHandles>, size: [f32; 2]) -> Self {
-        let vertex_bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: None,
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStage::VERTEX,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
-
+    pub fn new(state: &GraphicsState, target_color_state: wgpu::ColorTargetState, handles: &Arc<ResourcesHandles>) -> Self {
+        let device = &state.device;
         let frag_bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: None,
             entries: &[BindGroupLayoutEntry {
@@ -123,12 +109,6 @@ impl Texture2DRender {
             mapped_at_creation: false,
         });
 
-        let vertex_uni_buffer = device.create_buffer_init(&BufferInitDescriptor {
-            label: None,
-            usage: BufferUsage::UNIFORM,
-            contents: bytemuck::cast_slice(&size),
-        });
-
         let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(&(0..OBJ_COUNT_IN_BUFFER).map(|obj_idx| {
@@ -140,22 +120,10 @@ impl Texture2DRender {
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[&vertex_bind_group_layout, &frag_bind_group_layout],
+            bind_group_layouts: &[&state.screen_uni_bind_layout, &frag_bind_group_layout],
             push_constant_ranges: &[],
         });
 
-        let vertex_uni_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: None,
-            layout: &vertex_bind_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: BindingResource::Buffer(BufferBinding {
-                    buffer: &vertex_uni_buffer,
-                    offset: 0,
-                    size: None,
-                }),
-            }],
-        });
 
         let vert = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             label: None,
@@ -201,8 +169,6 @@ impl Texture2DRender {
         });
 
         Self {
-            vertex_uni_buffer,
-            vertex_uni_bind_group,
             frag_bind_group_layout,
             render_pipeline,
             vertex_buffer,
@@ -229,7 +195,7 @@ impl Texture2DRender {
         }
     }
 
-    pub fn render<'a>(&'a mut self, state: &mut GraphicsState, render_target: &TextureView, sorted_obj: &[&Texture2DObject]) {
+    pub fn render<'a>(&'a self, state: &GraphicsState, render_target: &TextureView, sorted_obj: &[&Texture2DObject]) {
         let mut iter = sorted_obj.iter().enumerate();
         if let Some((_, fst)) = iter.next() {
             let mut last_tex = fst.tex;
@@ -270,7 +236,7 @@ impl Texture2DRender {
                         });
                         rp.set_vertex_buffer(0, self.vertex_buffer.slice(..));
                         rp.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint16);
-                        rp.set_bind_group(0, &self.vertex_uni_bind_group, &[]);
+                        rp.set_bind_group(0, &state.screen_uni_bind, &[]);
                         rp.set_bind_group(1, &bind_group, &[]);
 
                         rp.draw_indexed(0..((end - cur) * 6) as u32, 0, 0..1);
