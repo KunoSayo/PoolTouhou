@@ -1,7 +1,6 @@
 use std::cell::Cell;
 use std::sync::atomic::{AtomicU16, Ordering};
 
-use wgpu::TextureView;
 use wgpu_glyph::GlyphCruncher;
 
 use crate::{GraphicsState, MainRendererData};
@@ -22,7 +21,7 @@ pub static DEBUG: DebugSystem = DebugSystem {
 unsafe impl Sync for DebugSystem {}
 
 impl DebugSystem {
-    pub(crate) fn render(&self, state: &mut GraphicsState, render: &mut MainRendererData, dt: f32, target: &TextureView) {
+    pub(crate) fn render(&self, state: &mut GraphicsState, render: &mut MainRendererData, dt: f32) {
         let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Debug Encoder") });
 
         let delta = self.delta.get() + dt;
@@ -63,7 +62,7 @@ impl DebugSystem {
                     &state.device,
                     &mut render.staging_belt,
                     &mut encoder,
-                    target,
+                    &render.views.screen.view,
                     state.swapchain_desc.width,
                     state.swapchain_desc.height,
                 )

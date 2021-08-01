@@ -1,4 +1,4 @@
-use crate::{GraphicsState, MainRendererData, Pools, render::RenderViews};
+use crate::{GraphicsState, MainRendererData, Pools};
 use crate::input::BakedInputs;
 
 // pub use gaming::Gaming;
@@ -27,7 +27,6 @@ pub struct StateData<'a> {
     pub(crate) inputs: &'a BakedInputs,
     pub(crate) graphics_state: &'a mut GraphicsState,
     pub(crate) render: &'a mut MainRendererData,
-    pub(crate) screens: Option<&'a RenderViews<'a>>,
 }
 
 pub trait GameState: Send + 'static {

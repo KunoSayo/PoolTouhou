@@ -44,6 +44,7 @@ pub struct BakedInputs {
     pub cur_game_input: input::GameInputData,
 }
 
+
 impl BakedInputs {
     pub(super) fn process(&mut self, pressed: Box<HashSet<VirtualKeyCode>>, released: Box<HashSet<VirtualKeyCode>>) {
         for key in released.iter() {
@@ -79,6 +80,11 @@ impl BakedInputs {
     pub(super) fn tick(&mut self) {
         self.last_temp_game_input = self.cur_temp_game_input.clone();
         self.cur_game_input.tick_mut(&self.cur_temp_game_input);
+    }
+
+    pub fn is_pressed(&self, keys: &[VirtualKeyCode]) -> bool {
+        keys.iter().any(|k| !self.last_frame_input.pressing.contains(k))
+            && keys.iter().all(|k| self.cur_frame_input.pressing.contains(k))
     }
 }
 

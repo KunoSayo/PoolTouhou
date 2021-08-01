@@ -1,16 +1,19 @@
 use std::collections::HashSet;
-use std::fs::OpenOptions;
 use std::sync::mpsc::Receiver;
 use std::time::Duration;
 
 use env_logger::Target;
 use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
-use wgpu::{Color, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor};
+use futures::task::LocalSpawnExt;
+use image::{DynamicImage, ImageBuffer, ImageFormat, RgbaImage};
+use wgpu::{BufferDescriptor, BufferUsage, Color, CommandEncoderDescriptor, Extent3d,
+           ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, LoadOp,
+           Maintain, MapMode, Operations, Origin3d, RenderPassColorAttachment,
+           RenderPassDescriptor};
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
 
-use crate::render::{GraphicsState, MainRendererData, RenderViews};
-use crate::render::texture2d::Texture2DRender;
+use crate::render::{GraphicsState, MainRendererData};
 use crate::states::{GameState, StateData, Trans};
 
 mod handles;
@@ -71,7 +74,6 @@ impl PthData {
                 inputs: &self.inputs,
                 graphics_state: &mut self.graphics_state,
                 render: &mut self.render,
-                screens: None,
             };
 
             self.states.last_mut().unwrap().start(&mut state_data);
@@ -109,7 +111,6 @@ impl PthData {
                         inputs: &self.inputs,
                         graphics_state: &mut self.graphics_state,
                         render: &mut self.render,
-                        screens: None,
                     };
                     for x in &mut self.states {
                         x.shadow_update(&state_data);
@@ -166,17 +167,16 @@ impl PthData {
 
     fn render_once(&mut self, dt: f32) {
         let state = &mut self.graphics_state;
-        let frame = state.swap_chain
-            .get_current_frame()
-            .expect("Failed to acquire next swap chain texture")
-            .output;
+        let swap_chain_frame
+            = state.swap_chain.get_current_frame().expect("Failed to acquire next swap chain texture");
+        let output_tex = &swap_chain_frame.output;
 
         {
             let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Clear Encoder") });
             let _ = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: None,
                 color_attachments: &[RenderPassColorAttachment {
-                    view: &frame.view,
+                    view: &self.render.views.screen.view,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color {
@@ -192,16 +192,12 @@ impl PthData {
             });
             state.queue.submit(Some(encoder.finish()));
         }
-        let views = RenderViews {
-            screen: &frame.view
-        };
         {
             let mut state_data = StateData {
                 pools: &mut self.pools,
                 inputs: &self.inputs,
                 graphics_state: state,
                 render: &mut self.render,
-                screens: Some(&views),
             };
 
             for game_state in &mut self.states {
@@ -232,9 +228,62 @@ impl PthData {
             }
         }
 
+        systems::debug_system::DEBUG.render(state, &mut self.render, dt);
 
-        systems::debug_system::DEBUG.render(state, &mut self.render, dt, &frame.view);
-        state.queue.submit(None);
+        self.render.render2d.blit(&state, &self.render.views.screen.view, &output_tex.view);
+
+        if self.inputs.is_pressed(&[VirtualKeyCode::F11]) {
+            self.save_screen_shots();
+        }
+    }
+
+    fn save_screen_shots(&mut self) {
+        let state = &self.graphics_state;
+        let mut encoder = state.device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Save image commands")
+        });
+        let size = state.get_screen_size();
+        let buffer = state.device.create_buffer(&BufferDescriptor {
+            label: Some("Save screen buffer"),
+            size: ((size.0 * size.1) << 2) as _,
+            usage: BufferUsage::COPY_DST | BufferUsage::MAP_READ,
+            mapped_at_creation: false,
+        });
+        use std::convert::TryInto;
+        encoder.copy_texture_to_buffer(ImageCopyTexture {
+            texture: &self.render.views.screen.texture,
+            mip_level: 0,
+            origin: Origin3d::default(),
+        }, ImageCopyBuffer {
+            buffer: &buffer,
+            layout: ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some((size.0 * 4).try_into().unwrap()),
+                rows_per_image: Some((size.1).try_into().unwrap()),
+            },
+        }, Extent3d {
+            width: size.0,
+            height: size.1,
+            depth_or_array_layers: 1,
+        });
+        state.queue.submit(Some(encoder.finish()));
+        let buf_slice = buffer.slice(..);
+        self.pools.render_spawner.spawn_local_with_handle(buf_slice.map_async(MapMode::Read)).expect("Spawn task failed")
+            .forget();
+        self.pools.render_pool.try_run_one();
+        state.device.poll(Maintain::Wait);
+        let mapped_buf = buf_slice.get_mapped_range();
+        let image = DynamicImage::ImageBgra8(ImageBuffer::from_raw(size.0, size.1, Vec::from(mapped_buf.as_ref()))
+            .expect("Get image from screen failed"));
+        log::info!("Saving image");
+        self.pools.io_pool.spawn_ok(async move {
+            let now = chrono::DateTime::<chrono::Local>::from(std::time::SystemTime::now());
+            std::fs::create_dir_all("./screenshots").expect("Create screenshots dir failed");
+
+
+            image.to_rgba8().save_with_format(format!("./screenshots/{}.png", now.format("%y-%m-%d-%H-%M-%S")),
+                                              ImageFormat::Png).expect("Save image file failed");
+        });
     }
 
     fn new(graphics_state: GraphicsState, game_state: impl GameState, receiver: Receiver<WindowEventSync>) -> Self {

@@ -13,3 +13,5 @@ target
 *.dll
 
 *.log
+
+*/**/screenshots/**

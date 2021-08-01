@@ -1,10 +1,9 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::sync::Arc;
 
-use wgpu::{BindGroup, BindGroupLayout, BindGroupLayoutDescriptor,
+use wgpu::{BindGroupLayout, BindGroupLayoutDescriptor,
            BindGroupLayoutEntry, BindingType, Buffer,
-           BufferBinding, BufferBindingType, BufferDescriptor, BufferUsage,
+           BufferDescriptor, BufferUsage,
            IndexFormat, LoadOp, Operations, RenderPassColorAttachment,
            RenderPassDescriptor, RenderPipeline, ShaderFlags, ShaderStage, TextureSampleType,
            TextureView, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};

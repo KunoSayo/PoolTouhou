@@ -86,7 +86,7 @@ impl GameState for Menu {
     fn render(&mut self, data: &mut StateData) -> Trans {
         const EXIT_IDX: u8 = (BUTTON_COUNT - 1) as u8;
 
-        let screen = data.screens.unwrap().screen;
+        let screen = &data.render.views.screen.view;
 
         data.render.render2d.render(data.graphics_state, screen, &[self.background.as_ref().unwrap()]);
         {

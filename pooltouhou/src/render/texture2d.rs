@@ -3,21 +3,23 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use bytemuck::Pod;
+use bytemuck::Zeroable;
 use rayon::iter::*;
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry,
            BindGroupLayout, BindGroupLayoutDescriptor,
-           BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
-           BufferBinding, BufferBindingType, BufferDescriptor, BufferUsage,
-           IndexFormat, LoadOp, Operations, RenderPassColorAttachment,
-           RenderPassDescriptor, RenderPipeline, ShaderFlags, ShaderStage, TextureSampleType,
-           TextureView, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
+           BindGroupLayoutEntry, BindingResource, BindingType,
+           Buffer, BufferDescriptor,
+           BufferUsage, IndexFormat, LoadOp, Operations, RenderPassColorAttachment,
+           RenderPassDescriptor, RenderPipeline, ShaderFlags,
+           ShaderStage, TextureSampleType, TextureView, TextureViewDimension,
+           VertexAttribute, VertexBufferLayout, VertexFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 use crate::GraphicsState;
 use crate::handles::ResourcesHandles;
-use crate::render::MainRendererData;
 
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Pod, Zeroable)]
 #[repr(C, align(4))]
 pub struct Texture2DVertexData {
     pub pos: [f32; 2],
@@ -265,5 +267,74 @@ impl Texture2DRender {
             std::mem::drop(rp);
             state.queue.submit(Some(encoder.finish()));
         }
+    }
+
+
+    pub fn blit<'a>(&'a self, state: &GraphicsState, src: &TextureView, render_target: &TextureView) {
+        let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("2D Render Encoder") });
+        let sampler = state.device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            compare: None,
+            lod_min_clamp: 0.0,
+            lod_max_clamp: 0.0,
+            ..wgpu::SamplerDescriptor::default()
+        });
+        let bind_group = state.device.create_bind_group(&BindGroupDescriptor {
+            label: Some("blit texture bind"),
+            layout: &self.frag_bind_group_layout,
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: BindingResource::TextureView(src),
+            }, BindGroupEntry {
+                binding: 1,
+                resource: BindingResource::Sampler(&sampler),
+            }],
+        });
+        {
+            let mut rp = encoder.begin_render_pass(&RenderPassDescriptor {
+                label: None,
+                color_attachments: &[RenderPassColorAttachment {
+                    view: render_target,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Load,
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: None,
+            });
+            let (w, h) = state.get_screen_size();
+            let (w, h) = (w as f32, h as f32);
+            state.queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&(0..4).map(|x|
+                Texture2DVertexData {
+                    pos: match x {
+                        0 => [0.0, h],
+                        1 => [w, h],
+                        2 => [0.0, 0.0],
+                        3 => [w, 0.0],
+                        _ => unreachable!()
+                    },
+                    coord: match x {
+                        0 => [0.0, 0.0],
+                        1 => [1.0, 0.0],
+                        2 => [0.0, 1.0],
+                        3 => [1.0, 1.0],
+                        _ => unreachable!()
+                    },
+                }).collect::<Vec<_>>()));
+            rp.set_pipeline(&self.render_pipeline);
+            rp.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            rp.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint16);
+            rp.set_bind_group(0, &state.screen_uni_bind, &[]);
+            rp.set_bind_group(1, &bind_group, &[]);
+
+            rp.draw_indexed(0..6, 0, 0..1);
+        }
+        state.queue.submit(Some(encoder.finish()));
     }
 }

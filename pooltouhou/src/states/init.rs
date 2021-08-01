@@ -1,7 +1,5 @@
 use std::time::Instant;
 
-use winit::event::VirtualKeyCode;
-
 use crate::handles::{CounterProgress, Progress};
 use crate::states::{GameState, StateData, Trans};
 use crate::states::menu::Menu;

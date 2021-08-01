@@ -2,14 +2,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use shaderc::ShaderKind;
-use wgpu::{BindGroup, BindGroupEntry, BindGroupLayout,
-           BindGroupLayoutDescriptor, BindGroupLayoutEntry,
-           BindingResource, BindingType, Buffer, BufferBinding,
-           BufferBindingType, BufferUsage, ShaderStage, TextureView};
+use wgpu::{BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBinding, BufferBindingType, BufferUsage, Extent3d, ShaderStage, TextureDimension, TextureFormat, TextureUsage, TextureView};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::window::Window;
 
-use crate::handles::ResourcesHandles;
+use crate::handles::{ResourcesHandles, Texture};
 use crate::render::texture2d::Texture2DRender;
 
 pub mod texture2d;
@@ -32,10 +29,54 @@ pub struct GraphicsState {
     pub screen_uni_bind: BindGroup,
 }
 
+pub struct RenderViews {
+    pub screen: Texture,
+}
+
+impl RenderViews {
+    pub fn new(state: &GraphicsState) -> Self {
+        let size = state.get_screen_size();
+        let texture = state.device.create_texture(&wgpu::TextureDescriptor {
+            label: None,
+            size: Extent3d {
+                width: size.0,
+                height: size.1,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: TextureDimension::D2,
+            format: state.swapchain_desc.format,
+            usage: TextureUsage::COPY_DST | TextureUsage::SAMPLED | TextureUsage::COPY_SRC | TextureUsage::RENDER_ATTACHMENT,
+        });
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = state.device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            compare: None,
+            lod_min_clamp: 0.0,
+            lod_max_clamp: 0.0,
+            ..wgpu::SamplerDescriptor::default()
+        });
+        Self {
+            screen: Texture {
+                texture,
+                view,
+                sampler,
+            }
+        }
+    }
+}
+
 pub struct MainRendererData {
     pub render2d: Texture2DRender,
     pub staging_belt: wgpu::util::StagingBelt,
     pub glyph_brush: wgpu_glyph::GlyphBrush<()>,
+    pub views: RenderViews,
 }
 
 impl MainRendererData {
@@ -48,21 +89,23 @@ impl MainRendererData {
 
 
         let render2d = Texture2DRender::new(&state, state.swapchain_desc.format.into(), &state.handles);
-
+        let views = RenderViews::new(state);
         Self {
             render2d,
             staging_belt,
             glyph_brush,
+            views
         }
     }
 }
 
 
-pub struct RenderViews<'a> {
-    pub screen: &'a TextureView,
-}
 
 impl GraphicsState {
+    pub fn get_screen_size(&self) -> (u32, u32) {
+        (self.swapchain_desc.width, self.swapchain_desc.height)
+    }
+
     pub(super) async fn new(window: &Window) -> Self {
         log::debug!("New graphics state");
         let mut res = ResourcesHandles::default();
@@ -71,7 +114,6 @@ impl GraphicsState {
 
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
         log::debug!("Got wgpu  instance {:?}", instance);
-
         let surface = unsafe { instance.create_surface(window) };
         log::debug!("Created surface {:?}", surface);
 
@@ -83,7 +125,6 @@ impl GraphicsState {
             .await
             .unwrap();
         log::debug!("Got adapter {:?}", adapter);
-
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -101,15 +142,8 @@ impl GraphicsState {
         log::debug!("Requested device {:?} and queue {:?}", device, queue);
 
         let mut format = adapter.get_swap_chain_preferred_format(&surface).expect("get format from swap chain failed");
-
         log::info!("Adapter chose {:?} for swap chain format", format);
-        if format.describe().srgb {
-            unsafe {
-                let idx: i32 = std::mem::transmute(format);
-                format = std::mem::transmute(idx - 1);
-            }
-        }
-
+        format = TextureFormat::Bgra8Unorm;
         log::info!("Using {:?} for swap chain format", format);
 
         let swapchain_desc = wgpu::SwapChainDescriptor {
