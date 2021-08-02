@@ -279,8 +279,6 @@ impl PthData {
         self.pools.io_pool.spawn_ok(async move {
             let now = chrono::DateTime::<chrono::Local>::from(std::time::SystemTime::now());
             std::fs::create_dir_all("./screenshots").expect("Create screenshots dir failed");
-
-
             image.to_rgba8().save_with_format(format!("./screenshots/{}.png", now.format("%y-%m-%d-%H-%M-%S")),
                                               ImageFormat::Png).expect("Save image file failed");
         });
