@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::sync::mpsc::Receiver;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use env_logger::Target;
 use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
@@ -61,15 +61,15 @@ pub struct PthData {
     receiver: Receiver<WindowEventSync>,
     inputs: input::BakedInputs,
     running_game_thread: bool,
+    last_render_time: Instant,
+    last_tick_time: Instant,
+    tick_interval: Duration,
+
 }
 
 impl PthData {
-    fn game_thread_run(&mut self) {
-        log::info!("created render thread.");
-        let mut last_render_time = std::time::Instant::now();
-        let mut last_tick_time = std::time::Instant::now();
-        let tick_interval = Duration::from_secs_f64(1.0 / 60.0);
-
+    fn start_init(&mut self) {
+        log::info!("Init render thread.");
         {
             let mut state_data = StateData {
                 pools: &mut self.pools,
@@ -80,93 +80,90 @@ impl PthData {
 
             self.states.last_mut().unwrap().start(&mut state_data);
         }
+    }
 
-        while self.running_game_thread {
-            while let Ok(event) = self.receiver.try_recv() {
-                match event {
-                    WindowEventSync::ChangeSize(width, height) => {
-                        let swapchain_desc = wgpu::SwapChainDescriptor {
-                            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-                            format: self.graphics_state.swapchain_desc.format,
-                            width,
-                            height,
-                            present_mode: wgpu::PresentMode::Fifo,
-                        };
-                        log::info!("Changed windows size to {}, {}", width, height);
-                        if width != 0 && height != 0 {
-                            self.graphics_state.swap_chain = self.graphics_state.device.create_swap_chain(&self.graphics_state.surface, &swapchain_desc);
-                        }
-                    }
-                    WindowEventSync::KeysChange(pressed, released) => {
-                        self.inputs.process(pressed, released);
-                    }
-                }
-            }
-            self.inputs.swap_frame();
-
-            {
-                let tick_now = std::time::Instant::now();
-
-                let tick_dur = tick_now.duration_since(last_tick_time);
-                if tick_dur > tick_interval {
-                    self.inputs.tick();
-
-                    let mut state_data = StateData {
-                        pools: &mut self.pools,
-                        inputs: &self.inputs,
-                        global_state: &mut self.graphics_state,
-                        render: &mut self.render,
+    fn loop_once(&mut self) {
+        while let Ok(event) = self.receiver.try_recv() {
+            match event {
+                WindowEventSync::ChangeSize(width, height) => {
+                    let swapchain_desc = wgpu::SwapChainDescriptor {
+                        usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+                        format: self.graphics_state.swapchain_desc.format,
+                        width,
+                        height,
+                        present_mode: wgpu::PresentMode::Fifo,
                     };
-                    for x in &mut self.states {
-                        x.shadow_update(&state_data);
-                    }
-
-
-                    if let Some(last) = self.states.last_mut() {
-                        match last.game_tick(&mut state_data) {
-                            Trans::Push(mut x) => {
-                                x.start(&mut state_data);
-                                self.states.push(x);
-                            }
-                            Trans::Pop => {
-                                last.stop(&mut state_data);
-                                self.states.pop().unwrap();
-                            }
-                            Trans::Switch(x) => {
-                                last.stop(&mut state_data);
-                                *self.states.last_mut().unwrap() = x;
-                            }
-                            Trans::Exit => {
-                                while let Some(mut last) = self.states.pop() {
-                                    last.stop(&mut state_data);
-                                }
-                                self.running_game_thread = false;
-                                break;
-                            }
-                            Trans::None => {}
-                        }
-                    } else {
-                        println!("There is no states to run. Why run game thread?");
-                        self.running_game_thread = false;
-                    }
-
-                    if tick_dur > 2 * tick_interval {
-                        last_tick_time = std::time::Instant::now();
-                    } else {
-                        last_tick_time = tick_now;
+                    log::info!("Changed windows size to {}, {}", width, height);
+                    if width != 0 && height != 0 {
+                        self.graphics_state.swap_chain = self.graphics_state.device.create_swap_chain(&self.graphics_state.surface, &swapchain_desc);
                     }
                 }
+                WindowEventSync::KeysChange(pressed, released) => {
+                    self.inputs.process(pressed, released);
+                }
             }
+        }
+        self.inputs.swap_frame();
 
-            {
-                let render_now = std::time::Instant::now();
-                let render_dur = render_now.duration_since(last_render_time);
-                self.render_once(render_dur.as_secs_f32());
-                self.pools.render_pool.try_run_one();
-                last_render_time = render_now;
+        {
+            let tick_now = std::time::Instant::now();
+
+            let tick_dur = tick_now.duration_since(self.last_tick_time);
+            if tick_dur > self.tick_interval {
+                self.inputs.tick();
+
+                let mut state_data = StateData {
+                    pools: &mut self.pools,
+                    inputs: &self.inputs,
+                    global_state: &mut self.graphics_state,
+                    render: &mut self.render,
+                };
+                for x in &mut self.states {
+                    x.shadow_update(&state_data);
+                }
+
+
+                if let Some(last) = self.states.last_mut() {
+                    match last.game_tick(&mut state_data) {
+                        Trans::Push(mut x) => {
+                            x.start(&mut state_data);
+                            self.states.push(x);
+                        }
+                        Trans::Pop => {
+                            last.stop(&mut state_data);
+                            self.states.pop().unwrap();
+                        }
+                        Trans::Switch(x) => {
+                            last.stop(&mut state_data);
+                            *self.states.last_mut().unwrap() = x;
+                        }
+                        Trans::Exit => {
+                            while let Some(mut last) = self.states.pop() {
+                                last.stop(&mut state_data);
+                            }
+                            self.running_game_thread = false;
+                        }
+                        Trans::None => {}
+                    }
+                } else {
+                    println!("There is no states to run. Why run game thread?");
+                    self.running_game_thread = false;
+                }
+
+                if tick_dur > 2 * self.tick_interval {
+                    self.last_tick_time = std::time::Instant::now();
+                } else {
+                    self.last_tick_time = tick_now;
+                }
             }
+        }
 
-            std::thread::yield_now();
+        {
+            let render_now = std::time::Instant::now();
+            let render_dur = render_now.duration_since(self.last_render_time);
+            self.render_once(render_dur.as_secs_f32());
+            self.pools.render_pool.try_run_one();
+            self.last_render_time = render_now;
         }
     }
 
@@ -299,6 +296,9 @@ impl PthData {
             receiver,
             inputs: Default::default(),
             running_game_thread: true,
+            last_render_time: Instant::now(),
+            last_tick_time: Instant::now(),
+            tick_interval: Duration::from_secs_f64(1.0 / 60.0),
         }
     }
 }
@@ -366,11 +366,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (sender, receiver) = std::sync::mpsc::channel();
 
-    std::thread::spawn(move || {
-        let state = pollster::block_on(GlobalState::new(&window));
-        let mut pth = PthData::new(state, crate::states::init::Loading::default(), receiver);
-        pth.game_thread_run();
-    });
+    // std::thread::spawn(move || {
+    let state = pollster::block_on(GlobalState::new(&window));
+    let mut pth = PthData::new(state, crate::states::init::Loading::default(), receiver);
+    pth.start_init();
+    // });
     log::info!("going to run event loop");
     let mut pressed_keys = Box::new(HashSet::new());
     let mut released_keys = Box::new(HashSet::new());
@@ -425,6 +425,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             } => {
                 //todo: process text input
             }
+            Event::NewEvents(_) => {}
             Event::MainEventsCleared => {
                 if !pressed_keys.is_empty() || !released_keys.is_empty() {
                     match sender.send(WindowEventSync::KeysChange(std::mem::take(&mut pressed_keys), std::mem::take(&mut released_keys))) {
@@ -434,9 +435,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                 }
+                if pth.running_game_thread {
+                    pth.loop_once();
+                } else {
+                    *control_flow = ControlFlow::Exit;
+                }
             }
             _ => {
-                *control_flow = ControlFlow::Wait
+                *control_flow = ControlFlow::Poll
             }
         }
     });
