@@ -5,6 +5,7 @@ use crate::context::Context;
 use crate::pool_script::Compile;
 
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq)]
+#[repr(u8)]
 pub enum GameData {
     PosX = 0,
     PosY = 1,

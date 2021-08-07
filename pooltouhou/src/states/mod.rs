@@ -1,4 +1,4 @@
-use crate::{GraphicsState, MainRendererData, Pools};
+use crate::{GlobalState, MainRendererData, Pools};
 use crate::input::BakedInputs;
 
 // pub use gaming::Gaming;
@@ -25,7 +25,7 @@ pub enum Trans {
 pub struct StateData<'a> {
     pub(crate) pools: &'a mut Pools,
     pub(crate) inputs: &'a BakedInputs,
-    pub(crate) graphics_state: &'a mut GraphicsState,
+    pub(crate) global_state: &'a mut GlobalState,
     pub(crate) render: &'a mut MainRendererData,
 }
 

@@ -6,17 +6,23 @@ use wgpu::{BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::window::Window;
 
+use crate::audio::OpenalData;
 use crate::handles::{ResourcesHandles, Texture};
 use crate::render::texture2d::Texture2DRender;
 
 pub mod texture2d;
 pub mod water_wave;
 
-pub trait RenderEffect {
-    fn render(&self, src: &[&TextureView], dest: &TextureView);
+pub trait EffectRenderer {
+    fn alive(&self) -> bool {
+        true
+    }
+    /// render the effect
+    /// dt is the delta seconds in f32
+    fn render(&self, dt: f32, src: &[&TextureView], dest: &TextureView);
 }
 
-pub struct GraphicsState {
+pub struct GlobalState {
     pub surface: wgpu::Surface,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -27,6 +33,8 @@ pub struct GraphicsState {
     pub screen_uni_buffer: Buffer,
     pub screen_uni_bind_layout: BindGroupLayout,
     pub screen_uni_bind: BindGroup,
+
+    pub al: Option<OpenalData>,
 }
 
 pub struct RenderViews {
@@ -34,7 +42,7 @@ pub struct RenderViews {
 }
 
 impl RenderViews {
-    pub fn new(state: &GraphicsState) -> Self {
+    pub fn new(state: &GlobalState) -> Self {
         let size = state.get_screen_size();
         let texture = state.device.create_texture(&wgpu::TextureDescriptor {
             label: None,
@@ -80,7 +88,7 @@ pub struct MainRendererData {
 }
 
 impl MainRendererData {
-    pub fn new(state: &GraphicsState) -> Self {
+    pub fn new(state: &GlobalState) -> Self {
         let staging_belt = wgpu::util::StagingBelt::new(2048);
         let glyph_brush =
             wgpu_glyph::GlyphBrushBuilder::using_font(state.handles.fonts.read().unwrap()
@@ -100,8 +108,7 @@ impl MainRendererData {
 }
 
 
-
-impl GraphicsState {
+impl GlobalState {
     pub fn get_screen_size(&self) -> (u32, u32) {
         (self.swapchain_desc.width, self.swapchain_desc.height)
     }
@@ -202,6 +209,13 @@ impl GraphicsState {
             screen_uni_buffer,
             screen_uni_bind_layout,
             screen_uni_bind,
+            al: match OpenalData::new() {
+                Ok(data) => Some(data),
+                Err(e) => {
+                    log::warn!("Cannot create openal context for {:?}" , e);
+                    None
+                }
+            }
         }
     }
 }

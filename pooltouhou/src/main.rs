@@ -5,7 +5,7 @@ use std::time::Duration;
 use env_logger::Target;
 use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
 use futures::task::LocalSpawnExt;
-use image::{DynamicImage, ImageBuffer, ImageFormat, RgbaImage};
+use image::{DynamicImage, ImageBuffer, ImageFormat};
 use wgpu::{BufferDescriptor, BufferUsage, Color, CommandEncoderDescriptor, Extent3d,
            ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, LoadOp,
            Maintain, MapMode, Operations, Origin3d, RenderPassColorAttachment,
@@ -13,7 +13,7 @@ use wgpu::{BufferDescriptor, BufferUsage, Color, CommandEncoderDescriptor, Exten
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
 
-use crate::render::{GraphicsState, MainRendererData};
+use crate::render::{GlobalState, MainRendererData};
 use crate::states::{GameState, StateData, Trans};
 
 mod handles;
@@ -21,6 +21,8 @@ mod states;
 mod systems;
 mod render;
 mod input;
+mod script;
+mod audio;
 
 // https://doc.rust-lang.org/book/
 
@@ -52,7 +54,7 @@ impl Default for Pools {
 }
 
 pub struct PthData {
-    graphics_state: GraphicsState,
+    graphics_state: GlobalState,
     render: MainRendererData,
     pools: Pools,
     states: Vec<Box<dyn GameState>>,
@@ -72,7 +74,7 @@ impl PthData {
             let mut state_data = StateData {
                 pools: &mut self.pools,
                 inputs: &self.inputs,
-                graphics_state: &mut self.graphics_state,
+                global_state: &mut self.graphics_state,
                 render: &mut self.render,
             };
 
@@ -90,7 +92,10 @@ impl PthData {
                             height,
                             present_mode: wgpu::PresentMode::Fifo,
                         };
-                        self.graphics_state.swap_chain = self.graphics_state.device.create_swap_chain(&self.graphics_state.surface, &swapchain_desc);
+                        log::info!("Changed windows size to {}, {}", width, height);
+                        if width != 0 && height != 0 {
+                            self.graphics_state.swap_chain = self.graphics_state.device.create_swap_chain(&self.graphics_state.surface, &swapchain_desc);
+                        }
                     }
                     WindowEventSync::KeysChange(pressed, released) => {
                         self.inputs.process(pressed, released);
@@ -109,7 +114,7 @@ impl PthData {
                     let mut state_data = StateData {
                         pools: &mut self.pools,
                         inputs: &self.inputs,
-                        graphics_state: &mut self.graphics_state,
+                        global_state: &mut self.graphics_state,
                         render: &mut self.render,
                     };
                     for x in &mut self.states {
@@ -196,7 +201,7 @@ impl PthData {
             let mut state_data = StateData {
                 pools: &mut self.pools,
                 inputs: &self.inputs,
-                graphics_state: state,
+                global_state: state,
                 render: &mut self.render,
             };
 
@@ -284,7 +289,7 @@ impl PthData {
         });
     }
 
-    fn new(graphics_state: GraphicsState, game_state: impl GameState, receiver: Receiver<WindowEventSync>) -> Self {
+    fn new(graphics_state: GlobalState, game_state: impl GameState, receiver: Receiver<WindowEventSync>) -> Self {
         let render = MainRendererData::new(&graphics_state);
         Self {
             graphics_state,
@@ -362,7 +367,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (sender, receiver) = std::sync::mpsc::channel();
 
     std::thread::spawn(move || {
-        let state = pollster::block_on(GraphicsState::new(&window));
+        let state = pollster::block_on(GlobalState::new(&window));
         let mut pth = PthData::new(state, crate::states::init::Loading::default(), receiver);
         pth.game_thread_run();
     });

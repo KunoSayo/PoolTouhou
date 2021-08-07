@@ -7,22 +7,23 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-env_logger = "0.9"
-log = "0.4.14"
+env_logger = "*"
+log = "*"
 wgpu = "0.9.0"
 wgpu_glyph = "0.13"
 winit = "0.24"
 pollster = "0.2.3"
-futures = {version = "*", features = ["thread-pool"]}
+futures = { version = "*", features = ["thread-pool"] }
 image = "*"
 rayon = "*"
-lazy_static = "1.4.0"
 glsl-layout = "0.3.2"
 bytemuck = "*"
 chrono = "*"
 alto = "3.0.4"
 rodio = "0.11.0"
 shaderc = "0.7"
+pool_script = { path = "../pool_script" }
+nalgebra = { version = "0.28.0", features = ["convert-bytemuck"] }
 
 # https://amethyst.rs/doc
 

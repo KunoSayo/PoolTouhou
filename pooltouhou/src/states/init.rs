@@ -22,7 +22,7 @@ impl GameState for Loading {
     fn start(&mut self, data: &mut StateData) {
         log::info!("loading state start");
         self.start = Instant::now();
-        let graphics_state = &data.graphics_state;
+        let graphics_state = &data.global_state;
         let handles = &graphics_state.handles;
         let pools = &data.pools;
         handles.load_texture_static("bullet", "bullet.png", graphics_state, pools, self.progress.create_tracker());
@@ -36,6 +36,9 @@ impl GameState for Loading {
         handles.load_texture_static("暗夜", "暗夜.png", graphics_state, pools, self.progress.create_tracker());
         handles.load_texture_static("sheepBullet", "sheepBullet.png", graphics_state, pools, self.progress.create_tracker());
         handles.load_texture_static("sheep", "sheep.png", graphics_state, pools, self.progress.create_tracker());
+        if let Some(al) = &data.global_state.al {
+            handles.load_bgm_static("title", "title.mp3", al.ctx.clone(), &data.pools, self.progress.create_tracker());
+        }
     }
 
     fn game_tick(&mut self, _: &mut StateData) -> Trans {

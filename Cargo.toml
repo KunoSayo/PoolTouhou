@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "pooltouhou",
-    "pool_script"
+    "pool_script",
+    "pool_script_compiler"
 ]
 
 [profile.dev]

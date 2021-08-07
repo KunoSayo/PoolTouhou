@@ -4,12 +4,14 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicU16, Ordering};
 
+use alto::Buffer;
 use image::GenericImageView;
+use rodio::Source;
 use shaderc::ShaderKind;
 use wgpu::{Extent3d, ImageCopyTexture, Origin3d, TextureDimension, TextureFormat, TextureUsage};
 use wgpu_glyph::ab_glyph::FontArc;
 
-use crate::{GraphicsState, Pools};
+use crate::{GlobalState, Pools};
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -24,6 +26,8 @@ pub struct ResourcesHandles {
     pub shaders: RwLock<HashMap<String, Vec<u32>>>,
     pub textures: RwLock<Vec<Texture>>,
     pub texture_map: RwLock<HashMap<String, usize>>,
+
+    pub bgm_map: RwLock<HashMap<String, Arc<Buffer>>>,
 }
 
 #[derive(Default)]
@@ -54,9 +58,9 @@ pub trait Progress {
 }
 
 pub trait ProgressTracker: 'static + Send {
-    fn end_loading(&mut self);
+    fn end_loading(&mut self) {}
 
-    fn new_error_num(&mut self);
+    fn new_error_num(&mut self) {}
 }
 
 impl Progress for CounterProgress {
@@ -83,11 +87,7 @@ impl Progress for CounterProgress {
     }
 }
 
-impl ProgressTracker for () {
-    fn end_loading(&mut self) {}
-
-    fn new_error_num(&mut self) {}
-}
+impl ProgressTracker for () {}
 
 impl ProgressTracker for CounterProgressTracker {
     fn end_loading(&mut self) {
@@ -123,6 +123,7 @@ impl Default for ResourcesHandles {
             shaders: Default::default(),
             textures: Default::default(),
             texture_map: Default::default(),
+            bgm_map: Default::default()
         }
     }
 }
@@ -155,8 +156,8 @@ impl ResourcesHandles {
     }
 
     fn load_texture_static_inner(self: Arc<Self>, name: &'static str, file_path: &'static str,
-                                 state: &GraphicsState, pools: &Pools, mut progress: impl ProgressTracker) {
-        let state = unsafe { std::mem::transmute::<_, &'static GraphicsState>(state) };
+                                 state: &GlobalState, pools: &Pools, mut progress: impl ProgressTracker) {
+        let state = unsafe { std::mem::transmute::<_, &'static GlobalState>(state) };
         let target = self.assets_dir.join("texture").join(file_path);
         pools.io_pool.spawn_ok(async move {
             let image = image::load_from_memory(&std::fs::read(target)
@@ -231,8 +232,36 @@ impl ResourcesHandles {
         });
     }
 
+    pub fn load_bgm_static(self: &Arc<Self>, name: &'static str, file_path: &'static str,
+                           context: alto::Context, pools: &Pools, mut progress: impl ProgressTracker) {
+        let this = self.clone();
+        pools.io_pool.spawn_ok(async move {
+            let target = this.assets_dir.join("sounds").join(file_path);
+            let (audio_bin, freq, channel) = match rodio::Decoder::new(std::fs::File::open(target).unwrap()) {
+                Ok(data) => {
+                    let freq = data.sample_rate() as i32;
+                    let channels = data.channels();
+                    log::info!("Loaded bgm {} and it has {} channels", name, data.channels());
+                    (data.collect::<Vec<i16>>(), freq, channels)
+                }
+                Err(e) => {
+                    log::warn!("Decode {} audio failed for {}", file_path, e);
+                    progress.new_error_num();
+                    return;
+                }
+            };
+            let buf = if channel == 1 {
+                Arc::new(context.new_buffer::<alto::Mono<i16>, _>(&audio_bin, freq).unwrap())
+            } else {
+                Arc::new(context.new_buffer::<alto::Stereo<i16>, _>(&audio_bin, freq).unwrap())
+            };
+            let mut map = this.bgm_map.write().unwrap();
+            map.insert(name.into(), buf);
+        });
+    }
+
     pub fn load_texture_static(self: &Arc<Self>, name: &'static str, file_path: &'static str,
-                               state: &GraphicsState, pools: &Pools, progress: impl ProgressTracker) {
+                               state: &GlobalState, pools: &Pools, progress: impl ProgressTracker) {
         self.clone().load_texture_static_inner(name, file_path, state, pools, progress);
     }
 }

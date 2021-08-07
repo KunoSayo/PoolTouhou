@@ -16,7 +16,7 @@ use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry,
            VertexAttribute, VertexBufferLayout, VertexFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
-use crate::GraphicsState;
+use crate::GlobalState;
 use crate::handles::ResourcesHandles;
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Pod, Zeroable)]
@@ -79,7 +79,7 @@ pub struct Texture2DRender {
 }
 
 impl Texture2DRender {
-    pub fn new(state: &GraphicsState, target_color_state: wgpu::ColorTargetState, handles: &Arc<ResourcesHandles>) -> Self {
+    pub fn new(state: &GlobalState, target_color_state: wgpu::ColorTargetState, handles: &Arc<ResourcesHandles>) -> Self {
         let device = &state.device;
         let frag_bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: None,
@@ -179,7 +179,7 @@ impl Texture2DRender {
         }
     }
 
-    pub fn add_tex(&mut self, state: &mut GraphicsState, tex: usize) {
+    pub fn add_tex(&mut self, state: &mut GlobalState, tex: usize) {
         if !self.bind_groups.contains_key(&tex) {
             let textures = state.handles.textures.read().unwrap();
             let tex_bind = state.device.create_bind_group(&BindGroupDescriptor {
@@ -197,7 +197,7 @@ impl Texture2DRender {
         }
     }
 
-    pub fn render<'a>(&'a self, state: &GraphicsState, render_target: &TextureView, sorted_obj: &[&Texture2DObject]) {
+    pub fn render<'a>(&'a self, state: &GlobalState, render_target: &TextureView, sorted_obj: &[&Texture2DObject]) {
         let mut iter = sorted_obj.iter().enumerate();
         if let Some((_, fst)) = iter.next() {
             let mut last_tex = fst.tex;
@@ -270,7 +270,7 @@ impl Texture2DRender {
     }
 
 
-    pub fn blit<'a>(&'a self, state: &GraphicsState, src: &TextureView, render_target: &TextureView) {
+    pub fn blit<'a>(&'a self, state: &GlobalState, src: &TextureView, render_target: &TextureView) {
         let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("2D Render Encoder") });
         let sampler = state.device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,

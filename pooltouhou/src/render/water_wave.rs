@@ -9,7 +9,7 @@ use wgpu::{BindGroupLayout, BindGroupLayoutDescriptor,
            TextureView, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
-use crate::GraphicsState;
+use crate::GlobalState;
 use crate::handles::ResourcesHandles;
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
@@ -31,7 +31,7 @@ pub struct WaterWaveRender {
 }
 
 impl WaterWaveRender {
-    pub fn new(state: &GraphicsState, target_color_state: wgpu::ColorTargetState, handles: &Arc<ResourcesHandles>) -> Self {
+    pub fn new(state: &GlobalState, target_color_state: wgpu::ColorTargetState, handles: &Arc<ResourcesHandles>) -> Self {
         let device = &state.device;
         let frag_bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: None,

@@ -54,9 +54,9 @@ impl Default for Menu {
 
 impl GameState for Menu {
     fn start(&mut self, data: &mut StateData) {
-        let tex = *data.graphics_state.handles.texture_map.read().unwrap().get("mainbg").expect("Where is the bg tex?");
-        let w = data.graphics_state.swapchain_desc.width as f32;
-        let h = data.graphics_state.swapchain_desc.height as f32;
+        let tex = *data.global_state.handles.texture_map.read().unwrap().get("mainbg").expect("Where is the bg tex?");
+        let w = data.global_state.swapchain_desc.width as f32;
+        let h = data.global_state.swapchain_desc.height as f32;
         self.background = Some(Texture2DObject {
             vertex: (0..4).map(|x| {
                 Texture2DVertexData {
@@ -80,7 +80,11 @@ impl GameState for Menu {
             tex,
         });
 
-        data.render.render2d.add_tex(data.graphics_state, tex);
+        data.render.render2d.add_tex(data.global_state, tex);
+
+        if let Some(al) = &mut data.global_state.al {
+            al.play_bgm(data.global_state.handles.bgm_map.read().unwrap()["title"].clone());
+        }
     }
 
     fn render(&mut self, data: &mut StateData) -> Trans {
@@ -88,9 +92,9 @@ impl GameState for Menu {
 
         let screen = &data.render.views.screen.view;
 
-        data.render.render2d.render(data.graphics_state, screen, &[self.background.as_ref().unwrap()]);
+        data.render.render2d.render(data.global_state, screen, &[self.background.as_ref().unwrap()]);
         {
-            let mut encoder = data.graphics_state.device
+            let mut encoder = data.global_state.device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Menu Text Encoder") });
             let mut tran = self.texts[self.select as usize].screen_position;
             tran.0 += 3.0;
@@ -110,13 +114,13 @@ impl GameState for Menu {
             }
 
             if let Err(e) = data.render.glyph_brush
-                .draw_queued(&data.graphics_state.device, &mut data.render.staging_belt, &mut encoder, screen,
-                             data.graphics_state.swapchain_desc.width,
-                             data.graphics_state.swapchain_desc.height) {
+                .draw_queued(&data.global_state.device, &mut data.render.staging_belt, &mut encoder, screen,
+                             data.global_state.swapchain_desc.width,
+                             data.global_state.swapchain_desc.height) {
                 log::warn!("Render menu text failed for {}", e);
             }
             data.render.staging_belt.finish();
-            data.graphics_state.queue.submit(Some(encoder.finish()));
+            data.global_state.queue.submit(Some(encoder.finish()));
         }
 
 

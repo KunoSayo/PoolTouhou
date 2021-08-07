@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU16, Ordering};
 
 use wgpu_glyph::GlyphCruncher;
 
-use crate::{GraphicsState, MainRendererData};
+use crate::{GlobalState, MainRendererData};
 
 pub struct DebugSystem {
     count: AtomicU16,
@@ -21,7 +21,7 @@ pub static DEBUG: DebugSystem = DebugSystem {
 unsafe impl Sync for DebugSystem {}
 
 impl DebugSystem {
-    pub(crate) fn render(&self, state: &mut GraphicsState, render: &mut MainRendererData, dt: f32) {
+    pub(crate) fn render(&self, state: &mut GlobalState, render: &mut MainRendererData, dt: f32) {
         let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Debug Encoder") });
 
         let delta = self.delta.get() + dt;
