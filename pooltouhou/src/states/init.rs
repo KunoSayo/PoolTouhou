@@ -19,6 +19,10 @@ impl Default for Loading {
 }
 
 impl GameState for Loading {
+    fn dirty(&self) -> bool {
+        self.progress.num_loading() == 0
+    }
+
     fn start(&mut self, data: &mut StateData) {
         log::info!("loading state start");
         self.start = Instant::now();
@@ -40,6 +44,7 @@ impl GameState for Loading {
             handles.load_bgm_static("title", "title.mp3", al.ctx.clone(), &data.pools, self.progress.create_tracker());
         }
     }
+
 
     fn game_tick(&mut self, _: &mut StateData) -> Trans {
         if self.progress.num_loading() == 0 {

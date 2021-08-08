@@ -46,7 +46,7 @@ pub struct BakedInputs {
 
 
 impl BakedInputs {
-    pub(super) fn process(&mut self, pressed: Box<HashSet<VirtualKeyCode>>, released: Box<HashSet<VirtualKeyCode>>) {
+    pub(super) fn process(&mut self, pressed: &HashSet<VirtualKeyCode>, released: &HashSet<VirtualKeyCode>) {
         for key in released.iter() {
             if self.cur_frame_input.pressing.contains(key) {
                 self.cur_temp_input.pressing.remove(key);

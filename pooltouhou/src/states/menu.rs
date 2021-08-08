@@ -38,7 +38,7 @@ impl Default for Menu {
                 screen_position: (60.0, 380.0 + i as f32 * 55.0),
                 bounds: (9961.0, 9961.0),
                 layout: Default::default(),
-                text: vec![Text::new(text).with_color([1.0, 1.0, 1.0, 1.0])
+                text: vec![Text::new(text).with_color([0.5, 0.5, 0.5, 1.0])
                     .with_scale(36.0)],
             })
         }

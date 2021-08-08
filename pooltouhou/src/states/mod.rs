@@ -30,6 +30,11 @@ pub struct StateData<'a> {
 }
 
 pub trait GameState: Send + 'static {
+    fn dirty(&self) -> bool { false }
+
+    fn shadow_dirty(&self) -> bool { false }
+
+
     fn start(&mut self, _: &mut StateData) {}
 
     fn game_tick(&mut self, _: &mut StateData) -> Trans { Trans::None }

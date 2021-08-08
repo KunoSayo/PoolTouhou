@@ -28,13 +28,6 @@ mod audio;
 
 pub const PLAYER_Z: f32 = 0.0;
 
-
-enum WindowEventSync {
-    ///(pressed keys, released keys)
-    KeysChange(Box<HashSet<VirtualKeyCode>>, Box<HashSet<VirtualKeyCode>>),
-    ChangeSize(u32, u32),
-}
-
 pub struct Pools {
     io_pool: ThreadPool,
     render_pool: LocalPool,
@@ -54,17 +47,15 @@ impl Default for Pools {
 }
 
 pub struct PthData {
-    graphics_state: GlobalState,
+    global_state: GlobalState,
     render: MainRendererData,
     pools: Pools,
     states: Vec<Box<dyn GameState>>,
-    receiver: Receiver<WindowEventSync>,
     inputs: input::BakedInputs,
     running_game_thread: bool,
     last_render_time: Instant,
     last_tick_time: Instant,
     tick_interval: Duration,
-
 }
 
 impl PthData {
@@ -74,7 +65,7 @@ impl PthData {
             let mut state_data = StateData {
                 pools: &mut self.pools,
                 inputs: &self.inputs,
-                global_state: &mut self.graphics_state,
+                global_state: &mut self.global_state,
                 render: &mut self.render,
             };
 
@@ -83,28 +74,7 @@ impl PthData {
     }
 
     fn loop_once(&mut self) {
-        while let Ok(event) = self.receiver.try_recv() {
-            match event {
-                WindowEventSync::ChangeSize(width, height) => {
-                    let swapchain_desc = wgpu::SwapChainDescriptor {
-                        usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-                        format: self.graphics_state.swapchain_desc.format,
-                        width,
-                        height,
-                        present_mode: wgpu::PresentMode::Fifo,
-                    };
-                    log::info!("Changed windows size to {}, {}", width, height);
-                    if width != 0 && height != 0 {
-                        self.graphics_state.swap_chain = self.graphics_state.device.create_swap_chain(&self.graphics_state.surface, &swapchain_desc);
-                    }
-                }
-                WindowEventSync::KeysChange(pressed, released) => {
-                    self.inputs.process(pressed, released);
-                }
-            }
-        }
         self.inputs.swap_frame();
-
         {
             let tick_now = std::time::Instant::now();
 
@@ -115,7 +85,7 @@ impl PthData {
                 let mut state_data = StateData {
                     pools: &mut self.pools,
                     inputs: &self.inputs,
-                    global_state: &mut self.graphics_state,
+                    global_state: &mut self.global_state,
                     render: &mut self.render,
                 };
                 for x in &mut self.states {
@@ -168,7 +138,7 @@ impl PthData {
     }
 
     fn render_once(&mut self, dt: f32) {
-        let state = &mut self.graphics_state;
+        let state = &mut self.global_state;
         let swap_chain_frame
             = state.swap_chain.get_current_frame().expect("Failed to acquire next swap chain texture");
         let output_tex = &swap_chain_frame.output;
@@ -239,8 +209,12 @@ impl PthData {
         }
     }
 
+    fn need_poll(&self) -> bool {
+        self.states.iter().any(|s| s.shadow_dirty()) || self.states.last().map_or(false, |s| s.dirty())
+    }
+
     fn save_screen_shots(&mut self) {
-        let state = &self.graphics_state;
+        let state = &self.global_state;
         let mut encoder = state.device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Save image commands")
         });
@@ -286,14 +260,13 @@ impl PthData {
         });
     }
 
-    fn new(graphics_state: GlobalState, game_state: impl GameState, receiver: Receiver<WindowEventSync>) -> Self {
+    fn new(graphics_state: GlobalState, game_state: impl GameState) -> Self {
         let render = MainRendererData::new(&graphics_state);
         Self {
-            graphics_state,
+            global_state: graphics_state,
             render,
             pools: Default::default(),
             states: vec![Box::new(game_state)],
-            receiver,
             inputs: Default::default(),
             running_game_thread: true,
             last_render_time: Instant::now(),
@@ -364,16 +337,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     log::info!("building graphics state.");
 
-    let (sender, receiver) = std::sync::mpsc::channel();
-
     // std::thread::spawn(move || {
     let state = pollster::block_on(GlobalState::new(&window));
-    let mut pth = PthData::new(state, crate::states::init::Loading::default(), receiver);
+    let mut pth = PthData::new(state, crate::states::init::Loading::default());
     pth.start_init();
     // });
     log::info!("going to run event loop");
-    let mut pressed_keys = Box::new(HashSet::new());
-    let mut released_keys = Box::new(HashSet::new());
+    let mut pressed_keys = HashSet::new();
+    let mut released_keys = HashSet::new();
+    let mut focused = true;
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::WindowEvent {
@@ -392,11 +364,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 event: WindowEvent::Resized(size),
                 ..
             } => {
-                match sender.send(WindowEventSync::ChangeSize(size.width, size.height)) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        log::warn!("send window event failed: {}", e);
-                    }
+                let (width, height) = (size.width, size.height);
+                log::info!("Changed windows size to {}, {}", width, height);
+                if width != 0 && height != 0 {
+                    let swapchain_desc = wgpu::SwapChainDescriptor {
+                        usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+                        format: pth.global_state.swapchain_desc.format,
+                        width,
+                        height,
+                        present_mode: wgpu::PresentMode::Fifo,
+                    };
+                    pth.global_state.swap_chain = pth.global_state.device.create_swap_chain(&pth.global_state.surface, &swapchain_desc);
                 }
             }
             Event::WindowEvent {
@@ -420,30 +398,38 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             Event::WindowEvent {
+                event: WindowEvent::Focused(f),
+                ..
+            } => { focused = f }
+            Event::WindowEvent {
                 event: WindowEvent::ReceivedCharacter(c),
                 ..
             } => {
                 //todo: process text input
             }
-            Event::NewEvents(_) => {}
-            Event::MainEventsCleared => {
-                if !pressed_keys.is_empty() || !released_keys.is_empty() {
-                    match sender.send(WindowEventSync::KeysChange(std::mem::take(&mut pressed_keys), std::mem::take(&mut released_keys))) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            log::warn!("send window event failed: {}", e);
-                        }
-                    }
-                }
+            Event::RedrawRequested(_) => {
                 if pth.running_game_thread {
-                    pth.loop_once();
+                    if focused || matches!(control_flow, ControlFlow::Poll) {
+                        pth.loop_once();
+                    }
+                    if pth.need_poll() {
+                        *control_flow = ControlFlow::Poll;
+                    } else {
+                        *control_flow = ControlFlow::Wait;
+                    }
                 } else {
                     *control_flow = ControlFlow::Exit;
                 }
             }
-            _ => {
-                *control_flow = ControlFlow::Poll
+            Event::MainEventsCleared => {
+                if !pressed_keys.is_empty() || !released_keys.is_empty() {
+                    pth.inputs.process(&pressed_keys, &released_keys);
+                    pressed_keys.clear();
+                    released_keys.clear();
+                }
+                window.request_redraw();
             }
+            _ => {}
         }
     });
 }
