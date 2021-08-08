@@ -90,6 +90,55 @@ impl GameState for Menu {
     fn render(&mut self, data: &mut StateData) -> Trans {
         const EXIT_IDX: u8 = (BUTTON_COUNT - 1) as u8;
 
+        let now = std::time::SystemTime::now();
+        let input = &data.inputs.cur_frame_game_input;
+
+        //make sure the screen is right
+        //check enter / shoot first
+        if input.shoot > 0 || input.enter > 0 {
+            match self.select {
+                0 => {
+                    // return LoadState::switch_wait_load(Trans::Push(Box::new(Gaming::default())), 1.0);
+                }
+                EXIT_IDX => {
+                    return Trans::Exit;
+                }
+                _ => {}
+            }
+        }
+        if input.bomb == 1 {
+            self.select = EXIT_IDX;
+        }
+
+        let just_change = input.up == 1 || input.down == 1;
+        if input.up == 1 || input.down == 1 || now.duration_since(self.time).unwrap().as_secs_f32() > if self.con { 1. / 6. } else { 0.5 } {
+            match input.direction.1 {
+                x if x > 0 => {
+                    self.time = now;
+                    self.con = !just_change;
+                    log::trace!("Select previous button");
+                    self.select = get_previous(self.select, BUTTON_COUNT as _);
+                }
+                x if x < 0 => {
+                    self.time = now;
+                    self.con = !just_change;
+                    log::trace!("Select next button");
+                    self.select = get_next(self.select, BUTTON_COUNT as _);
+                }
+                _ => {
+                    self.con = false;
+                }
+            }
+        }
+
+        for (i, s) in self.texts.iter_mut().enumerate() {
+            if i as u8 == self.select {
+                s.text[0].extra.color = [1., 1., 1., 1.];
+            } else {
+                s.text[0].extra.color = [0.5, 0.5, 0.5, 1.];
+            }
+        }
+
         let screen = &data.render.views.screen.view;
 
         data.render.render2d.render(data.global_state, screen, &[self.background.as_ref().unwrap()]);
@@ -121,55 +170,6 @@ impl GameState for Menu {
             }
             data.render.staging_belt.finish();
             data.global_state.queue.submit(Some(encoder.finish()));
-        }
-
-
-        let now = std::time::SystemTime::now();
-        let input = &data.inputs.cur_frame_game_input;
-
-        //make sure the screen is right
-        //check enter / shoot first
-        if input.shoot > 0 || input.enter > 0 {
-            match self.select {
-                0 => {
-                    return Trans::None;
-                    // return LoadState::switch_wait_load(Trans::Push(Box::new(Gaming::default())), 1.0);
-                }
-                EXIT_IDX => {
-                    return Trans::Exit;
-                }
-                _ => {}
-            }
-        }
-        if input.bomb == 1 {
-            self.select = EXIT_IDX;
-        }
-
-        let just_change = input.up == 1 || input.down == 1;
-        if input.up == 1 || input.down == 1 || now.duration_since(self.time).unwrap().as_secs_f32() > if self.con { 1. / 6. } else { 0.5 } {
-            match input.direction.1 {
-                x if x > 0 => {
-                    self.time = now;
-                    self.con = !just_change;
-                    self.select = get_previous(self.select, BUTTON_COUNT as _);
-                }
-                x if x < 0 => {
-                    self.time = now;
-                    self.con = !just_change;
-                    self.select = get_next(self.select, BUTTON_COUNT as _);
-                }
-                _ => {
-                    self.con = false;
-                }
-            }
-        }
-
-        for (i, s) in self.texts.iter_mut().enumerate() {
-            if i as u8 == self.select {
-                s.text[0].extra.color = [1., 1., 1., 1.];
-            } else {
-                s.text[0].extra.color = [0.5, 0.5, 0.5, 1.];
-            }
         }
         Trans::None
     }

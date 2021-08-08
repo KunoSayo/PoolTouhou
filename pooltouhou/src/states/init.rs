@@ -20,7 +20,7 @@ impl Default for Loading {
 
 impl GameState for Loading {
     fn dirty(&self) -> bool {
-        self.progress.num_loading() == 0
+        true
     }
 
     fn start(&mut self, data: &mut StateData) {

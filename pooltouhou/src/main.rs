@@ -410,6 +410,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Event::RedrawRequested(_) => {
                 if pth.running_game_thread {
                     if focused || matches!(control_flow, ControlFlow::Poll) {
+                        log::trace!("loop once");
                         pth.loop_once();
                     }
                     if pth.need_poll() {
@@ -423,6 +424,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             Event::MainEventsCleared => {
                 if !pressed_keys.is_empty() || !released_keys.is_empty() {
+                    log::trace!("process pressed_key {:?} and released {:?}", pressed_keys, released_keys);
                     pth.inputs.process(&pressed_keys, &released_keys);
                     pressed_keys.clear();
                     released_keys.clear();
