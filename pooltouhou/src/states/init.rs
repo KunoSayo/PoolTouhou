@@ -1,12 +1,14 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::handles::{CounterProgress, Progress};
+use crate::LoopState;
 use crate::states::{GameState, StateData, Trans};
 use crate::states::menu::Menu;
 
 pub struct Loading {
     progress: CounterProgress,
     start: Instant,
+    fst: bool,
 }
 
 impl Default for Loading {
@@ -14,13 +16,21 @@ impl Default for Loading {
         Self {
             progress: Default::default(),
             start: Instant::now(),
+            fst: true
         }
     }
 }
 
 impl GameState for Loading {
-    fn dirty(&self) -> bool {
-        true
+    fn update(&mut self, _: &mut StateData) -> (Trans, LoopState) {
+        if self.fst {
+            self.fst = false;
+            (Trans::None, LoopState::WaitTimed(Duration::from_millis(250)))
+        } else if self.progress.num_loading() == 0 {
+            (Trans::Push(Box::new(Menu::default())), LoopState::Wait)
+        } else {
+            (Trans::None, LoopState::WaitAllTimed(Duration::from_millis(50)))
+        }
     }
 
     fn start(&mut self, data: &mut StateData) {
@@ -45,17 +55,7 @@ impl GameState for Loading {
         }
     }
 
-
-    fn game_tick(&mut self, _: &mut StateData) -> Trans {
-        if self.progress.num_loading() == 0 {
-            log::info!("loaded {} resources in {}ms.", self.progress.num_finished(), self.start.elapsed().as_millis());
-            Trans::Push(Box::new(Menu::default()))
-        } else {
-            Trans::None
-        }
-    }
-
-    fn shadow_update(&mut self, _data: &StateData) {
+    fn shadow_tick(&mut self, _data: &StateData) {
         //todo: reload
     }
 }

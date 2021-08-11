@@ -1,4 +1,4 @@
-use crate::{GlobalState, MainRendererData, Pools};
+use crate::{GlobalState, LoopState, MainRendererData, Pools};
 use crate::input::BakedInputs;
 
 // pub use gaming::Gaming;
@@ -30,16 +30,15 @@ pub struct StateData<'a> {
 }
 
 pub trait GameState: Send + 'static {
-    fn dirty(&self) -> bool { false }
+    fn update(&mut self, _: &mut StateData) -> (Trans, LoopState) { (Trans::None, LoopState::Wait) }
 
-    fn shadow_dirty(&self) -> bool { false }
-
+    fn shadow_update(&mut self) -> LoopState { LoopState::WaitAll }
 
     fn start(&mut self, _: &mut StateData) {}
 
     fn game_tick(&mut self, _: &mut StateData) -> Trans { Trans::None }
 
-    fn shadow_update(&mut self, _: &StateData) {}
+    fn shadow_tick(&mut self, _: &StateData) {}
 
     fn render(&mut self, _: &mut StateData) -> Trans { Trans::None }
 

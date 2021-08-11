@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
 use env_logger::Target;
@@ -13,6 +12,7 @@ use wgpu::{BufferDescriptor, BufferUsage, Color, CommandEncoderDescriptor, Exten
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
 
+use crate::LoopState::WaitAllTimed;
 use crate::render::{GlobalState, MainRendererData};
 use crate::states::{GameState, StateData, Trans};
 
@@ -23,6 +23,7 @@ mod render;
 mod input;
 mod script;
 mod audio;
+mod config;
 
 // https://doc.rust-lang.org/book/
 
@@ -42,6 +43,115 @@ impl Default for Pools {
             io_pool: ThreadPool::builder().pool_size(3).name_prefix("pth io").create().expect("Create pth io thread pool failed"),
             render_pool,
             render_spawner,
+        }
+    }
+}
+
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+pub enum LoopState {
+    /// Wait event and do not draw
+    WaitAll,
+    /// Wait event and may be timed out
+    WaitAllTimed(Duration),
+    /// Wait for next event but draw once
+    Wait,
+    /// Wait for next event or timed out but draw once
+    WaitTimed(Duration),
+    /// Poll next event but do not draw
+    PollNoRender,
+    /// Pool next event with render
+    Poll,
+}
+
+impl LoopState {
+    #[inline]
+    fn turn_on_render(&mut self) {
+        match self {
+            LoopState::WaitAll => { *self = Self::Wait }
+            LoopState::WaitAllTimed(d) => { *self = Self::WaitTimed(*d) }
+            LoopState::PollNoRender => { *self = Self::Poll }
+            _ => {}
+        }
+    }
+    #[inline]
+    fn should_render(&self) -> bool {
+        match self {
+            Self::Wait | Self::WaitTimed(_) | Self::Poll => true,
+            _ => false
+        }
+    }
+
+    #[inline]
+    fn take_dur(self) -> Option<Duration> {
+        match self {
+            WaitAllTimed(d) => Some(d),
+            LoopState::WaitTimed(d) => Some(d),
+            _ => None
+        }
+    }
+
+    fn min_dur(self, dur: Duration) -> Self {
+        match self {
+            WaitAllTimed(d) => {
+                Self::WaitAllTimed(d.min(dur))
+            }
+            LoopState::WaitTimed(d) => {
+                Self::WaitTimed(d.min(dur))
+            }
+            _ => self
+        }
+    }
+
+    #[inline]
+    fn get_priority(&self) -> u8 {
+        match self {
+            LoopState::WaitAll => 0,
+            WaitAllTimed(_) => 1,
+            LoopState::Wait => 2,
+            LoopState::WaitTimed(_) => 3,
+            LoopState::PollNoRender => 4,
+            LoopState::Poll => 5
+        }
+    }
+
+    fn into_control_flow(self) -> ControlFlow {
+        match self {
+            LoopState::Wait | LoopState::WaitAll => {
+                ControlFlow::Wait
+            }
+            WaitAllTimed(d) | LoopState::WaitTimed(d) => {
+                ControlFlow::WaitUntil(std::time::Instant::now() + d)
+            }
+            LoopState::PollNoRender | Self::Poll => {
+                ControlFlow::Poll
+            }
+        }
+    }
+}
+
+impl std::ops::BitOrAssign for LoopState {
+    fn bitor_assign(&mut self, mut rhs: Self) {
+        if self.should_render() {
+            rhs.turn_on_render();
+        } else if rhs.should_render() {
+            self.turn_on_render();
+        }
+        if self != &rhs {
+            let idx = self.get_priority();
+            let o_idx = rhs.get_priority();
+            if idx == o_idx {
+                *self = self.min_dur(rhs.take_dur().unwrap())
+            } else if idx < o_idx {
+                if let Some(d) = self.take_dur() {
+                    *self = rhs.min_dur(d);
+                } else {
+                    *self = rhs;
+                }
+            } else {
+                if let Some(d) = rhs.take_dur() {
+                    self.min_dur(d);
+                }
+            }
         }
     }
 }
@@ -73,11 +183,57 @@ impl PthData {
         }
     }
 
-    fn loop_once(&mut self) {
-        self.inputs.swap_frame();
-        {
-            let tick_now = std::time::Instant::now();
+    fn process_tran(&mut self, tran: Trans) {
+        let mut last = self.states.last_mut().unwrap();
+        let mut state_data = StateData {
+            pools: &mut self.pools,
+            inputs: &self.inputs,
+            global_state: &mut self.global_state,
+            render: &mut self.render,
+        };
+        match tran {
+            Trans::Push(mut x) => {
+                x.start(&mut state_data);
+                self.states.push(x);
+            }
+            Trans::Pop => {
+                last.stop(&mut state_data);
+                self.states.pop().unwrap();
+            }
+            Trans::Switch(x) => {
+                last.stop(&mut state_data);
+                *last = x;
+            }
+            Trans::Exit => {
+                while let Some(mut last) = self.states.pop() {
+                    last.stop(&mut state_data);
+                }
+                self.running_game_thread = false;
+            }
+            Trans::None => {}
+        }
+    }
 
+    fn loop_once(&mut self) -> LoopState {
+        self.inputs.swap_frame();
+        let mut dirty = LoopState::WaitAll;
+        {
+            let mut state_data = StateData {
+                pools: &mut self.pools,
+                inputs: &self.inputs,
+                global_state: &mut self.global_state,
+                render: &mut self.render,
+            };
+            for x in &mut self.states {
+                x.shadow_tick(&state_data);
+                dirty |= x.shadow_update();
+            }
+            if let Some(last) = self.states.last_mut() {
+                let (tran, l) = last.update(&mut state_data);
+                self.process_tran(tran);
+                dirty |= l;
+            }
+            let tick_now = std::time::Instant::now();
             let tick_dur = tick_now.duration_since(self.last_tick_time);
             if tick_dur > self.tick_interval {
                 self.inputs.tick();
@@ -88,33 +244,10 @@ impl PthData {
                     global_state: &mut self.global_state,
                     render: &mut self.render,
                 };
-                for x in &mut self.states {
-                    x.shadow_update(&state_data);
-                }
-
 
                 if let Some(last) = self.states.last_mut() {
-                    match last.game_tick(&mut state_data) {
-                        Trans::Push(mut x) => {
-                            x.start(&mut state_data);
-                            self.states.push(x);
-                        }
-                        Trans::Pop => {
-                            last.stop(&mut state_data);
-                            self.states.pop().unwrap();
-                        }
-                        Trans::Switch(x) => {
-                            last.stop(&mut state_data);
-                            *self.states.last_mut().unwrap() = x;
-                        }
-                        Trans::Exit => {
-                            while let Some(mut last) = self.states.pop() {
-                                last.stop(&mut state_data);
-                            }
-                            self.running_game_thread = false;
-                        }
-                        Trans::None => {}
-                    }
+                    let tran = last.game_tick(&mut state_data);
+                    self.process_tran(tran);
                 } else {
                     println!("There is no states to run. Why run game thread?");
                     self.running_game_thread = false;
@@ -128,23 +261,20 @@ impl PthData {
             }
         }
 
-        {
-            let render_now = std::time::Instant::now();
-            let render_dur = render_now.duration_since(self.last_render_time);
-            self.render_once(render_dur.as_secs_f32());
-            self.pools.render_pool.try_run_one();
-            self.last_render_time = render_now;
-        }
+        dirty
     }
 
-    fn render_once(&mut self, dt: f32) {
-        let state = &mut self.global_state;
+    fn render_once(&mut self) {
+        let render_now = std::time::Instant::now();
+        let render_dur = render_now.duration_since(self.last_render_time);
+        let dt = render_dur.as_secs_f32();
+
         let swap_chain_frame
-            = state.swap_chain.get_current_frame().expect("Failed to acquire next swap chain texture");
+            = self.global_state.swap_chain.get_current_frame().expect("Failed to acquire next swap chain texture");
         let output_tex = &swap_chain_frame.output;
 
         {
-            let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Clear Encoder") });
+            let mut encoder = self.global_state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Clear Encoder") });
             let _ = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: None,
                 color_attachments: &[RenderPassColorAttachment {
@@ -162,13 +292,13 @@ impl PthData {
                 }],
                 depth_stencil_attachment: None,
             });
-            state.queue.submit(Some(encoder.finish()));
+            self.global_state.queue.submit(Some(encoder.finish()));
         }
         {
             let mut state_data = StateData {
                 pools: &mut self.pools,
                 inputs: &self.inputs,
-                global_state: state,
+                global_state: &mut self.global_state,
                 render: &mut self.render,
             };
 
@@ -176,41 +306,21 @@ impl PthData {
                 game_state.shadow_render(&state_data);
             }
             if let Some(g) = self.states.last_mut() {
-                match g.render(&mut state_data) {
-                    Trans::Push(mut x) => {
-                        x.start(&mut state_data);
-                        self.states.push(x);
-                    }
-                    Trans::Pop => {
-                        g.stop(&mut state_data);
-                        self.states.pop().unwrap();
-                    }
-                    Trans::Switch(x) => {
-                        g.stop(&mut state_data);
-                        *self.states.last_mut().unwrap() = x;
-                    }
-                    Trans::Exit => {
-                        while let Some(mut last) = self.states.pop() {
-                            last.stop(&mut state_data);
-                        }
-                        self.running_game_thread = false;
-                    }
-                    Trans::None => {}
-                }
+                let tran = g.render(&mut state_data);
+                self.process_tran(tran);
             }
         }
 
-        systems::debug_system::DEBUG.render(state, &mut self.render, dt);
+        systems::debug_system::DEBUG.render(&mut self.global_state, &mut self.render, dt);
 
-        self.render.render2d.blit(&state, &self.render.views.screen.view, &output_tex.view);
+        self.render.render2d.blit(&self.global_state, &self.render.views.screen.view, &output_tex.view);
 
         if self.inputs.is_pressed(&[VirtualKeyCode::F11]) {
             self.save_screen_shots();
         }
-    }
 
-    fn need_poll(&self) -> bool {
-        self.states.iter().any(|s| s.shadow_dirty()) || self.states.last().map_or(false, |s| s.dirty())
+        self.pools.render_pool.try_run_one();
+        self.last_render_time = render_now;
     }
 
     fn save_screen_shots(&mut self) {
@@ -409,15 +519,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             Event::RedrawRequested(_) => {
                 if pth.running_game_thread {
-                    if focused || matches!(control_flow, ControlFlow::Poll) {
-                        log::trace!("loop once");
-                        pth.loop_once();
+                    let loop_state = pth.loop_once();
+                    if loop_state.should_render() {
+                        pth.render_once();
                     }
-                    if pth.need_poll() {
-                        *control_flow = ControlFlow::Poll;
-                    } else {
-                        *control_flow = ControlFlow::Wait;
-                    }
+                    *control_flow = loop_state.into_control_flow();
                 } else {
                     *control_flow = ControlFlow::Exit;
                 }

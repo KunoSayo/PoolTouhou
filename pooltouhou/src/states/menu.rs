@@ -2,6 +2,7 @@ use std::convert::TryInto;
 
 use wgpu_glyph::Text;
 
+use crate::LoopState;
 use crate::render::texture2d::{Texture2DObject, Texture2DVertexData};
 use crate::states::{GameState, StateData, Trans};
 
@@ -34,11 +35,12 @@ impl Default for Menu {
     fn default() -> Self {
         let mut texts = Vec::with_capacity(BUTTON_NAME.len());
         for (i, text) in BUTTON_NAME.iter().enumerate() {
+            let color = if i == 0 { 1.0 } else { 0.5 };
             texts.push(wgpu_glyph::Section {
                 screen_position: (60.0, 380.0 + i as f32 * 55.0),
                 bounds: (9961.0, 9961.0),
                 layout: Default::default(),
-                text: vec![Text::new(text).with_color([0.5, 0.5, 0.5, 1.0])
+                text: vec![Text::new(text).with_color([color, color, color, 1.0])
                     .with_scale(36.0)],
             })
         }
@@ -53,6 +55,64 @@ impl Default for Menu {
 }
 
 impl GameState for Menu {
+    fn update(&mut self, data: &mut StateData) -> (Trans, LoopState) {
+        let mut loop_state = LoopState::WaitAll;
+        const EXIT_IDX: u8 = (BUTTON_COUNT - 1) as u8;
+
+        let now = std::time::SystemTime::now();
+        let input = &data.inputs.cur_frame_game_input;
+
+        //make sure the screen is right
+        //check enter / shoot first
+        if input.shoot > 0 || input.enter > 0 {
+            match self.select {
+                0 => {
+                    // return LoadState::switch_wait_load(Trans::Push(Box::new(Gaming::default())), 1.0);
+                }
+                EXIT_IDX => {
+                    return (Trans::Exit, loop_state);
+                }
+                _ => {}
+            }
+        }
+        if input.bomb == 1 {
+            loop_state = LoopState::Wait;
+            self.select = EXIT_IDX;
+        }
+
+        let just_change = input.up == 1 || input.down == 1;
+        if input.up == 1 || input.down == 1 || now.duration_since(self.time).unwrap().as_secs_f32() > if self.con { 1. / 6. } else { 0.5 } {
+            match input.direction.1 {
+                x if x > 0 => {
+                    self.time = now;
+                    self.con = !just_change;
+                    log::trace!("Select previous button");
+                    self.select = get_previous(self.select, BUTTON_COUNT as _);
+                    loop_state = LoopState::Wait;
+                }
+                x if x < 0 => {
+                    self.time = now;
+                    self.con = !just_change;
+                    log::trace!("Select next button");
+                    self.select = get_next(self.select, BUTTON_COUNT as _);
+                    loop_state = LoopState::Wait;
+                }
+                _ => {
+                    self.con = false;
+                }
+            }
+        }
+
+        for (i, s) in self.texts.iter_mut().enumerate() {
+            if i as u8 == self.select {
+                s.text[0].extra.color = [1., 1., 1., 1.];
+            } else {
+                s.text[0].extra.color = [0.5, 0.5, 0.5, 1.];
+            }
+        }
+        (Trans::None, loop_state)
+    }
+
     fn start(&mut self, data: &mut StateData) {
         let tex = *data.global_state.handles.texture_map.read().unwrap().get("mainbg").expect("Where is the bg tex?");
         let w = data.global_state.swapchain_desc.width as f32;
@@ -87,58 +147,8 @@ impl GameState for Menu {
         }
     }
 
+
     fn render(&mut self, data: &mut StateData) -> Trans {
-        const EXIT_IDX: u8 = (BUTTON_COUNT - 1) as u8;
-
-        let now = std::time::SystemTime::now();
-        let input = &data.inputs.cur_frame_game_input;
-
-        //make sure the screen is right
-        //check enter / shoot first
-        if input.shoot > 0 || input.enter > 0 {
-            match self.select {
-                0 => {
-                    // return LoadState::switch_wait_load(Trans::Push(Box::new(Gaming::default())), 1.0);
-                }
-                EXIT_IDX => {
-                    return Trans::Exit;
-                }
-                _ => {}
-            }
-        }
-        if input.bomb == 1 {
-            self.select = EXIT_IDX;
-        }
-
-        let just_change = input.up == 1 || input.down == 1;
-        if input.up == 1 || input.down == 1 || now.duration_since(self.time).unwrap().as_secs_f32() > if self.con { 1. / 6. } else { 0.5 } {
-            match input.direction.1 {
-                x if x > 0 => {
-                    self.time = now;
-                    self.con = !just_change;
-                    log::trace!("Select previous button");
-                    self.select = get_previous(self.select, BUTTON_COUNT as _);
-                }
-                x if x < 0 => {
-                    self.time = now;
-                    self.con = !just_change;
-                    log::trace!("Select next button");
-                    self.select = get_next(self.select, BUTTON_COUNT as _);
-                }
-                _ => {
-                    self.con = false;
-                }
-            }
-        }
-
-        for (i, s) in self.texts.iter_mut().enumerate() {
-            if i as u8 == self.select {
-                s.text[0].extra.color = [1., 1., 1., 1.];
-            } else {
-                s.text[0].extra.color = [0.5, 0.5, 0.5, 1.];
-            }
-        }
-
         let screen = &data.render.views.screen.view;
 
         data.render.render2d.render(data.global_state, screen, &[self.background.as_ref().unwrap()]);
