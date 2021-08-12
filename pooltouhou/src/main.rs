@@ -456,6 +456,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut pressed_keys = HashSet::new();
     let mut released_keys = HashSet::new();
     let mut focused = true;
+    let mut system_request = 0;
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::WindowEvent {
@@ -486,6 +487,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
                     pth.global_state.swap_chain = pth.global_state.device.create_swap_chain(&pth.global_state.surface, &swapchain_desc);
                 }
+            }
+            Event::WindowEvent {
+                event: WindowEvent::Moved(_), ..
+            } => {
+                system_request += 1;
             }
             Event::WindowEvent {
                 event: WindowEvent::KeyboardInput {
@@ -520,13 +526,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Event::RedrawRequested(_) => {
                 if pth.running_game_thread {
                     let loop_state = pth.loop_once();
-                    if loop_state.should_render() {
+                    if loop_state.should_render() || system_request > 0 {
                         pth.render_once();
+                        system_request = 0;
                     }
                     *control_flow = loop_state.into_control_flow();
                 } else {
                     *control_flow = ControlFlow::Exit;
                 }
+                system_request += 1;
             }
             Event::MainEventsCleared => {
                 if !pressed_keys.is_empty() || !released_keys.is_empty() {
@@ -535,6 +543,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     pressed_keys.clear();
                     released_keys.clear();
                 }
+                system_request -= 1;
                 window.request_redraw();
             }
             _ => {}
