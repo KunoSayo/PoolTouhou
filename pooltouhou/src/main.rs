@@ -456,7 +456,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut pressed_keys = HashSet::new();
     let mut released_keys = HashSet::new();
     let mut focused = true;
-    let mut system_request = 0;
+    let mut game_draw_requested = false;
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::WindowEvent {
@@ -489,11 +489,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             Event::WindowEvent {
-                event: WindowEvent::Moved(_), ..
-            } => {
-                system_request += 1;
-            }
-            Event::WindowEvent {
                 event: WindowEvent::KeyboardInput {
                     input,
                     is_synthetic,
@@ -524,17 +519,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 //todo: process text input
             }
             Event::RedrawRequested(_) => {
-                if pth.running_game_thread {
-                    let loop_state = pth.loop_once();
-                    if loop_state.should_render() || system_request > 0 {
-                        pth.render_once();
-                        system_request = 0;
-                    }
-                    *control_flow = loop_state.into_control_flow();
-                } else {
-                    *control_flow = ControlFlow::Exit;
+                if !game_draw_requested {
+                    log::trace!("System Redraw Requested");
                 }
-                system_request += 1;
+                pth.render_once();
+                game_draw_requested = false;
             }
             Event::MainEventsCleared => {
                 if !pressed_keys.is_empty() || !released_keys.is_empty() {
@@ -543,8 +532,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     pressed_keys.clear();
                     released_keys.clear();
                 }
-                system_request -= 1;
-                window.request_redraw();
+                if pth.running_game_thread {
+                    let loop_state = pth.loop_once();
+                    if loop_state.should_render() {
+                        game_draw_requested = true;
+                        window.request_redraw();
+                    }
+                    *control_flow = loop_state.into_control_flow();
+                } else {
+                    *control_flow = ControlFlow::Exit;
+                }
             }
             _ => {}
         }
