@@ -127,7 +127,6 @@ impl MainRendererData {
                 .get("default").unwrap().clone())
                 .build(&state.device, state.swapchain_desc.format);
 
-
         let render2d = Texture2DRender::new(&state, state.swapchain_desc.format.into(), &state.handles);
         let views = MainRenderViews::new(state);
         Self {
@@ -146,15 +145,15 @@ impl GlobalState {
     }
 
     pub(super) async fn new(window: &Window) -> Self {
-        log::debug!("New graphics state");
+        log::info!("New graphics state");
         let mut res = ResourcesHandles::default();
         let size = window.inner_size();
-        log::debug!("Got window inner size {:?}", size);
+        log::info!("Got window inner size {:?}", size);
 
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
-        log::debug!("Got wgpu  instance {:?}", instance);
+        log::info!("Got wgpu  instance {:?}", instance);
         let surface = unsafe { instance.create_surface(window) };
-        log::debug!("Created surface {:?}", surface);
+        log::info!("Created surface {:?}", surface);
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -163,7 +162,7 @@ impl GlobalState {
             })
             .await
             .unwrap();
-        log::debug!("Got adapter {:?}", adapter);
+        log::info!("Got adapter {:?}", adapter);
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -178,7 +177,7 @@ impl GlobalState {
             )
             .await
             .unwrap();
-        log::debug!("Requested device {:?} and queue {:?}", device, queue);
+        log::info!("Requested device {:?} and queue {:?}", device, queue);
 
         let mut format = adapter.get_swap_chain_preferred_format(&surface).expect("get format from swap chain failed");
         log::info!("Adapter chose {:?} for swap chain format", format);

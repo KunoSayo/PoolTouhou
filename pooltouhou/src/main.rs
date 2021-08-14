@@ -227,7 +227,6 @@ impl PthData {
         let swap_chain_frame
             = self.global_state.swap_chain.get_current_frame().expect("Failed to acquire next swap chain texture");
         let output_tex = &swap_chain_frame.output;
-
         {
             let mut encoder = self.global_state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Clear Encoder") });
             let _ = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -384,6 +383,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .filter_module("wgpu_core::device", log::LevelFilter::Warn)
         .filter_level(log::LevelFilter::Info)
         .target(Target::Pipe(Box::new(LogTarget::new(std::io::stderr()))))
+        .parse_filters(&std::fs::read("log.env").map(|s| String::from_utf8(s).ok()).unwrap_or(None).unwrap_or("".into()))
         .parse_default_env()
         .init();
     log::info!("Starting up...");
@@ -503,5 +503,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             _ => {}
         }
+        log::trace!("got event {:?}", event);
     });
 }
