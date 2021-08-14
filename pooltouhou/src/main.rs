@@ -12,7 +12,6 @@ use wgpu::{BufferDescriptor, BufferUsage, Color, CommandEncoderDescriptor, Exten
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
 
-use crate::LoopState::WaitAllTimed;
 use crate::render::{GlobalState, MainRendererData};
 use crate::states::{GameState, StateData, Trans};
 
@@ -48,109 +47,60 @@ impl Default for Pools {
 }
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
-pub enum LoopState {
-    /// Wait event and do not draw
-    WaitAll,
-    /// Wait event and may be timed out
-    WaitAllTimed(Duration),
-    /// Wait for next event but draw once
-    Wait,
-    /// Wait for next event or timed out but draw once
-    WaitTimed(Duration),
-    /// Poll next event but do not draw
-    PollNoRender,
-    /// Pool next event with render
-    Poll,
+pub struct LoopState {
+    control_flow: ControlFlow,
+    render: bool,
 }
 
 impl LoopState {
-    #[inline]
-    fn turn_on_render(&mut self) {
-        match self {
-            LoopState::WaitAll => { *self = Self::Wait }
-            LoopState::WaitAllTimed(d) => { *self = Self::WaitTimed(*d) }
-            LoopState::PollNoRender => { *self = Self::Poll }
-            _ => {}
-        }
-    }
-    #[inline]
-    fn should_render(&self) -> bool {
-        match self {
-            Self::Wait | Self::WaitTimed(_) | Self::Poll => true,
-            _ => false
-        }
-    }
+    pub const WAIT_ALL: LoopState = LoopState {
+        control_flow: ControlFlow::Wait,
+        render: false,
+    };
 
-    #[inline]
-    fn take_dur(self) -> Option<Duration> {
-        match self {
-            WaitAllTimed(d) => Some(d),
-            LoopState::WaitTimed(d) => Some(d),
-            _ => None
-        }
-    }
+    pub const WAIT: LoopState = LoopState {
+        control_flow: ControlFlow::Wait,
+        render: true,
+    };
 
-    fn min_dur(self, dur: Duration) -> Self {
-        match self {
-            WaitAllTimed(d) => {
-                Self::WaitAllTimed(d.min(dur))
-            }
-            LoopState::WaitTimed(d) => {
-                Self::WaitTimed(d.min(dur))
-            }
-            _ => self
-        }
-    }
+    pub const POLL: LoopState = LoopState {
+        control_flow: ControlFlow::Poll,
+        render: true,
+    };
 
-    #[inline]
-    fn get_priority(&self) -> u8 {
-        match self {
-            LoopState::WaitAll => 0,
-            WaitAllTimed(_) => 1,
-            LoopState::Wait => 2,
-            LoopState::WaitTimed(_) => 3,
-            LoopState::PollNoRender => 4,
-            LoopState::Poll => 5
-        }
-    }
+    pub const POLL_WITHOUT_RENDER: LoopState = LoopState {
+        control_flow: ControlFlow::Poll,
+        render: false,
+    };
 
-    fn into_control_flow(self) -> ControlFlow {
-        match self {
-            LoopState::Wait | LoopState::WaitAll => {
-                ControlFlow::Wait
-            }
-            WaitAllTimed(d) | LoopState::WaitTimed(d) => {
-                ControlFlow::WaitUntil(std::time::Instant::now() + d)
-            }
-            LoopState::PollNoRender | Self::Poll => {
-                ControlFlow::Poll
-            }
+    pub fn wait_until(dur: Duration, render: bool) -> Self {
+        Self {
+            control_flow: ControlFlow::WaitUntil(std::time::Instant::now() + dur),
+            render,
         }
     }
 }
 
 impl std::ops::BitOrAssign for LoopState {
     fn bitor_assign(&mut self, mut rhs: Self) {
-        if self.should_render() {
-            rhs.turn_on_render();
-        } else if rhs.should_render() {
-            self.turn_on_render();
-        }
-        if self != &rhs {
-            let idx = self.get_priority();
-            let o_idx = rhs.get_priority();
-            if idx == o_idx {
-                *self = self.min_dur(rhs.take_dur().unwrap())
-            } else if idx < o_idx {
-                if let Some(d) = self.take_dur() {
-                    *self = rhs.min_dur(d);
-                } else {
-                    *self = rhs;
+        self.render |= rhs.render;
+        if self.control_flow != rhs.control_flow {
+            match self.control_flow {
+                ControlFlow::Wait => {
+                    self.control_flow = rhs.control_flow
                 }
-            } else {
-                if let Some(d) = rhs.take_dur() {
-                    self.min_dur(d);
+                ControlFlow::WaitUntil(t1) => {
+                    match rhs.control_flow {
+                        ControlFlow::Wait => {}
+                        ControlFlow::WaitUntil(t2) => {
+                            self.control_flow = ControlFlow::WaitUntil(t1.min(t2));
+                        }
+                        _ => {
+                            self.control_flow = rhs.control_flow;
+                        }
+                    }
                 }
+                _ => {}
             }
         }
     }
@@ -210,13 +160,18 @@ impl PthData {
                 }
                 self.running_game_thread = false;
             }
+            Trans::Vec(ts) => {
+                for t in ts {
+                    self.process_tran(t);
+                }
+            }
             Trans::None => {}
         }
     }
 
     fn loop_once(&mut self) -> LoopState {
         self.inputs.swap_frame();
-        let mut dirty = LoopState::WaitAll;
+        let mut dirty = LoopState::WAIT_ALL;
         {
             let mut state_data = StateData {
                 pools: &mut self.pools,
@@ -278,7 +233,7 @@ impl PthData {
             let _ = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: None,
                 color_attachments: &[RenderPassColorAttachment {
-                    view: &self.render.views.screen.view,
+                    view: &self.render.views.get_screen().view,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color {
@@ -313,7 +268,7 @@ impl PthData {
 
         systems::debug_system::DEBUG.render(&mut self.global_state, &mut self.render, dt);
 
-        self.render.render2d.blit(&self.global_state, &self.render.views.screen.view, &output_tex.view);
+        self.render.render2d.blit(&self.global_state, &self.render.views.get_screen().view, &output_tex.view);
 
         if self.inputs.is_pressed(&[VirtualKeyCode::F11]) {
             self.save_screen_shots();
@@ -337,7 +292,7 @@ impl PthData {
         });
         use std::convert::TryInto;
         encoder.copy_texture_to_buffer(ImageCopyTexture {
-            texture: &self.render.views.screen.texture,
+            texture: &self.render.views.get_screen().texture,
             mip_level: 0,
             origin: Origin3d::default(),
         }, ImageCopyBuffer {
@@ -533,12 +488,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     released_keys.clear();
                 }
                 if pth.running_game_thread {
-                    let loop_state = pth.loop_once();
-                    if loop_state.should_render() {
+                    let LoopState {
+                        control_flow: c_f,
+                        render
+                    } = pth.loop_once();
+                    if render {
                         game_draw_requested = true;
                         window.request_redraw();
                     }
-                    *control_flow = loop_state.into_control_flow();
+                    *control_flow = c_f;
                 } else {
                     *control_flow = ControlFlow::Exit;
                 }

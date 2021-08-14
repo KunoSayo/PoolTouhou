@@ -62,7 +62,7 @@ impl DebugSystem {
                     &state.device,
                     &mut render.staging_belt,
                     &mut encoder,
-                    &render.views.screen.view,
+                    &render.views.get_screen().view,
                     state.swapchain_desc.width,
                     state.swapchain_desc.height,
                 )

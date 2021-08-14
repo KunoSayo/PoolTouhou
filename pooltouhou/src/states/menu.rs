@@ -56,7 +56,7 @@ impl Default for Menu {
 
 impl GameState for Menu {
     fn update(&mut self, data: &mut StateData) -> (Trans, LoopState) {
-        let mut loop_state = LoopState::WaitAll;
+        let mut loop_state = LoopState::WAIT_ALL;
         const EXIT_IDX: u8 = (BUTTON_COUNT - 1) as u8;
 
         let now = std::time::SystemTime::now();
@@ -76,7 +76,7 @@ impl GameState for Menu {
             }
         }
         if input.bomb == 1 {
-            loop_state = LoopState::Wait;
+            loop_state = LoopState::WAIT;
             self.select = EXIT_IDX;
         }
 
@@ -88,14 +88,14 @@ impl GameState for Menu {
                     self.con = !just_change;
                     log::trace!("Select previous button");
                     self.select = get_previous(self.select, BUTTON_COUNT as _);
-                    loop_state = LoopState::Wait;
+                    loop_state = LoopState::WAIT;
                 }
                 x if x < 0 => {
                     self.time = now;
                     self.con = !just_change;
                     log::trace!("Select next button");
                     self.select = get_next(self.select, BUTTON_COUNT as _);
-                    loop_state = LoopState::Wait;
+                    loop_state = LoopState::WAIT;
                 }
                 _ => {
                     self.con = false;
@@ -149,7 +149,7 @@ impl GameState for Menu {
 
 
     fn render(&mut self, data: &mut StateData) -> Trans {
-        let screen = &data.render.views.screen.view;
+        let screen = &data.render.views.get_screen().view;
 
         data.render.render2d.render(data.global_state, screen, &[self.background.as_ref().unwrap()]);
         {

@@ -14,7 +14,7 @@
 //     type SystemData = (
 //         Entities<'a>,
 //         WriteStorage<'a, crate::render::InvertColorCircle>,
-//         WriteStorage<'a, crate::component::InvertColorAnimation>,
+//         WriteStorage<'a, crate::game::InvertColorAnimation>,
 //         Read<'a, Time>
 //     );
 //     fn run(&mut self, (entities, mut invert_color_circles, mut invert_color_animations, time): Self::SystemData) {

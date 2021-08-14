@@ -1,65 +1,56 @@
-// use amethyst::{
-//     assets::*,
-//     prelude::*,
-// };
-//
-// use crate::states::{ProgressType};
-//
-//
-// pub struct LoadState {
-//     progress: Option<ProgressType>,
-//     trans: SimpleTrans,
-//     seconds: f32,
-//     start_time: std::time::SystemTime,
-// }
-//
-// impl LoadState {
-//     pub fn switch_wait_load(trans: SimpleTrans, seconds: f32) -> SimpleTrans {
-//         Trans::Switch(Box::new(
-//             Self {
-//                 progress: None,
-//                 seconds,
-//                 trans,
-//                 start_time: std::time::SystemTime::now(),
-//             }))
-//     }
-// }
-//
-//
-// impl SimpleState for LoadState {
-//     fn on_start(&mut self, _data: StateData<'_, GameData<'_, '_>>) {
-//         self.start_time = std::time::SystemTime::now();
-//     }
-//
-//
-//     fn update(&mut self, _data: &mut StateData<'_, GameData<'_, '_>>) -> SimpleTrans {
-//         if let Some(ref progress) = self.progress {
-//             if progress.num_loading() == 0 {
-//                 println!("loaded {} resources.", progress.num_finished());
-//                 match progress.complete() {
-//                     Completion::Failed => {
-//                         for x in progress.errors() {
-//                             eprintln!("load {} failed for {}", x.asset_name, x.error);
-//                         }
-//                     }
-//                     _ => {}
-//                 }
-//                 if std::time::SystemTime::now().duration_since(self.start_time).unwrap().as_secs_f32() >= self.seconds {
-//                     let mut trans = Trans::None;
-//                     std::mem::swap(&mut trans, &mut self.trans);
-//                     Trans::Sequence(vec![Trans::Pop, trans])
-//                 } else {
-//                     Trans::None
-//                 }
-//             } else {
-//                 Trans::None
-//             }
-//         } else if std::time::SystemTime::now().duration_since(self.start_time).unwrap().as_secs_f32() >= self.seconds {
-//             let mut trans = Trans::None;
-//             std::mem::swap(&mut trans, &mut self.trans);
-//             Trans::Sequence(vec![Trans::Pop, trans])
-//         } else {
-//             Trans::None
-//         }
-//     }
-// }
+use std::time::Duration;
+
+use crate::handles::Progress;
+use crate::LoopState;
+use crate::states::{GameState, StateData, Trans};
+
+pub struct LoadState<P: Progress = ()> {
+    progress: Option<P>,
+    trans: Trans,
+    delay: Duration,
+    start_time: std::time::Instant,
+    should_render: bool,
+}
+
+impl LoadState {
+    pub fn switch_wait_load(trans: Trans, delay: Duration) -> Trans {
+        Trans::Switch(Box::new(
+            Self {
+                progress: None,
+                delay,
+                trans,
+                start_time: std::time::Instant::now(),
+                should_render: true,
+            }))
+    }
+}
+
+
+impl GameState for LoadState {
+    fn start(&mut self, _: &mut StateData) {
+        self.start_time = std::time::Instant::now();
+    }
+
+    fn update(&mut self, _: &mut StateData) -> (Trans, LoopState) {
+        let delta = std::time::Instant::now().duration_since(self.start_time);
+        if delta >= self.delay {
+            if let Some(ref progress) = self.progress {
+                if progress.num_loading() == 0 {
+                    println!("loaded {} resources.", progress.num_finished());
+                    (std::mem::take(&mut self.trans), LoopState::POLL)
+                } else {
+                    (Trans::None, LoopState::wait_until(Duration::from_millis(50), self.should_render))
+                }
+            } else {
+                (std::mem::take(&mut self.trans), LoopState::POLL)
+            }
+        } else {
+            (Trans::None, LoopState::wait_until(self.delay - delta, self.should_render))
+        }
+    }
+
+    fn render(&mut self, _: &mut StateData) -> Trans {
+        self.should_render = false;
+        Trans::None
+    }
+}

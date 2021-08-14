@@ -87,6 +87,26 @@ impl Progress for CounterProgress {
     }
 }
 
+impl Progress for () {
+    type Tracker = ();
+
+    fn num_loading(&self) -> u16 {
+        0
+    }
+
+    fn num_finished(&self) -> u16 {
+        0
+    }
+
+    fn error_nums(&self) -> u16 {
+        0
+    }
+
+    fn create_tracker(&self) -> Self::Tracker {
+        ()
+    }
+}
+
 impl ProgressTracker for () {}
 
 impl ProgressTracker for CounterProgressTracker {

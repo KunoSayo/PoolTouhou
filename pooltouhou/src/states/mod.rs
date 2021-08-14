@@ -9,17 +9,26 @@ use crate::input::BakedInputs;
 // pub mod pausing;
 pub mod init;
 pub mod menu;
+pub mod load;
+mod gaming;
 // pub mod load;
 
 pub const ARENA_WIDTH: f32 = 1600.0;
 pub const ARENA_HEIGHT: f32 = 900.0;
 
 pub enum Trans {
+    None,
     Push(Box<dyn GameState>),
     Pop,
     Switch(Box<dyn GameState>),
     Exit,
-    None,
+    Vec(Vec<Trans>),
+}
+
+impl Default for Trans {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 pub struct StateData<'a> {
@@ -30,9 +39,9 @@ pub struct StateData<'a> {
 }
 
 pub trait GameState: Send + 'static {
-    fn update(&mut self, _: &mut StateData) -> (Trans, LoopState) { (Trans::None, LoopState::Wait) }
+    fn update(&mut self, _: &mut StateData) -> (Trans, LoopState) { (Trans::None, LoopState::WAIT) }
 
-    fn shadow_update(&mut self) -> LoopState { LoopState::WaitAll }
+    fn shadow_update(&mut self) -> LoopState { LoopState::WAIT_ALL }
 
     fn start(&mut self, _: &mut StateData) {}
 

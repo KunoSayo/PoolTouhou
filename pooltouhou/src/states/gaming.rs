@@ -1,28 +1,7 @@
-// use amethyst::{
-//     core::{
-//         components::Transform
-//     },
-//     ecs::Entity,
-//     input::VirtualKeyCode,
-//     prelude::*,
-//     renderer::*,
-// };
-// use amethyst::core::ecs::{Join, DispatcherBuilder};
 //
-// use crate::component::{Enemy, EnemyBullet, InvertColorAnimation, PlayerBullet, Sheep};
-// use crate::{GameCore};
-// use crate::handles::ResourcesHandles;
-// use crate::script::{ScriptGameData, ScriptManager};
-// use crate::script::script_context::{ScriptContext, TempGameContext};
-// use crate::states::{ARENA_WIDTH, load_sprite_sheet};
-// use crate::states::pausing::Pausing;
-// use crate::systems::game_system::{CollideType};
-// use crate::systems::{Player, GameSystem};
-// use amethyst::shred::Dispatcher;
-// use std::time::Duration;
 //
 // #[derive(Default)]
-// pub struct Gaming<'a, 'b> {
+// pub struct Gaming {
 //     dispatcher: Option<Dispatcher<'a, 'b>>,
 // }
 //

@@ -25,11 +25,11 @@ impl GameState for Loading {
     fn update(&mut self, _: &mut StateData) -> (Trans, LoopState) {
         if self.fst {
             self.fst = false;
-            (Trans::None, LoopState::WaitTimed(Duration::from_millis(250)))
+            (Trans::None, LoopState::wait_until(Duration::from_millis(250), true))
         } else if self.progress.num_loading() == 0 {
-            (Trans::Push(Box::new(Menu::default())), LoopState::Wait)
+            (Trans::Push(Box::new(Menu::default())), LoopState::WAIT)
         } else {
-            (Trans::None, LoopState::WaitAllTimed(Duration::from_millis(50)))
+            (Trans::None, LoopState::wait_until(Duration::from_millis(50), false))
         }
     }
 

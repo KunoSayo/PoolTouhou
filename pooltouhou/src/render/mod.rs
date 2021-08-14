@@ -37,14 +37,15 @@ pub struct GlobalState {
     pub al: Option<OpenalData>,
 }
 
-pub struct RenderViews {
-    pub screen: Texture,
+pub struct MainRenderViews {
+    buffers: [Texture; 2],
+    main: usize,
 }
 
-impl RenderViews {
+impl MainRenderViews {
     pub fn new(state: &GlobalState) -> Self {
         let size = state.get_screen_size();
-        let texture = state.device.create_texture(&wgpu::TextureDescriptor {
+        let texture_desc = wgpu::TextureDescriptor {
             label: None,
             size: Extent3d {
                 width: size.0,
@@ -56,9 +57,8 @@ impl RenderViews {
             dimension: TextureDimension::D2,
             format: state.swapchain_desc.format,
             usage: TextureUsage::COPY_DST | TextureUsage::SAMPLED | TextureUsage::COPY_SRC | TextureUsage::RENDER_ATTACHMENT,
-        });
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = state.device.create_sampler(&wgpu::SamplerDescriptor {
+        };
+        let sampler_desc = wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -69,14 +69,46 @@ impl RenderViews {
             lod_min_clamp: 0.0,
             lod_max_clamp: 0.0,
             ..wgpu::SamplerDescriptor::default()
-        });
-        Self {
-            screen: Texture {
+        };
+        let buffer_a = {
+            let texture = state.device.create_texture(&texture_desc);
+            let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+            let sampler = state.device.create_sampler(&sampler_desc);
+            Texture {
                 texture,
                 view,
                 sampler,
             }
+        };
+
+        let buffer_b = {
+            let texture = state.device.create_texture(&texture_desc);
+            let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+            let sampler = state.device.create_sampler(&sampler_desc);
+            Texture {
+                texture,
+                view,
+                sampler,
+            }
+        };
+
+        Self {
+            buffers: [buffer_a, buffer_b],
+            main: 0,
         }
+    }
+
+    pub fn get_screen(&self) -> &Texture {
+        &self.buffers[self.main]
+    }
+
+    pub fn swap_screen(&mut self) -> (&Texture, &Texture) {
+        let src = self.main;
+        self.main = (self.main + 1) & 1;
+        let dst = self.main;
+        (&self.buffers[src], &self.buffers[dst])
     }
 }
 
@@ -84,7 +116,7 @@ pub struct MainRendererData {
     pub render2d: Texture2DRender,
     pub staging_belt: wgpu::util::StagingBelt,
     pub glyph_brush: wgpu_glyph::GlyphBrush<()>,
-    pub views: RenderViews,
+    pub views: MainRenderViews,
 }
 
 impl MainRendererData {
@@ -97,7 +129,7 @@ impl MainRendererData {
 
 
         let render2d = Texture2DRender::new(&state, state.swapchain_desc.format.into(), &state.handles);
-        let views = RenderViews::new(state);
+        let views = MainRenderViews::new(state);
         Self {
             render2d,
             staging_belt,
