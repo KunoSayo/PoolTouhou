@@ -12,6 +12,7 @@ use wgpu::{BufferDescriptor, BufferUsage, Color, CommandEncoderDescriptor, Exten
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
 
+use crate::config::Config;
 use crate::render::{GlobalState, MainRendererData};
 use crate::states::{GameState, StateData, Trans};
 
@@ -116,6 +117,7 @@ pub struct PthData {
     last_render_time: Instant,
     last_tick_time: Instant,
     tick_interval: Duration,
+    config: Config
 }
 
 impl PthData {
@@ -324,7 +326,7 @@ impl PthData {
         });
     }
 
-    fn new(graphics_state: GlobalState, game_state: impl GameState) -> Self {
+    fn new(graphics_state: GlobalState, config: Config, game_state: impl GameState) -> Self {
         let render = MainRendererData::new(&graphics_state);
         Self {
             global_state: graphics_state,
@@ -336,6 +338,7 @@ impl PthData {
             last_render_time: Instant::now(),
             last_tick_time: Instant::now(),
             tick_interval: Duration::from_secs_f64(1.0 / 60.0),
+            config
         }
     }
 }
@@ -379,15 +382,21 @@ impl<Console: std::io::Write> std::io::Write for LogTarget<Console> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = Config::read_from_path("opt.cfg")?;
     env_logger::Builder::default()
         .filter_module("wgpu_core::device", log::LevelFilter::Warn)
         .filter_level(log::LevelFilter::Info)
         .target(Target::Pipe(Box::new(LogTarget::new(std::io::stderr()))))
-        .parse_filters(&std::fs::read("log.env").map(|s| String::from_utf8(s).ok()).unwrap_or(None).unwrap_or("".into()))
+        .parse_filters(config.or_default("log_filters", ""))
         .parse_default_env()
         .init();
     log::info!("Starting up...");
-
+    for arg in std::env::args_os() {
+        log::info!("arg {:?}", arg);
+    }
+    if let Err(e) = config.save() {
+        log::warn!("Save config file failed for {:?}", e);
+    }
     let event_loop = winit::event_loop::EventLoop::new();
 
     log::info!("going to build window");
@@ -404,7 +413,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // std::thread::spawn(move || {
     let state = pollster::block_on(GlobalState::new(&window));
-    let mut pth = PthData::new(state, crate::states::init::Loading::default());
+    let mut pth = PthData::new(state, config, crate::states::init::Loading::default());
     pth.start_init();
     // });
     log::info!("going to run event loop");

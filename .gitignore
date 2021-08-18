@@ -12,6 +12,7 @@ target
 
 *.dll
 
+# maybe the pth runtime output
 *.log
-
 */**/screenshots/**
+opt.cfg
