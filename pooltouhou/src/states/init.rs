@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use crate::handles::{CounterProgress, Progress};
 use crate::LoopState;
 use crate::states::{GameState, StateData, Trans};
-use crate::states::menu::Menu;
+use crate::states::menu::MainMenu;
 
 pub struct Loading {
     progress: CounterProgress,
@@ -27,7 +27,7 @@ impl GameState for Loading {
             self.fst = false;
             (Trans::None, LoopState::wait_until(Duration::from_millis(250), true))
         } else if self.progress.num_loading() == 0 {
-            (Trans::Push(Box::new(Menu::default())), LoopState::WAIT)
+            (Trans::Push(Box::new(MainMenu::default())), LoopState::WAIT)
         } else {
             (Trans::None, LoopState::wait_until(Duration::from_millis(50), false))
         }

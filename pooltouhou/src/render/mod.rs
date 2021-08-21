@@ -13,15 +13,21 @@ use crate::render::texture2d::Texture2DRender;
 pub mod texture2d;
 pub mod water_wave;
 
-pub trait EffectRenderer {
+pub trait EffectRenderer: Send + Sync + std::fmt::Debug + 'static {
     fn alive(&self) -> bool {
         true
     }
-    /// render the effect
-    /// dt is the delta seconds in f32
-    fn render(&self, dt: f32, src: &[&TextureView], dest: &TextureView);
+
+    fn render(&mut self, state: &GlobalState, renderer: &MainRendererData);
 }
 
+#[derive(Default, Debug)]
+pub struct DynamicData {
+    pub msgs: Vec<String>,
+    pub effects: Vec<Box<dyn EffectRenderer>>,
+}
+
+#[derive(Debug)]
 pub struct GlobalState {
     pub surface: wgpu::Surface,
     pub surface_cfg: wgpu::SurfaceConfiguration,
@@ -33,6 +39,7 @@ pub struct GlobalState {
     pub screen_uni_bind_layout: BindGroupLayout,
     pub screen_uni_bind: BindGroup,
 
+    pub dyn_data: DynamicData,
     pub al: Option<OpenalData>,
 }
 
@@ -239,13 +246,14 @@ impl GlobalState {
             screen_uni_buffer,
             screen_uni_bind_layout,
             screen_uni_bind,
+            dyn_data: Default::default(),
             al: match OpenalData::new() {
                 Ok(data) => Some(data),
                 Err(e) => {
                     log::warn!("Cannot create openal context for {:?}" , e);
                     None
                 }
-            }
+            },
         }
     }
 }

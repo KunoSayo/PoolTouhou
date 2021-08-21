@@ -221,6 +221,10 @@ impl PthData {
             self.save_screen_shots();
         }
 
+        if self.inputs.is_pressed(&[VirtualKeyCode::F3]) {
+            log::info!("{:?}", self.global_state);
+        }
+
         loop_result
     }
 
@@ -277,7 +281,6 @@ impl PthData {
                 label: Some("Copy buffer to screen commands")
             });
             let size = self.global_state.get_screen_size();
-            use std::convert::TryInto;
             encoder.copy_texture_to_texture(ImageCopyTexture {
                 texture: &self.render.views.get_screen().texture,
                 mip_level: 0,
@@ -469,7 +472,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 log::info!("Changed windows size to {}, {}", width, height);
                 if width != 0 && height != 0 {
                     pth.global_state.surface_cfg = wgpu::SurfaceConfiguration {
-                        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                        usage: wgpu::TextureUsages::COPY_DST,
                         format: pth.global_state.surface_cfg.format,
                         width: size.width,
                         height: size.height,

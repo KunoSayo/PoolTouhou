@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::fmt::Formatter;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicU16, Ordering};
@@ -13,6 +14,7 @@ use wgpu_glyph::ab_glyph::FontArc;
 
 use crate::{GlobalState, Pools};
 
+#[derive(Debug)]
 pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
@@ -28,6 +30,20 @@ pub struct ResourcesHandles {
     pub texture_map: RwLock<HashMap<String, usize>>,
 
     pub bgm_map: RwLock<HashMap<String, Arc<Buffer>>>,
+}
+
+impl std::fmt::Debug for ResourcesHandles {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ResourcesHandle")
+            .field("res_root", &self.res_root)
+            .field("assets_dir", &self.assets_dir)
+            .field("fonts", &self.fonts)
+            .field("shaders", &self.shaders)
+            .field("textures", &self.textures)
+            .field("textures_map", &self.texture_map)
+            .field("bgm_map", &self.bgm_map.read().map(|m| m.keys().cloned().collect::<Vec<_>>()))
+            .finish()
+    }
 }
 
 #[derive(Default)]

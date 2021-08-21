@@ -1,3 +1,4 @@
+use std::fmt::Formatter;
 use std::sync::Arc;
 
 use alto::{Alto, Buffer, Context, OutputDevice, Source, StaticSource};
@@ -7,6 +8,14 @@ pub struct OpenalData {
     device: OutputDevice,
     pub ctx: Context,
     bgm_source: StaticSource,
+}
+
+impl std::fmt::Debug for OpenalData {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OpenalData")
+            .field("Not supported yet", &"Not supported yet")
+            .finish()
+    }
 }
 
 impl OpenalData {

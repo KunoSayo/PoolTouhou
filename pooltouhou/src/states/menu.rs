@@ -23,7 +23,7 @@ use crate::states::{GameState, StateData, Trans};
 const BUTTON_COUNT: usize = 9;
 const BUTTON_NAME: [&str; BUTTON_COUNT] = ["Singleplayer", "Multiplayer", "Extra", "Profile", "Replay", "Music Room", "Option", "Cloud", "Exit"];
 
-pub struct Menu {
+pub struct MainMenu {
     select: u8,
     con: bool,
     time: std::time::SystemTime,
@@ -31,7 +31,7 @@ pub struct Menu {
     background: Option<Texture2DObject>,
 }
 
-impl Default for Menu {
+impl Default for MainMenu {
     fn default() -> Self {
         let mut texts = Vec::with_capacity(BUTTON_NAME.len());
         for (i, text) in BUTTON_NAME.iter().enumerate() {
@@ -54,7 +54,7 @@ impl Default for Menu {
     }
 }
 
-impl GameState for Menu {
+impl GameState for MainMenu {
     fn update(&mut self, data: &mut StateData) -> (Trans, LoopState) {
         let mut loop_state = LoopState::WAIT_ALL;
         const EXIT_IDX: u8 = (BUTTON_COUNT - 1) as u8;
