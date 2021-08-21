@@ -156,7 +156,7 @@ impl GlobalState {
         let size = window.inner_size();
         log::info!("Got window inner size {:?}", size);
 
-        let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
+        let instance = wgpu::Instance::new(wgpu::util::backend_bits_from_env().unwrap_or(wgpu::Backends::PRIMARY));
         log::info!("Got wgpu  instance {:?}", instance);
         let surface = unsafe { instance.create_surface(window) };
         log::info!("Created surface {:?}", surface);

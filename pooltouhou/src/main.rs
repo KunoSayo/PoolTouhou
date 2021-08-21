@@ -24,6 +24,7 @@ mod input;
 mod script;
 mod audio;
 mod config;
+mod game;
 
 // https://doc.rust-lang.org/book/
 
@@ -474,8 +475,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     pth.global_state.surface_cfg = wgpu::SurfaceConfiguration {
                         usage: wgpu::TextureUsages::COPY_DST,
                         format: pth.global_state.surface_cfg.format,
-                        width: size.width,
-                        height: size.height,
+                        width,
+                        height,
                         present_mode: wgpu::PresentMode::Fifo,
                     };
                     pth.global_state.surface.configure(&pth.global_state.device,

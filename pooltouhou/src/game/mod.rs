@@ -34,3 +34,8 @@
 // impl Component for Enemy {
 //     type Storage = DenseVecStorage<Self>;
 // }
+
+
+pub struct PlayerProfile {
+    pub name: String,
+}
