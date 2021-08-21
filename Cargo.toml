@@ -4,6 +4,7 @@ members = [
     "pool_script",
     "pool_script_compiler"
 ]
+resolver = "2"
 
 [profile.dev]
 

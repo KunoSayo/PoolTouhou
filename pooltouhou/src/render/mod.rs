@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use shaderc::ShaderKind;
-use wgpu::{BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBinding, BufferBindingType, BufferUsage, Extent3d, ShaderStage, TextureDimension, TextureFormat, TextureUsage, TextureView};
+use wgpu::{BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBinding, BufferBindingType, BufferUsages, Extent3d, ShaderStages, TextureDimension, TextureFormat, TextureUsages, TextureView};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::window::Window;
 
@@ -24,10 +24,9 @@ pub trait EffectRenderer {
 
 pub struct GlobalState {
     pub surface: wgpu::Surface,
+    pub surface_cfg: wgpu::SurfaceConfiguration,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
-    pub swapchain_desc: wgpu::SwapChainDescriptor,
-    pub swap_chain: wgpu::SwapChain,
     pub handles: Arc<ResourcesHandles>,
     pub views: HashMap<String, crate::handles::Texture>,
     pub screen_uni_buffer: Buffer,
@@ -55,8 +54,8 @@ impl MainRenderViews {
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,
-            format: state.swapchain_desc.format,
-            usage: TextureUsage::COPY_DST | TextureUsage::SAMPLED | TextureUsage::COPY_SRC | TextureUsage::RENDER_ATTACHMENT,
+            format: state.surface_cfg.format,
+            usage: TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC | TextureUsages::RENDER_ATTACHMENT,
         };
         let sampler_desc = wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -125,9 +124,9 @@ impl MainRendererData {
         let glyph_brush =
             wgpu_glyph::GlyphBrushBuilder::using_font(state.handles.fonts.read().unwrap()
                 .get("default").unwrap().clone())
-                .build(&state.device, state.swapchain_desc.format);
+                .build(&state.device, state.surface_cfg.format);
 
-        let render2d = Texture2DRender::new(&state, state.swapchain_desc.format.into(), &state.handles);
+        let render2d = Texture2DRender::new(&state, state.surface_cfg.format.into(), &state.handles);
         let views = MainRenderViews::new(state);
         Self {
             render2d,
@@ -141,7 +140,7 @@ impl MainRendererData {
 
 impl GlobalState {
     pub fn get_screen_size(&self) -> (u32, u32) {
-        (self.swapchain_desc.width, self.swapchain_desc.height)
+        (self.surface_cfg.width, self.surface_cfg.height)
     }
 
     pub(super) async fn new(window: &Window) -> Self {
@@ -150,7 +149,7 @@ impl GlobalState {
         let size = window.inner_size();
         log::info!("Got window inner size {:?}", size);
 
-        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+        let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
         log::info!("Got wgpu  instance {:?}", instance);
         let surface = unsafe { instance.create_surface(window) };
         log::info!("Created surface {:?}", surface);
@@ -179,19 +178,20 @@ impl GlobalState {
             .unwrap();
         log::info!("Requested device {:?} and queue {:?}", device, queue);
 
-        let mut format = adapter.get_swap_chain_preferred_format(&surface).expect("get format from swap chain failed");
+        let mut format = surface.get_preferred_format(&adapter)
+            .expect("get format from swap chain failed");
         log::info!("Adapter chose {:?} for swap chain format", format);
         format = TextureFormat::Bgra8Unorm;
         log::info!("Using {:?} for swap chain format", format);
 
-        let swapchain_desc = wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+        let surface_cfg = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::COPY_DST,
             format,
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
         };
-        let swap_chain = device.create_swap_chain(&surface, &swapchain_desc);
+        surface.configure(&device, &surface_cfg);
 
         res.load_font("default", "cjkFonts_allseto_v1.11.ttf");
         res.load_with_compile_shader("n2dt.v", "normal2dtexture.vert", "main", ShaderKind::Vertex);
@@ -201,7 +201,7 @@ impl GlobalState {
             label: None,
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
-                visibility: ShaderStage::VERTEX,
+                visibility: ShaderStages::VERTEX,
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: false,
@@ -210,10 +210,10 @@ impl GlobalState {
                 count: None,
             }],
         });
-        let size = [swapchain_desc.width as f32, swapchain_desc.height as f32];
+        let size = [size.width as f32, size.height as f32];
         let screen_uni_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: None,
-            usage: BufferUsage::UNIFORM,
+            usage: BufferUsages::UNIFORM,
             contents: bytemuck::cast_slice(&size),
         });
         let screen_uni_bind = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -233,8 +233,7 @@ impl GlobalState {
             surface,
             device,
             queue,
-            swapchain_desc,
-            swap_chain,
+            surface_cfg,
             handles: Arc::new(res),
             views: Default::default(),
             screen_uni_buffer,

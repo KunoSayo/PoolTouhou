@@ -115,8 +115,8 @@ impl GameState for Menu {
 
     fn start(&mut self, data: &mut StateData) {
         let tex = *data.global_state.handles.texture_map.read().unwrap().get("mainbg").expect("Where is the bg tex?");
-        let w = data.global_state.swapchain_desc.width as f32;
-        let h = data.global_state.swapchain_desc.height as f32;
+        let w = data.global_state.surface_cfg.width as f32;
+        let h = data.global_state.surface_cfg.height as f32;
         self.background = Some(Texture2DObject {
             vertex: (0..4).map(|x| {
                 Texture2DVertexData {
@@ -174,8 +174,8 @@ impl GameState for Menu {
 
             if let Err(e) = data.render.glyph_brush
                 .draw_queued(&data.global_state.device, &mut data.render.staging_belt, &mut encoder, screen,
-                             data.global_state.swapchain_desc.width,
-                             data.global_state.swapchain_desc.height) {
+                             data.global_state.surface_cfg.width,
+                             data.global_state.surface_cfg.height) {
                 log::warn!("Render menu text failed for {}", e);
             }
             data.render.staging_belt.finish();

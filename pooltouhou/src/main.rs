@@ -5,10 +5,10 @@ use env_logger::Target;
 use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
 use futures::task::LocalSpawnExt;
 use image::{DynamicImage, ImageBuffer, ImageFormat};
-use wgpu::{BufferDescriptor, BufferUsage, Color, CommandEncoderDescriptor, Extent3d,
-           ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, LoadOp,
-           Maintain, MapMode, Operations, Origin3d, RenderPassColorAttachment,
-           RenderPassDescriptor};
+use wgpu::{BufferDescriptor, BufferUsages, Color, CommandEncoderDescriptor,
+           Extent3d, ImageCopyBuffer, ImageCopyTexture, ImageDataLayout,
+           LoadOp, Maintain, MapMode, Operations, Origin3d,
+           RenderPassColorAttachment, RenderPassDescriptor, TextureAspect};
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
 
@@ -173,7 +173,7 @@ impl PthData {
 
     fn loop_once(&mut self) -> LoopState {
         self.inputs.swap_frame();
-        let mut dirty = LoopState::WAIT_ALL;
+        let mut loop_result = LoopState::WAIT_ALL;
         {
             let mut state_data = StateData {
                 pools: &mut self.pools,
@@ -183,12 +183,12 @@ impl PthData {
             };
             for x in &mut self.states {
                 x.shadow_tick(&state_data);
-                dirty |= x.shadow_update();
+                loop_result |= x.shadow_update();
             }
             if let Some(last) = self.states.last_mut() {
                 let (tran, l) = last.update(&mut state_data);
                 self.process_tran(tran);
-                dirty |= l;
+                loop_result |= l;
             }
             let tick_now = std::time::Instant::now();
             let tick_dur = tick_now.duration_since(self.last_tick_time);
@@ -217,8 +217,11 @@ impl PthData {
                 }
             }
         }
+        if !loop_result.render && self.inputs.is_pressed(&[VirtualKeyCode::F11]) {
+            self.save_screen_shots();
+        }
 
-        dirty
+        loop_result
     }
 
     fn render_once(&mut self) {
@@ -227,8 +230,8 @@ impl PthData {
         let dt = render_dur.as_secs_f32();
 
         let swap_chain_frame
-            = self.global_state.swap_chain.get_current_frame().expect("Failed to acquire next swap chain texture");
-        let output_tex = &swap_chain_frame.output;
+            = self.global_state.surface.get_current_frame().expect("Failed to acquire next swap chain texture");
+        let surface_output = &swap_chain_frame.output;
         {
             let mut encoder = self.global_state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Clear Encoder") });
             let _ = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -269,7 +272,29 @@ impl PthData {
 
         systems::debug_system::DEBUG.render(&mut self.global_state, &mut self.render, dt);
 
-        self.render.render2d.blit(&self.global_state, &self.render.views.get_screen().view, &output_tex.view);
+        {
+            let mut encoder = self.global_state.device.create_command_encoder(&CommandEncoderDescriptor {
+                label: Some("Copy buffer to screen commands")
+            });
+            let size = self.global_state.get_screen_size();
+            use std::convert::TryInto;
+            encoder.copy_texture_to_texture(ImageCopyTexture {
+                texture: &self.render.views.get_screen().texture,
+                mip_level: 0,
+                origin: Origin3d::default(),
+                aspect: TextureAspect::All,
+            }, ImageCopyTexture {
+                texture: &surface_output.texture,
+                mip_level: 0,
+                origin: Default::default(),
+                aspect: TextureAspect::All,
+            }, Extent3d {
+                width: size.0,
+                height: size.1,
+                depth_or_array_layers: 1,
+            });
+            self.global_state.queue.submit(Some(encoder.finish()));
+        }
 
         if self.inputs.is_pressed(&[VirtualKeyCode::F11]) {
             self.save_screen_shots();
@@ -288,7 +313,7 @@ impl PthData {
         let buffer = state.device.create_buffer(&BufferDescriptor {
             label: Some("Save screen buffer"),
             size: ((size.0 * size.1) << 2) as _,
-            usage: BufferUsage::COPY_DST | BufferUsage::MAP_READ,
+            usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
             mapped_at_creation: false,
         });
         use std::convert::TryInto;
@@ -296,6 +321,7 @@ impl PthData {
             texture: &self.render.views.get_screen().texture,
             mip_level: 0,
             origin: Origin3d::default(),
+            aspect: TextureAspect::All
         }, ImageCopyBuffer {
             buffer: &buffer,
             layout: ImageDataLayout {
@@ -442,14 +468,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let (width, height) = (size.width, size.height);
                 log::info!("Changed windows size to {}, {}", width, height);
                 if width != 0 && height != 0 {
-                    let swapchain_desc = wgpu::SwapChainDescriptor {
-                        usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-                        format: pth.global_state.swapchain_desc.format,
-                        width,
-                        height,
+                    pth.global_state.surface_cfg = wgpu::SurfaceConfiguration {
+                        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                        format: pth.global_state.surface_cfg.format,
+                        width: size.width,
+                        height: size.height,
                         present_mode: wgpu::PresentMode::Fifo,
                     };
-                    pth.global_state.swap_chain = pth.global_state.device.create_swap_chain(&pth.global_state.surface, &swapchain_desc);
+                    pth.global_state.surface.configure(&pth.global_state.device,
+                                                       &pth.global_state.surface_cfg);
                 }
             }
             Event::WindowEvent {

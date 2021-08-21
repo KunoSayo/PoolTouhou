@@ -3,9 +3,9 @@ use std::sync::Arc;
 
 use wgpu::{BindGroupLayout, BindGroupLayoutDescriptor,
            BindGroupLayoutEntry, BindingType, Buffer,
-           BufferDescriptor, BufferUsage,
+           BufferDescriptor, BufferUsages,
            IndexFormat, LoadOp, Operations, RenderPassColorAttachment,
-           RenderPassDescriptor, RenderPipeline, ShaderFlags, ShaderStage, TextureSampleType,
+           RenderPassDescriptor, RenderPipeline, ShaderStages, TextureSampleType,
            TextureView, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
@@ -37,7 +37,7 @@ impl WaterWaveRender {
             label: None,
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
-                visibility: ShaderStage::FRAGMENT,
+                visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Texture {
                     sample_type: TextureSampleType::Float { filterable: false },
                     view_dimension: TextureViewDimension::D2,
@@ -46,7 +46,7 @@ impl WaterWaveRender {
                 count: None,
             }, BindGroupLayoutEntry {
                 binding: 1,
-                visibility: ShaderStage::FRAGMENT,
+                visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Sampler {
                     filtering: true,
                     comparison: false,
@@ -59,7 +59,7 @@ impl WaterWaveRender {
         let vertex_buffer = device.create_buffer(&BufferDescriptor {
             label: None,
             size: (std::mem::size_of::<WaterWaveVertex>() * 8) as u64,
-            usage: BufferUsage::VERTEX | BufferUsage::COPY_DST,
+            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
@@ -69,7 +69,7 @@ impl WaterWaveRender {
                 let offset = obj_idx as u16 * 6;
                 [offset, offset + 1, offset + 2, offset + 1, offset + 2, offset + 3]
             }).collect::<Vec<_>>()),
-            usage: BufferUsage::INDEX,
+            usage: BufferUsages::INDEX,
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -81,13 +81,11 @@ impl WaterWaveRender {
         let vert = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::SpirV(Cow::from(handles.shaders.read().unwrap().get("n2dt.v").unwrap())),
-            flags: ShaderFlags::all(),
         });
 
         let frag = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::SpirV(Cow::from(handles.shaders.read().unwrap().get("n2dt.f").unwrap())),
-            flags: ShaderFlags::all(),
         });
 
         let vertex_len = std::mem::size_of::<WaterWaveVertex>();

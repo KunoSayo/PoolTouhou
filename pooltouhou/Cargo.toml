@@ -9,8 +9,8 @@ edition = "2018"
 [dependencies]
 env_logger = "*"
 log = "*"
-wgpu = "0.9.0"
-wgpu_glyph = "0.13"
+wgpu = "0.10.1"
+wgpu_glyph = "0.14.1"
 winit = "0.24"
 pollster = "0.2.3"
 futures = { version = "*", features = ["thread-pool"] }
@@ -25,9 +25,7 @@ shaderc = "0.7"
 pool_script = { path = "../pool_script" }
 nalgebra = { version = "0.28.0", features = ["convert-bytemuck"] }
 
-# https://amethyst.rs/doc
-
 [features]
 debug-game = []
 
-shader-compiler = ["shaderc/build-from-source"]
+shader-compiler = ["shaderc/build-from-source", "wgpu/spirv"]

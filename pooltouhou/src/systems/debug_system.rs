@@ -39,10 +39,10 @@ impl DebugSystem {
         {
             let text = format!("fps:{:.2} ", self.fps.get());
             let mut section = wgpu_glyph::Section {
-                screen_position: ((state.swapchain_desc.width - 200) as f32, (state.swapchain_desc.height - 200) as f32),
+                screen_position: ((state.surface_cfg.width - 200) as f32, (state.surface_cfg.height - 200) as f32),
                 bounds: (
-                    state.swapchain_desc.width as f32,
-                    state.swapchain_desc.height as f32,
+                    state.surface_cfg.width as f32,
+                    state.surface_cfg.height as f32,
                 ),
                 text: vec![
                     wgpu_glyph::Text::new(&text)
@@ -53,8 +53,8 @@ impl DebugSystem {
             };
 
             if let Some(rect) = render.glyph_brush.glyph_bounds(section.clone()) {
-                section.screen_position.0 = state.swapchain_desc.width as f32 - rect.width();
-                section.screen_position.1 = state.swapchain_desc.height as f32 - rect.height();
+                section.screen_position.0 = state.surface_cfg.width as f32 - rect.width();
+                section.screen_position.1 = state.surface_cfg.height as f32 - rect.height();
             }
             render.glyph_brush.queue(section);
             render.glyph_brush
@@ -63,8 +63,8 @@ impl DebugSystem {
                     &mut render.staging_belt,
                     &mut encoder,
                     &render.views.get_screen().view,
-                    state.swapchain_desc.width,
-                    state.swapchain_desc.height,
+                    state.surface_cfg.width,
+                    state.surface_cfg.height,
                 )
                 .expect("Draw queued!");
         }

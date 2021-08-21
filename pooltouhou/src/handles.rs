@@ -8,7 +8,7 @@ use alto::Buffer;
 use image::GenericImageView;
 use rodio::Source;
 use shaderc::ShaderKind;
-use wgpu::{Extent3d, ImageCopyTexture, Origin3d, TextureDimension, TextureFormat, TextureUsage};
+use wgpu::{Extent3d, ImageCopyTexture, Origin3d, TextureAspect, TextureDimension, TextureFormat, TextureUsages};
 use wgpu_glyph::ab_glyph::FontArc;
 
 use crate::{GlobalState, Pools};
@@ -200,13 +200,14 @@ impl ResourcesHandles {
                         sample_count: 1,
                         dimension: TextureDimension::D2,
                         format: TextureFormat::Rgba8Unorm,
-                        usage: TextureUsage::COPY_DST | TextureUsage::SAMPLED,
+                        usage: TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING,
                     });
                     state.queue.write_texture(
                         ImageCopyTexture {
                             texture: &texture,
                             mip_level: 0,
                             origin: Origin3d::ZERO,
+                            aspect: TextureAspect::All,
                         },
                         &rgba,
                         wgpu::ImageDataLayout {
