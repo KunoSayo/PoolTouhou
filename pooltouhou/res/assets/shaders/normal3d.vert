@@ -1,4 +1,4 @@
-#version 450
+version 450
 
 layout(std140, set = 0, binding = 0) uniform PthCameraUniformArgs {
     mat4 projection;

@@ -16,6 +16,13 @@ mod gaming;
 pub const ARENA_WIDTH: f32 = 1600.0;
 pub const ARENA_HEIGHT: f32 = 900.0;
 
+pub enum StateEvent {
+    Resize {
+        width: u32,
+        height: u32,
+    }
+}
+
 pub enum Trans {
     None,
     Push(Box<dyn GameState>),
@@ -54,4 +61,6 @@ pub trait GameState: Send + 'static {
     fn shadow_render(&mut self, _: &StateData) {}
 
     fn stop(&mut self, _: &mut StateData) {}
+
+    fn on_event(&mut self, _: &StateEvent) {}
 }

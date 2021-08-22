@@ -13,7 +13,7 @@ use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
 
 use crate::config::Config;
-use crate::render::{GlobalState, MainRendererData};
+use crate::render::{GlobalState, MainRendererData, MainRenderViews};
 use crate::states::{GameState, StateData, Trans};
 
 mod handles;
@@ -41,7 +41,11 @@ impl Default for Pools {
         let render_pool = LocalPool::new();
         let render_spawner = render_pool.spawner();
         Self {
-            io_pool: ThreadPool::builder().pool_size(3).name_prefix("pth io").create().expect("Create pth io thread pool failed"),
+            io_pool: ThreadPool::builder().pool_size(3).name_prefix("pth io")
+                .before_stop(|idx| {
+                    log::info!("IO Thread #{} stop", idx);
+                })
+                .create().expect("Create pth io thread pool failed"),
             render_pool,
             render_spawner,
         }
@@ -472,15 +476,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let (width, height) = (size.width, size.height);
                 log::info!("Changed windows size to {}, {}", width, height);
                 if width != 0 && height != 0 {
-                    pth.global_state.surface_cfg = wgpu::SurfaceConfiguration {
-                        usage: wgpu::TextureUsages::COPY_DST,
-                        format: pth.global_state.surface_cfg.format,
-                        width,
-                        height,
-                        present_mode: wgpu::PresentMode::Fifo,
-                    };
-                    pth.global_state.surface.configure(&pth.global_state.device,
-                                                       &pth.global_state.surface_cfg);
+                    pth.global_state.resize(width, height);
+                    pth.render.views = MainRenderViews::new(&pth.global_state);
                 }
             }
             Event::WindowEvent {

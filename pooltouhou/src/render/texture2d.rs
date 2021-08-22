@@ -106,7 +106,7 @@ impl Texture2DRender {
 
         let vertex_buffer = device.create_buffer(&BufferDescriptor {
             label: None,
-            size: (std::mem::size_of::<Texture2DVertexData>() * OBJ_COUNT_IN_BUFFER) as u64,
+            size: (std::mem::size_of::<Texture2DVertexData>() * OBJ_COUNT_IN_BUFFER * 4) as u64,
             usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });

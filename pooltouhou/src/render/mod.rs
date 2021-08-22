@@ -31,6 +31,7 @@ pub struct DynamicData {
 pub struct GlobalState {
     pub surface: wgpu::Surface,
     pub surface_cfg: wgpu::SurfaceConfiguration,
+    pub size_scala: [f32; 2],
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub handles: Arc<ResourcesHandles>,
@@ -150,6 +151,20 @@ impl GlobalState {
         (self.surface_cfg.width, self.surface_cfg.height)
     }
 
+    pub(super) fn resize(&mut self, width: u32, height: u32) {
+        self.surface_cfg = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::COPY_DST,
+            format: self.surface_cfg.format,
+            width,
+            height,
+            present_mode: wgpu::PresentMode::Fifo,
+        };
+        self.surface.configure(&self.device, &self.surface_cfg);
+        let size = [width as f32, height as f32];
+        self.size_scala = [size[0] / 1600.0, size[1] / 900.0];
+        self.queue.write_buffer(&self.screen_uni_buffer, 0, bytemuck::cast_slice(&size));
+    }
+
     pub(super) async fn new(window: &Window) -> Self {
         log::info!("New graphics state");
         let mut res = ResourcesHandles::default();
@@ -220,7 +235,7 @@ impl GlobalState {
         let size = [size.width as f32, size.height as f32];
         let screen_uni_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: None,
-            usage: BufferUsages::UNIFORM,
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             contents: bytemuck::cast_slice(&size),
         });
         let screen_uni_bind = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -254,6 +269,7 @@ impl GlobalState {
                     None
                 }
             },
+            size_scala: [1.0, 1.0]
         }
     }
 }

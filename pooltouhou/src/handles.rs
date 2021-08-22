@@ -7,7 +7,8 @@ use std::sync::atomic::{AtomicU16, Ordering};
 
 use alto::Buffer;
 use image::GenericImageView;
-use rodio::Source;
+use lewton::inside_ogg::OggStreamReader;
+use minimp3::Frame;
 use shaderc::ShaderKind;
 use wgpu::{Extent3d, ImageCopyTexture, Origin3d, TextureAspect, TextureDimension, TextureFormat, TextureUsages};
 use wgpu_glyph::ab_glyph::FontArc;
@@ -274,19 +275,58 @@ impl ResourcesHandles {
         let this = self.clone();
         pools.io_pool.spawn_ok(async move {
             let target = this.assets_dir.join("sounds").join(file_path);
-            let (audio_bin, freq, channel) = match rodio::Decoder::new(std::fs::File::open(target).unwrap()) {
-                Ok(data) => {
-                    let freq = data.sample_rate() as i32;
-                    let channels = data.channels();
-                    log::info!("Loaded bgm {} and it has {} channels", name, data.channels());
-                    (data.collect::<Vec<i16>>(), freq, channels)
+            let (audio_bin, freq, channel) = match file_path.rsplitn(2, ".").next().unwrap_or("ogg") {
+                "mp3" => {
+                    let mut decoder = minimp3::Decoder::new(std::fs::File::open(target).unwrap());
+                    let mut fst = match decoder.next_frame() {
+                        Ok(f) => f,
+                        Err(e) => {
+                            progress.new_error_num();
+                            log::error!("Decoder mp3 file first audio frame failed for {:?}", e);
+                            panic!("Decoder mp3 file first audio frame failed for {:?}", e);
+                        }
+                    };
+                    let freq = fst.sample_rate;
+                    let channel = fst.channels;
+                    let mut audio_bin = Vec::with_capacity(8 * 1024 * 1024);
+                    audio_bin.append(&mut fst.data);
+                    while let Ok(mut frame) = decoder.next_frame() {
+                        debug_assert!(frame.channels == channel);
+                        debug_assert!(frame.sample_rate == freq);
+                        audio_bin.append(&mut frame.data);
+                    }
+                    audio_bin.resize(audio_bin.len(), 0);
+                    (audio_bin, freq, channel as _)
                 }
-                Err(e) => {
-                    log::warn!("Decode {} audio failed for {}", file_path, e);
-                    progress.new_error_num();
-                    return;
+                _ => {
+                    let mut sr = match OggStreamReader::new(std::fs::File::open(target).unwrap()) {
+                        Ok(sr) => sr,
+                        Err(e) => {
+                            progress.new_error_num();
+                            log::error!("Decode ogg file failed for {:?}", e);
+                            panic!("Decode ogg file failed for {:?}", e);
+                        }
+                    };
+                    let mut audio_bin = match sr.read_dec_packet_itl() {
+                        Ok(Some(d)) => d,
+                        _ => Vec::with_capacity(8 * 1024 * 1024),
+                    };
+                    if let Ok(Some(mut d)) = sr.read_dec_packet_itl() {
+                        audio_bin.append(&mut d);
+                    }
+                    let freq = sr.ident_hdr.audio_sample_rate;
+                    let channel = sr.ident_hdr.audio_channels;
+                    while let Ok(Some(mut d)) = sr.read_dec_packet_itl() {
+                        debug_assert!(sr.ident_hdr.audio_channels == channel);
+                        debug_assert!(sr.ident_hdr.audio_sample_rate == freq);
+                        audio_bin.append(&mut d);
+                    }
+                    audio_bin.resize(audio_bin.len(), 0);
+                    (audio_bin, freq as _, channel)
                 }
             };
+            log::info!("Loaded bgm {} and it has {} channels", name, channel);
+
             let buf = if channel == 1 {
                 Arc::new(context.new_buffer::<alto::Mono<i16>, _>(&audio_bin, freq).unwrap())
             } else {
