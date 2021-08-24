@@ -46,11 +46,11 @@ pub struct StateData<'a> {
 }
 
 pub trait GameState: Send + 'static {
+    fn start(&mut self, _: &mut StateData) {}
+
     fn update(&mut self, _: &mut StateData) -> (Trans, LoopState) { (Trans::None, LoopState::WAIT) }
 
     fn shadow_update(&mut self) -> LoopState { LoopState::WAIT_ALL }
-
-    fn start(&mut self, _: &mut StateData) {}
 
     fn game_tick(&mut self, _: &mut StateData) -> Trans { Trans::None }
 

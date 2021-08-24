@@ -3,8 +3,9 @@ use std::convert::TryInto;
 use wgpu_glyph::Text;
 
 use crate::LoopState;
+use crate::render::GlobalState;
 use crate::render::texture2d::{Texture2DObject, Texture2DVertexData};
-use crate::states::{GameState, StateData, Trans};
+use crate::states::{GameState, StateData, StateEvent, Trans};
 
 // use amethyst::{
 //     ecs::Entity,
@@ -31,17 +32,17 @@ pub struct MainMenu {
     background: Option<Texture2DObject>,
 }
 
-impl Default for MainMenu {
-    fn default() -> Self {
+impl MainMenu {
+    pub(crate) fn new(state: &GlobalState) -> Self {
         let mut texts = Vec::with_capacity(BUTTON_NAME.len());
         for (i, text) in BUTTON_NAME.iter().enumerate() {
             let color = if i == 0 { 1.0 } else { 0.5 };
             texts.push(wgpu_glyph::Section {
-                screen_position: (60.0, 380.0 + i as f32 * 55.0),
+                screen_position: (60.0 * state.size_scala[0], (380.0 + i as f32 * 55.0) * state.size_scala[1]),
                 bounds: (9961.0, 9961.0),
                 layout: Default::default(),
                 text: vec![Text::new(text).with_color([color, color, color, 1.0])
-                    .with_scale(36.0)],
+                    .with_scale(36.0 * state.size_scala[0])],
             })
         }
         Self {
@@ -55,6 +56,40 @@ impl Default for MainMenu {
 }
 
 impl GameState for MainMenu {
+    fn start(&mut self, data: &mut StateData) {
+        let tex = *data.global_state.handles.texture_map.read().unwrap().get("mainbg").expect("Where is the bg tex?");
+        let w = data.global_state.surface_cfg.width as f32;
+        let h = data.global_state.surface_cfg.height as f32;
+        self.background = Some(Texture2DObject {
+            vertex: (0..4).map(|x| {
+                Texture2DVertexData {
+                    pos: match x {
+                        0 => [0.0, h],
+                        1 => [w, h],
+                        2 => [0.0, 0.0],
+                        3 => [w, 0.0],
+                        _ => unreachable!()
+                    },
+                    coord: match x {
+                        0 => [0.0, 0.0],
+                        1 => [1.0, 0.0],
+                        2 => [0.0, 1.0],
+                        3 => [1.0, 1.0],
+                        _ => unreachable!()
+                    },
+                }
+            }).collect::<Vec<_>>().try_into().unwrap(),
+            z: 0.0,
+            tex,
+        });
+
+        data.render.render2d.add_tex(data.global_state, tex);
+
+        if let Some(al) = &mut data.global_state.al {
+            al.play_bgm(data.global_state.handles.bgm_map.read().unwrap()["title"].clone());
+        }
+    }
+
     fn update(&mut self, data: &mut StateData) -> (Trans, LoopState) {
         let mut loop_state = LoopState::WAIT_ALL;
         const EXIT_IDX: u8 = (BUTTON_COUNT - 1) as u8;
@@ -113,40 +148,6 @@ impl GameState for MainMenu {
         (Trans::None, loop_state)
     }
 
-    fn start(&mut self, data: &mut StateData) {
-        let tex = *data.global_state.handles.texture_map.read().unwrap().get("mainbg").expect("Where is the bg tex?");
-        let w = data.global_state.surface_cfg.width as f32;
-        let h = data.global_state.surface_cfg.height as f32;
-        self.background = Some(Texture2DObject {
-            vertex: (0..4).map(|x| {
-                Texture2DVertexData {
-                    pos: match x {
-                        0 => [0.0, h],
-                        1 => [w, h],
-                        2 => [0.0, 0.0],
-                        3 => [w, 0.0],
-                        _ => unreachable!()
-                    },
-                    coord: match x {
-                        0 => [0.0, 0.0],
-                        1 => [1.0, 0.0],
-                        2 => [0.0, 1.0],
-                        3 => [1.0, 1.0],
-                        _ => unreachable!()
-                    },
-                }
-            }).collect::<Vec<_>>().try_into().unwrap(),
-            z: 0.0,
-            tex,
-        });
-
-        data.render.render2d.add_tex(data.global_state, tex);
-
-        if let Some(al) = &mut data.global_state.al {
-            al.play_bgm(data.global_state.handles.bgm_map.read().unwrap()["title"].clone());
-        }
-    }
-
 
     fn render(&mut self, data: &mut StateData) -> Trans {
         let screen = &data.render.views.get_screen().view;
@@ -164,7 +165,7 @@ impl GameState for MainMenu {
                 layout: Default::default(),
                 text: vec![Text::new(BUTTON_NAME[self.select as usize])
                     .with_color([136.0 / 256.0, 136.0 / 256.0, 136.0 / 256.0, 1.0])
-                    .with_scale(36.0)],
+                    .with_scale(36.0 * data.global_state.size_scala[0])],
             };
             data.render.glyph_brush.queue(shadow);
 
@@ -182,6 +183,46 @@ impl GameState for MainMenu {
             data.global_state.queue.submit(Some(encoder.finish()));
         }
         Trans::None
+    }
+
+    fn on_event(&mut self, e: &StateEvent) {
+        match e {
+            StateEvent::Resize { width, height } => {
+                let width = *width as _;
+                let height = *height as _;
+                if let Some(background) = &mut self.background {
+                    background.vertex = (0..4).map(|x| {
+                        Texture2DVertexData {
+                            pos: match x {
+                                0 => [0.0, height],
+                                1 => [width, height],
+                                2 => [0.0, 0.0],
+                                3 => [width, 0.0],
+                                _ => unreachable!()
+                            },
+                            coord: match x {
+                                0 => [0.0, 0.0],
+                                1 => [1.0, 0.0],
+                                2 => [0.0, 1.0],
+                                3 => [1.0, 1.0],
+                                _ => unreachable!()
+                            },
+                        }
+                    }).collect::<Vec<_>>().try_into().unwrap();
+                    self.texts.clear();
+                    for (i, text) in BUTTON_NAME.iter().enumerate() {
+                        let color = if i == 0 { 1.0 } else { 0.5 };
+                        self.texts.push(wgpu_glyph::Section {
+                            screen_position: (60.0 * width as f32 / 1600.0, (380.0 + i as f32 * 55.0) * height as f32 / 900.0),
+                            bounds: (9961.0, 9961.0),
+                            layout: Default::default(),
+                            text: vec![Text::new(text).with_color([color, color, color, 1.0])
+                                .with_scale(36.0 * width as f32 / 1600.0)],
+                        })
+                    }
+                }
+            }
+        }
     }
 }
 

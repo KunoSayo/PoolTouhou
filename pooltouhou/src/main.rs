@@ -433,23 +433,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let event_loop = winit::event_loop::EventLoop::new();
 
+    let width: u32 = config.parse_or_default("width", "1600");
+    let height: u32 = config.parse_or_default("height", "900");
     log::info!("going to build window");
     let window = winit::window::WindowBuilder::new()
         .with_title("PoolTouhou")
-        .with_inner_size(winit::dpi::PhysicalSize::new(1600, 900))
-        .with_min_inner_size(winit::dpi::PhysicalSize::new(1600, 900))
-        .with_max_inner_size(winit::dpi::PhysicalSize::new(1600, 900))
+        .with_inner_size(winit::dpi::PhysicalSize::new(width, height))
         .with_resizable(false)
         .build(&event_loop)
         .unwrap();
 
     log::info!("building graphics state.");
 
-    // std::thread::spawn(move || {
+
     let state = pollster::block_on(GlobalState::new(&window));
     let mut pth = PthData::new(state, config, crate::states::init::Loading::default());
     pth.start_init();
-    // });
+
     log::info!("going to run event loop");
     let mut pressed_keys = HashSet::new();
     let mut released_keys = HashSet::new();

@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::io::{Read, Write};
+use std::str::FromStr;
 
 pub struct Config {
     path: String,
@@ -50,6 +52,24 @@ impl Config {
         self.map.get(key)
     }
 
+    pub fn parse_or_default<T: FromStr>(&mut self, key: &str, default: &str) -> T
+        where <T as FromStr>::Err: std::fmt::Debug
+    {
+        let map = &mut self.map;
+        let entry = map.entry(key.into());
+        let lines = &mut self.lines;
+        let dirty = &mut self.dirty;
+        entry.or_insert_with(|| {
+            *dirty = true;
+            lines.push(LineType::KeyValue(key.into()));
+            default.into()
+        }).parse().unwrap_or_else(|_| {
+            *dirty = true;
+            map.insert(key.into(), default.into());
+            default.parse().expect("Even the default value cannot be parsed")
+        })
+    }
+
     pub fn or_default(&mut self, key: &str, default: &str) -> &String {
         let entry = self.map.entry(key.into());
         let lines = &mut self.lines;
@@ -92,6 +112,14 @@ impl Config {
             Ok(true)
         } else {
             Ok(false)
+        }
+    }
+}
+
+impl Drop for Config {
+    fn drop(&mut self) {
+        if self.dirty {
+            let _ = self.save();
         }
     }
 }

@@ -39,7 +39,7 @@ impl DebugSystem {
         {
             let text = format!("fps:{:.2} ", self.fps.get());
             let mut section = wgpu_glyph::Section {
-                screen_position: ((state.surface_cfg.width - 200) as f32, (state.surface_cfg.height - 200) as f32),
+                screen_position: (0.0, 0.0),
                 bounds: (
                     state.surface_cfg.width as f32,
                     state.surface_cfg.height as f32,

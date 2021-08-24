@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use shaderc::ShaderKind;
-use wgpu::{BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBinding, BufferBindingType, BufferUsages, Extent3d, ShaderStages, TextureDimension, TextureFormat, TextureUsages, TextureView};
+use wgpu::{BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBinding, BufferBindingType, BufferUsages, Extent3d, PowerPreference, ShaderStages, TextureDimension, TextureFormat, TextureUsages, TextureView};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::window::Window;
 
@@ -152,13 +152,8 @@ impl GlobalState {
     }
 
     pub(super) fn resize(&mut self, width: u32, height: u32) {
-        self.surface_cfg = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::COPY_DST,
-            format: self.surface_cfg.format,
-            width,
-            height,
-            present_mode: wgpu::PresentMode::Fifo,
-        };
+        self.surface_cfg.width = width;
+        self.surface_cfg.height = height;
         self.surface.configure(&self.device, &self.surface_cfg);
         let size = [width as f32, height as f32];
         self.size_scala = [size[0] / 1600.0, size[1] / 900.0];
@@ -178,7 +173,7 @@ impl GlobalState {
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
+                power_preference: wgpu::util::power_preference_from_env().unwrap_or(PowerPreference::HighPerformance),
                 compatible_surface: Some(&surface),
             })
             .await
@@ -252,6 +247,7 @@ impl GlobalState {
         });
 
         Self {
+            size_scala: [surface_cfg.width as f32 / 1600.0, surface_cfg.height as f32 / 900.0],
             surface,
             device,
             queue,
@@ -269,7 +265,6 @@ impl GlobalState {
                     None
                 }
             },
-            size_scala: [1.0, 1.0]
         }
     }
 }
