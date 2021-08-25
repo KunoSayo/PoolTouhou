@@ -1,7 +1,7 @@
 use std::cell::Cell;
 use std::sync::atomic::{AtomicU16, Ordering};
 
-use wgpu_glyph::GlyphCruncher;
+use wgpu_glyph::{GlyphCruncher, HorizontalAlign, Layout, VerticalAlign};
 
 use crate::{GlobalState, MainRendererData};
 
@@ -37,9 +37,9 @@ impl DebugSystem {
 
 
         {
-            let text = format!("fps:{:.2} ", self.fps.get());
+            let text = format!("fps:{:.2}", self.fps.get());
             let mut section = wgpu_glyph::Section {
-                screen_position: (0.0, 0.0),
+                screen_position: (state.surface_cfg.width as f32, state.surface_cfg.height as f32),
                 bounds: (
                     state.surface_cfg.width as f32,
                     state.surface_cfg.height as f32,
@@ -49,13 +49,8 @@ impl DebugSystem {
                         .with_color([1.0, 1.0, 1.0, 1.0])
                         .with_scale(20.0),
                 ],
-                ..wgpu_glyph::Section::default()
+                layout: Layout::default_single_line().v_align(VerticalAlign::Bottom).h_align(HorizontalAlign::Right),
             };
-
-            if let Some(rect) = render.glyph_brush.glyph_bounds(section.clone()) {
-                section.screen_position.0 = state.surface_cfg.width as f32 - rect.width();
-                section.screen_position.1 = state.surface_cfg.height as f32 - rect.height();
-            }
             render.glyph_brush.queue(section);
             render.glyph_brush
                 .draw_queued(

@@ -22,17 +22,6 @@ impl Default for Loading {
 }
 
 impl GameState for Loading {
-    fn update(&mut self, s: &mut StateData) -> (Trans, LoopState) {
-        if self.fst {
-            self.fst = false;
-            (Trans::None, LoopState::wait_until(Duration::from_millis(250), true))
-        } else if self.progress.num_loading() == 0 {
-            (Trans::Push(Box::new(MainMenu::new(&s.global_state))), LoopState::WAIT)
-        } else {
-            (Trans::None, LoopState::wait_until(Duration::from_millis(50), false))
-        }
-    }
-
     fn start(&mut self, data: &mut StateData) {
         log::info!("loading state start");
         self.start = Instant::now();
@@ -52,6 +41,18 @@ impl GameState for Loading {
         handles.load_texture_static("sheep", "sheep.png", graphics_state, pools, self.progress.create_tracker());
         if let Some(al) = &data.global_state.al {
             handles.load_bgm_static("title", "title.mp3", al.ctx.clone(), &data.pools, self.progress.create_tracker());
+        }
+    }
+
+    fn update(&mut self, s: &mut StateData) -> (Trans, LoopState) {
+        if self.fst {
+            self.fst = false;
+            (Trans::None, LoopState::wait_until(Duration::from_millis(250), true))
+        } else if self.progress.num_loading() == 0 {
+            log::info!("Loaded {} resources in {}ms", self.progress.num_finished(), std::time::Instant::now().duration_since(self.start).as_millis());
+            (Trans::Push(Box::new(MainMenu::new(&s.global_state))), LoopState::WAIT)
+        } else {
+            (Trans::None, LoopState::wait_until(Duration::from_millis(50), false))
         }
     }
 

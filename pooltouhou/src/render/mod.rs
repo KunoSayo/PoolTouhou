@@ -2,7 +2,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use shaderc::ShaderKind;
-use wgpu::{BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBinding, BufferBindingType, BufferUsages, Extent3d, PowerPreference, ShaderStages, TextureDimension, TextureFormat, TextureUsages, TextureView};
+use wgpu::{BindGroup, BindGroupEntry, BindGroupLayout,
+           BindGroupLayoutDescriptor, BindGroupLayoutEntry,
+           BindingResource, BindingType, Buffer, BufferBinding,
+           BufferBindingType, BufferUsages, Extent3d, PowerPreference,
+           ShaderStages, TextureDimension, TextureFormat, TextureUsages};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::window::Window;
 
@@ -31,7 +35,7 @@ pub struct DynamicData {
 pub struct GlobalState {
     pub surface: wgpu::Surface,
     pub surface_cfg: wgpu::SurfaceConfiguration,
-    pub size_scala: [f32; 2],
+    pub size_scale: [f32; 2],
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub handles: Arc<ResourcesHandles>,
@@ -156,7 +160,7 @@ impl GlobalState {
         self.surface_cfg.height = height;
         self.surface.configure(&self.device, &self.surface_cfg);
         let size = [width as f32, height as f32];
-        self.size_scala = [size[0] / 1600.0, size[1] / 900.0];
+        self.size_scale = [size[0] / 1600.0, size[1] / 900.0];
         self.queue.write_buffer(&self.screen_uni_buffer, 0, bytemuck::cast_slice(&size));
     }
 
@@ -247,7 +251,7 @@ impl GlobalState {
         });
 
         Self {
-            size_scala: [surface_cfg.width as f32 / 1600.0, surface_cfg.height as f32 / 900.0],
+            size_scale: [surface_cfg.width as f32 / 1600.0, surface_cfg.height as f32 / 900.0],
             surface,
             device,
             queue,

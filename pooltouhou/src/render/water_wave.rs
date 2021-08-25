@@ -4,9 +4,8 @@ use std::sync::Arc;
 use wgpu::{BindGroupLayout, BindGroupLayoutDescriptor,
            BindGroupLayoutEntry, BindingType, Buffer,
            BufferDescriptor, BufferUsages,
-           IndexFormat, LoadOp, Operations, RenderPassColorAttachment,
-           RenderPassDescriptor, RenderPipeline, ShaderStages, TextureSampleType,
-           TextureView, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
+           RenderPipeline, ShaderStages, TextureSampleType,
+           TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 use crate::GlobalState;

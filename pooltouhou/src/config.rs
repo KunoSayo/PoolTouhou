@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::convert::TryFrom;
 use std::io::{Read, Write};
 use std::str::FromStr;
 

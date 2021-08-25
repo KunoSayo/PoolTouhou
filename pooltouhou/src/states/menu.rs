@@ -38,11 +38,11 @@ impl MainMenu {
         for (i, text) in BUTTON_NAME.iter().enumerate() {
             let color = if i == 0 { 1.0 } else { 0.5 };
             texts.push(wgpu_glyph::Section {
-                screen_position: (60.0 * state.size_scala[0], (380.0 + i as f32 * 55.0) * state.size_scala[1]),
+                screen_position: (60.0 * state.size_scale[0], (380.0 + i as f32 * 55.0) * state.size_scale[1]),
                 bounds: (9961.0, 9961.0),
                 layout: Default::default(),
                 text: vec![Text::new(text).with_color([color, color, color, 1.0])
-                    .with_scale(36.0 * state.size_scala[0])],
+                    .with_scale(36.0 * state.size_scale[0])],
             })
         }
         Self {
@@ -121,14 +121,14 @@ impl GameState for MainMenu {
                 x if x > 0 => {
                     self.time = now;
                     self.con = !just_change;
-                    log::trace!("Select previous button");
+                    log::debug!("Select previous button");
                     self.select = get_previous(self.select, BUTTON_COUNT as _);
                     loop_state = LoopState::WAIT;
                 }
                 x if x < 0 => {
                     self.time = now;
                     self.con = !just_change;
-                    log::trace!("Select next button");
+                    log::debug!("Select next button");
                     self.select = get_next(self.select, BUTTON_COUNT as _);
                     loop_state = LoopState::WAIT;
                 }
@@ -165,7 +165,7 @@ impl GameState for MainMenu {
                 layout: Default::default(),
                 text: vec![Text::new(BUTTON_NAME[self.select as usize])
                     .with_color([136.0 / 256.0, 136.0 / 256.0, 136.0 / 256.0, 1.0])
-                    .with_scale(36.0 * data.global_state.size_scala[0])],
+                    .with_scale(36.0 * data.global_state.size_scale[0])],
             };
             data.render.glyph_brush.queue(shadow);
 

@@ -23,7 +23,7 @@ impl OpenalData {
         let alto = Alto::load_default()?;
         let device = alto.open(None)?;
         let ctx = device.new_context(None)?;
-        let mut bgm_source = ctx.new_static_source()?;
+        let bgm_source = ctx.new_static_source()?;
         Ok(Self {
             alto,
             device,

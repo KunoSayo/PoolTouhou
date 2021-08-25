@@ -28,6 +28,5 @@ minimp3 = "0.5.1"
 lewton = "0.10.2"
 
 [features]
+default = ["shaderc/build-from-source", "wgpu/spirv"]
 debug-game = []
-
-shader-compiler = ["shaderc/build-from-source", "wgpu/spirv"]

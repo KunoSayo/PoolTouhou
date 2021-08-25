@@ -99,7 +99,10 @@ fn get_direction(up: u32, down: u32, left: u32, right: u32) -> (i32, i32) {
         (x, y, _, 0) if x == y => (-1, 0),
         (0, _, x, y) if x == y => (0, -1),
         (_, 0, x, y) if x == y => (0, 1),
+        (x, y, left, right) if x == y => if left > right { (1, 0) } else { (-1, 0) },
+        (up, down, x, y) if x == y => if up > down { (0, -1) } else { (0, 1) },
         _ => {
+            //everything is not eq
             if up > down {
                 //go down
                 if left > right {

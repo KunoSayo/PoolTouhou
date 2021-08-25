@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::iter::FromIterator;
 use std::time::{Duration, Instant};
 
 use env_logger::Target;
@@ -25,6 +26,7 @@ mod script;
 mod audio;
 mod config;
 mod game;
+mod ui;
 
 // https://doc.rust-lang.org/book/
 
@@ -88,7 +90,7 @@ impl LoopState {
 }
 
 impl std::ops::BitOrAssign for LoopState {
-    fn bitor_assign(&mut self, mut rhs: Self) {
+    fn bitor_assign(&mut self, rhs: Self) {
         self.render |= rhs.render;
         if self.control_flow != rhs.control_flow {
             match self.control_flow {
@@ -141,7 +143,7 @@ impl PthData {
     }
 
     fn process_tran(&mut self, tran: Trans) {
-        let mut last = self.states.last_mut().unwrap();
+        let last = self.states.last_mut().unwrap();
         let mut state_data = StateData {
             pools: &mut self.pools,
             inputs: &self.inputs,
@@ -455,6 +457,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut released_keys = HashSet::new();
     let mut focused = true;
     let mut game_draw_requested = false;
+    let mut i = ui::TextInput::default();
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::WindowEvent {
@@ -508,7 +511,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 event: WindowEvent::ReceivedCharacter(c),
                 ..
             } => {
-                //todo: process text input
+                i.input(c);
+                println!("{}", String::from_iter(i.chars.iter()));
             }
             Event::RedrawRequested(_) => {
                 if !game_draw_requested {
@@ -536,6 +540,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     *control_flow = c_f;
                 } else {
                     *control_flow = ControlFlow::Exit;
+                }
+
+                match pth.inputs.cur_frame_game_input.direction.0 {
+                    x if x > 0 => {
+                        i.move_cursor_right();
+                    }
+                    x if x < 0 => {
+                        i.move_cursor_left();
+                    }
+                    _ => {}
                 }
             }
             _ => {}
