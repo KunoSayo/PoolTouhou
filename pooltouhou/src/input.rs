@@ -89,41 +89,25 @@ impl BakedInputs {
 }
 
 fn get_direction(up: u32, down: u32, left: u32, right: u32) -> (i32, i32) {
-    //left x-
-    //right x+
-    //up y+
-    //down y-
-    match (up, down, left, right) {
-        (x, y, w, z) if x == y && w == z => (0, 0),
-        (x, y, 0, _) if x == y => (1, 0),
-        (x, y, _, 0) if x == y => (-1, 0),
-        (0, _, x, y) if x == y => (0, -1),
-        (_, 0, x, y) if x == y => (0, 1),
-        (x, y, left, right) if x == y => if left > right { (1, 0) } else { (-1, 0) },
-        (up, down, x, y) if x == y => if up > down { (0, -1) } else { (0, 1) },
-        _ => {
-            //everything is not eq
-            if up > down {
-                //go down
-                if left > right {
-                    //go right
-                    (1, -1)
-                } else {
-                    //go left
-                    (-1, -1)
-                }
-            } else {
-                //go up
-                if left > right {
-                    //go right
-                    (1, 1)
-                } else {
-                    //go left
-                    (-1, 1)
-                }
-            }
-        }
-    }
+    let x = if left == right {
+        0
+    } else if left == 0 {
+        1
+    } else if right == 0 || left < right {
+        -1
+    } else {
+        1
+    };
+    let y = if up == down {
+        0
+    } else if up == 0 {
+        -1
+    } else if down == 0 || up < down {
+        1
+    } else {
+        -1
+    };
+    (x, y)
 }
 
 impl From<&RawInputData> for GameInputData {
@@ -204,6 +188,7 @@ impl RawInputData {
     }
 }
 
+
 impl Clone for RawInputData {
     fn clone(&self) -> Self {
         Self {
@@ -217,5 +202,29 @@ impl Clone for RawInputData {
         self.x = source.x;
         self.y = source.y;
         self.pressing = source.pressing.clone();
+    }
+}
+
+mod test {
+    use crate::input::get_direction;
+
+    #[test]
+    fn test_direction() {
+        assert_eq!(get_direction(0, 0, 0, 5), (1, 0));
+        assert_eq!(get_direction(3, 3, 10, 5), (1, 0));
+        assert_eq!(get_direction(3, 3, 4, 4), (0, 0));
+        assert_eq!(get_direction(7, 3, 4, 4), (0, -1));
+        assert_eq!(get_direction(1, 3, 4, 4), (0, 1));
+        assert_eq!(get_direction(1, 3, 4, 4), (0, 1));
+        assert_eq!(get_direction(1, 3, 4, 5), (-1, 1));
+        assert_eq!(get_direction(4, 3, 4, 5), (-1, -1));
+        assert_eq!(get_direction(4, 3, 6, 5), (1, -1));
+        //zero region
+        assert_eq!(get_direction(0, 0, 0, 0), (0, 0));
+        assert_eq!(get_direction(1, 0, 0, 0), (0, 1));
+        assert_eq!(get_direction(0, 1, 0, 0), (0, -1));
+        assert_eq!(get_direction(0, 0, 1, 0), (-1, 0));
+        assert_eq!(get_direction(0, 0, 0, 1), (1, 0));
+        //end zero region
     }
 }

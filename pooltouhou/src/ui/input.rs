@@ -40,11 +40,11 @@ impl TextInput {
                 InputResult::Esc
             }
             '\x03' => {
-                //copy the text
+                // maybe copy the text
                 InputResult::Copy
             }
             '\x16' => {
-                //paste the text
+                // maybe paste the text
                 InputResult::Paste
             }
             '\x08' => {
@@ -59,6 +59,9 @@ impl TextInput {
                     self.chars.remove(self.cursor);
                 }
                 InputResult::Del
+            }
+            c if c.is_control() => {
+                InputResult::Ignored
             }
             _ => {
                 log::debug!("got char {} [as {}]", c, c as u128);
@@ -90,7 +93,7 @@ impl TextInput {
 
         {
             let text = String::from_iter(self.chars.iter());
-            let mut section = wgpu_glyph::Section {
+            let section = wgpu_glyph::Section {
                 screen_position: pos,
                 bounds,
                 text: vec![

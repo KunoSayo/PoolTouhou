@@ -27,6 +27,10 @@ impl LoadState {
 
 
 impl GameState for LoadState {
+    fn start(&mut self, _: &mut StateData) {
+        self.start_time = std::time::Instant::now();
+    }
+
     fn update(&mut self, _: &mut StateData) -> (Trans, LoopState) {
         let delta = std::time::Instant::now().duration_since(self.start_time);
         if delta >= self.delay {
@@ -43,10 +47,6 @@ impl GameState for LoadState {
         } else {
             (Trans::None, LoopState::wait_until(self.delay - delta, self.should_render))
         }
-    }
-
-    fn start(&mut self, _: &mut StateData) {
-        self.start_time = std::time::Instant::now();
     }
 
     fn render(&mut self, _: &mut StateData) -> Trans {
