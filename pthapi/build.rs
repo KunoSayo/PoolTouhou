@@ -21,8 +21,8 @@ fn main() {
                         let file_os_name = entry.file_name();
                         let file_name = file_os_name.to_string_lossy();
                         let out_file = out_path.join(&file_os_name);
-                        if file_name.starts_with("std") && file_name.ends_with(".dll") {
-                            std::fs::copy(entry.path(), out_file).expect("Failed to copy dll");
+                        if file_name.starts_with("std") && !file_name.ends_with(".lib") && !file_name.ends_with(".pdb") {
+                            std::fs::copy(entry.path(), out_file).expect("Failed to copy dyn lib");
                             // println!("cargo:rustc-link-lib=static={}", &file_name[..file_name.len() - 4]);
                         }
                     }

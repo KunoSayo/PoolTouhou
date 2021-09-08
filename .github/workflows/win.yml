@@ -1,0 +1,50 @@
+name: Rust
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ windows-latest ]
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install latest stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install dependencies for Windows
+        uses: crazy-max/ghaction-chocolatey@v1
+        with:
+          args: install ninja
+      - name: Build
+        run: cargo build --manifest-path pooltouhou/Cargo.toml --release --verbose --no-default-features
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          path: ${{ github.workspace }}/target/release
+          name: ${{ matrix.os }}-${{ github.run_number }}
+      - name: Upload res
+        uses: actions/upload-artifact@v1
+        with:
+          path: ${{ github.workspace }}/pooltouhou/res
+          name: ${{ matrix.os }}-${{ github.run_number }}

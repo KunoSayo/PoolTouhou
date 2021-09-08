@@ -34,7 +34,7 @@ pub struct PthData {
     last_render_time: Instant,
     last_tick_time: Instant,
     tick_interval: Duration,
-    config: Config
+    config: Config,
 }
 
 impl PthData {
@@ -241,7 +241,7 @@ impl PthData {
             texture: &self.render.views.get_screen().texture,
             mip_level: 0,
             origin: Origin3d::default(),
-            aspect: TextureAspect::All
+            aspect: TextureAspect::All,
         }, ImageCopyBuffer {
             buffer: &buffer,
             layout: ImageDataLayout {
@@ -284,7 +284,7 @@ impl PthData {
             last_render_time: Instant::now(),
             last_tick_time: Instant::now(),
             tick_interval: Duration::from_secs_f64(1.0 / 60.0),
-            config
+            config,
         }
     }
 }

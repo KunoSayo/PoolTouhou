@@ -1,12 +1,10 @@
+use nalgebra::Vector3;
+use pool_script::pool_script::FunctionDesc;
+use pool_script::PoolScriptBin;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
-
-use nalgebra::Vector3;
-
-use pool_script::pool_script::FunctionDesc;
-use pool_script::PoolScriptBin;
 
 use crate::systems::game_system::CollideType;
 
