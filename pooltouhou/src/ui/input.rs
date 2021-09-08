@@ -5,7 +5,7 @@ use std::ops::Range;
 use wgpu::TextureView;
 use wgpu_glyph::{GlyphCruncher, HorizontalAlign, Layout, VerticalAlign};
 
-use crate::render::{GlobalState, MainRendererData};
+use pth::render::{GlobalState, MainRendererData};
 
 #[derive(Debug)]
 pub enum InputResult {

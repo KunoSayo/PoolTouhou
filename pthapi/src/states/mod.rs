@@ -39,10 +39,10 @@ impl Default for Trans {
 }
 
 pub struct StateData<'a> {
-    pub(crate) pools: &'a mut Pools,
-    pub(crate) inputs: &'a BakedInputs,
-    pub(crate) global_state: &'a mut GlobalState,
-    pub(crate) render: &'a mut MainRendererData,
+    pub pools: &'a mut Pools,
+    pub inputs: &'a BakedInputs,
+    pub global_state: &'a mut GlobalState,
+    pub render: &'a mut MainRendererData,
 }
 
 pub trait GameState: Send + 'static {

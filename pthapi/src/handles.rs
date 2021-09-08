@@ -7,12 +7,14 @@ use std::sync::atomic::{AtomicU16, Ordering};
 
 use alto::Buffer;
 use image::GenericImageView;
-use lewton::inside_ogg::OggStreamReader;
 use shaderc::ShaderKind;
 use wgpu::{Extent3d, ImageCopyTexture, Origin3d, TextureAspect, TextureDimension, TextureFormat, TextureUsages};
 use wgpu_glyph::ab_glyph::FontArc;
 
-use crate::{GlobalState, Pools};
+use lewton::inside_ogg::OggStreamReader;
+
+use crate::Pools;
+use crate::render::GlobalState;
 
 #[derive(Debug)]
 pub struct Texture {
@@ -159,7 +161,7 @@ impl Default for ResourcesHandles {
             shaders: Default::default(),
             textures: Default::default(),
             texture_map: Default::default(),
-            bgm_map: Default::default()
+            bgm_map: Default::default(),
         }
     }
 }

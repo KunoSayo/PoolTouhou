@@ -16,7 +16,7 @@ impl Default for Loading {
         Self {
             progress: Default::default(),
             start: Instant::now(),
-            fst: true
+            fst: true,
         }
     }
 }

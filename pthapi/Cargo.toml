@@ -1,25 +1,11 @@
 [package]
-name = "pooltouhou"
+name = "pthapi"
 version = "0.1.0"
-authors = ["euOnmyoji <1418780411@qq.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-
-[[bin]]
-name = "pooltouhou"
-
-[lib]
-name = "pth"
-crate-type = ["lib"]
-
 [dependencies]
-#api
-pthapi = { path = "../pthapi" }
-
-#mix
-env_logger = "*"
 log = "*"
 wgpu = { version = "0.10.1", features = ["spirv"] }
 wgpu_glyph = "0.14.1"
@@ -39,5 +25,6 @@ nalgebra = { version = "0.28.0", features = ["convert-bytemuck"] }
 minimp3 = "0.5.1"
 lewton = "0.10.2"
 
-[features]
-debug-game = []
+[lib]
+name = "pthapi"
+crate-type = ["staticlib", "dylib"]

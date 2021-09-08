@@ -2,11 +2,12 @@
 members = [
     "pooltouhou",
     "pool_script",
-    "pool_script_compiler"
+    "pthapi"
 ]
 resolver = "2"
 
 [profile.dev]
+opt-level = 1
 
 [profile.release]
 opt-level = 3

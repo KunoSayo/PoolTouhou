@@ -13,107 +13,17 @@ use wgpu::{BufferDescriptor, BufferUsages, Color, CommandEncoderDescriptor,
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
 
-use crate::config::Config;
-use crate::render::{GlobalState, MainRendererData, MainRenderViews};
-use crate::states::{GameState, StateData, Trans};
+use pth as root;
+use root::*;
+use root::config::Config;
+use root::render::{GlobalState, MainRendererData, MainRenderViews};
+use root::states::{GameState, StateData, Trans};
 
-mod handles;
-mod states;
 mod systems;
-mod render;
-mod input;
-mod script;
-mod audio;
-mod config;
-mod game;
 mod ui;
+mod game;
 
 // https://doc.rust-lang.org/book/
-
-pub const PLAYER_Z: f32 = 0.0;
-
-pub struct Pools {
-    io_pool: ThreadPool,
-    render_pool: LocalPool,
-    render_spawner: LocalSpawner,
-}
-
-impl Default for Pools {
-    fn default() -> Self {
-        let render_pool = LocalPool::new();
-        let render_spawner = render_pool.spawner();
-        Self {
-            io_pool: ThreadPool::builder().pool_size(3).name_prefix("pth io")
-                .before_stop(|idx| {
-                    log::info!("IO Thread #{} stop", idx);
-                })
-                .create().expect("Create pth io thread pool failed"),
-            render_pool,
-            render_spawner,
-        }
-    }
-}
-
-#[derive(Eq, PartialEq, Copy, Clone, Debug)]
-pub struct LoopState {
-    control_flow: ControlFlow,
-    render: bool,
-}
-
-impl LoopState {
-    pub const WAIT_ALL: LoopState = LoopState {
-        control_flow: ControlFlow::Wait,
-        render: false,
-    };
-
-    pub const WAIT: LoopState = LoopState {
-        control_flow: ControlFlow::Wait,
-        render: true,
-    };
-
-    pub const POLL: LoopState = LoopState {
-        control_flow: ControlFlow::Poll,
-        render: true,
-    };
-
-    pub const POLL_WITHOUT_RENDER: LoopState = LoopState {
-        control_flow: ControlFlow::Poll,
-        render: false,
-    };
-
-    pub fn wait_until(dur: Duration, render: bool) -> Self {
-        Self {
-            control_flow: ControlFlow::WaitUntil(std::time::Instant::now() + dur),
-            render,
-        }
-    }
-}
-
-impl std::ops::BitOrAssign for LoopState {
-    fn bitor_assign(&mut self, rhs: Self) {
-        self.render |= rhs.render;
-        if self.control_flow != rhs.control_flow {
-            match self.control_flow {
-                ControlFlow::Wait => {
-                    self.control_flow = rhs.control_flow
-                }
-                ControlFlow::WaitUntil(t1) => {
-                    match rhs.control_flow {
-                        ControlFlow::Wait => {}
-                        ControlFlow::WaitUntil(t2) => {
-                            self.control_flow = ControlFlow::WaitUntil(t1.min(t2));
-                        }
-                        _ => {
-                            self.control_flow = rhs.control_flow;
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
-}
-
 pub struct PthData {
     global_state: GlobalState,
     render: MainRendererData,

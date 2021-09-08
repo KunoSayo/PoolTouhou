@@ -8,3 +8,11 @@ edition = "2018"
 
 [dependencies]
 log = "*"
+env_logger = "*"
+
+[[bin]]
+name = "psc"
+
+[lib]
+name = "pool_script"
+crate-type = ["lib"]

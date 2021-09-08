@@ -46,7 +46,7 @@ pub struct BakedInputs {
 
 
 impl BakedInputs {
-    pub(super) fn process(&mut self, pressed: &HashSet<VirtualKeyCode>, released: &HashSet<VirtualKeyCode>) {
+    pub fn process(&mut self, pressed: &HashSet<VirtualKeyCode>, released: &HashSet<VirtualKeyCode>) {
         for key in released.iter() {
             if self.cur_frame_input.pressing.contains(key) {
                 self.cur_temp_input.pressing.remove(key);
@@ -68,7 +68,7 @@ impl BakedInputs {
     }
     /// save current input to last
     /// make current temp input to current frame input
-    pub(super) fn swap_frame(&mut self) {
+    pub fn swap_frame(&mut self) {
         //save current to last
         swap(&mut self.cur_frame_input, &mut self.last_frame_input);
         //clone for not lose temp info
@@ -77,7 +77,7 @@ impl BakedInputs {
     }
 
     /// save current game tick input to last
-    pub(super) fn tick(&mut self) {
+    pub fn tick(&mut self) {
         self.last_temp_game_input = self.cur_temp_game_input.clone();
         self.cur_game_input.tick_mut(&self.cur_temp_game_input);
     }
@@ -206,8 +206,6 @@ impl Clone for RawInputData {
 }
 
 mod test {
-    use crate::input::get_direction;
-
     #[test]
     fn test_direction() {
         assert_eq!(get_direction(0, 0, 0, 5), (1, 0));

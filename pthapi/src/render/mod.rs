@@ -144,7 +144,7 @@ impl MainRendererData {
             render2d,
             staging_belt,
             glyph_brush,
-            views
+            views,
         }
     }
 }
@@ -155,7 +155,7 @@ impl GlobalState {
         (self.surface_cfg.width, self.surface_cfg.height)
     }
 
-    pub(super) fn resize(&mut self, width: u32, height: u32) {
+    pub fn resize(&mut self, width: u32, height: u32) {
         self.surface_cfg.width = width;
         self.surface_cfg.height = height;
         self.surface.configure(&self.device, &self.surface_cfg);
@@ -164,7 +164,7 @@ impl GlobalState {
         self.queue.write_buffer(&self.screen_uni_buffer, 0, bytemuck::cast_slice(&size));
     }
 
-    pub(super) async fn new(window: &Window) -> Self {
+    pub async fn new(window: &Window) -> Self {
         log::info!("New graphics state");
         let mut res = ResourcesHandles::default();
         let size = window.inner_size();
