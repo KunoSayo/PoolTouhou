@@ -4,10 +4,10 @@ use std::sync::Arc;
 use alto::{Alto, Buffer, Context, OutputDevice, Source, StaticSource};
 
 pub struct OpenalData {
-    alto: Alto,
-    device: OutputDevice,
+    pub alto: Alto,
+    pub device: OutputDevice,
     pub ctx: Context,
-    bgm_source: StaticSource,
+    pub bgm_source: StaticSource,
 }
 
 impl std::fmt::Debug for OpenalData {
@@ -19,7 +19,7 @@ impl std::fmt::Debug for OpenalData {
 }
 
 impl OpenalData {
-    pub(crate) fn new() -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let alto = Alto::load_default()?;
         let device = alto.open(None)?;
         let ctx = device.new_context(None)?;
@@ -39,9 +39,9 @@ impl OpenalData {
         self.bgm_source.stop();
         self.bgm_source.set_looping(true);
         if let Err(e) = self.bgm_source.set_buffer(buf) {
-            log::warn!("Play bgm failed for {}", e);
+            // log::warn!("Play bgm failed for {}", e);
         } else {
-            log::info!("To play new bgm");
+            // log::info!("To play new bgm");
             self.bgm_source.play();
         }
     }

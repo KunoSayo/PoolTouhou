@@ -1602,22 +1602,9 @@ dependencies = [
 name = "pooltouhou"
 version = "0.1.0"
 dependencies = [
- "alto",
- "bytemuck",
- "chrono",
  "env_logger",
- "futures",
- "image",
  "log",
- "nalgebra",
- "pollster",
- "pool_script",
  "pthapi",
- "rayon",
- "shaderc",
- "wgpu",
- "wgpu_glyph",
- "winit",
 ]
 
 [[package]]
@@ -1672,7 +1659,6 @@ dependencies = [
  "futures",
  "image",
  "lewton",
- "log",
  "minimp3",
  "nalgebra",
  "pollster",

@@ -1,8 +1,9 @@
 use std::time::Duration;
 
-use crate::handles::Progress;
-use crate::LoopState;
-use crate::states::{GameState, StateData, Trans};
+use pthapi as root;
+use root::handles::Progress;
+use root::LoopState;
+use root::states::{GameState, StateData, Trans};
 
 pub struct LoadState<P: Progress = ()> {
     progress: Option<P>,

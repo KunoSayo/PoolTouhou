@@ -246,7 +246,7 @@ impl Texture2DRender {
                         }
                     }
                 } else {
-                    log::warn!("Tried to render not added tex handle by: {}", tex);
+                    // log::warn!("Tried to render not added tex handle by: {}", tex);
                 }
             };
             let mut last_idx = 0;

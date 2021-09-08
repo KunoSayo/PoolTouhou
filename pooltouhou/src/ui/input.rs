@@ -2,10 +2,11 @@ use std::iter::FromIterator;
 use std::num::NonZeroUsize;
 use std::ops::Range;
 
-use wgpu::TextureView;
-use wgpu_glyph::{GlyphCruncher, HorizontalAlign, Layout, VerticalAlign};
-
 use pth::render::{GlobalState, MainRendererData};
+use pth::wgpu;
+use pth::wgpu::TextureView;
+use pth::wgpu_glyph::{GlyphCruncher, HorizontalAlign, Layout, VerticalAlign};
+use pth::wgpu_glyph;
 
 #[derive(Debug)]
 pub enum InputResult {

@@ -1,8 +1,10 @@
 use std::time::{Duration, Instant};
 
-use crate::handles::{CounterProgress, Progress};
-use crate::LoopState;
-use crate::states::{GameState, StateData, Trans};
+use pthapi as root;
+use root::handles::{CounterProgress, Progress};
+use root::LoopState;
+use root::states::{GameState, StateData, Trans};
+
 use crate::states::menu::MainMenu;
 
 pub struct Loading {
@@ -23,7 +25,7 @@ impl Default for Loading {
 
 impl GameState for Loading {
     fn start(&mut self, data: &mut StateData) {
-        log::info!("loading state start");
+        // log::info!("loading state start");
         self.start = Instant::now();
         let graphics_state = &data.global_state;
         let handles = &graphics_state.handles;

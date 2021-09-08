@@ -1,11 +1,13 @@
 use std::convert::TryInto;
 
-use wgpu_glyph::Text;
+use pthapi as root;
+use root::*;
+use root::LoopState;
+use root::render::GlobalState;
+use root::render::texture2d::{Texture2DObject, Texture2DVertexData};
+use root::states::{GameState, StateData, StateEvent, Trans};
 
-use crate::LoopState;
-use crate::render::GlobalState;
-use crate::render::texture2d::{Texture2DObject, Texture2DVertexData};
-use crate::states::{GameState, StateData, StateEvent, Trans};
+use crate::wgpu_glyph::Text;
 
 // use amethyst::{
 //     ecs::Entity,

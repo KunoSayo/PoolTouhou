@@ -92,7 +92,7 @@ impl Config {
 
     pub fn save(&mut self) -> std::io::Result<bool> {
         if self.dirty {
-            log::info!("Saving pool touhou config");
+            // log::info!("Saving pool touhou config");
             let mut file = std::fs::OpenOptions::new().write(true).truncate(true).read(true).create(true).open(&self.path)?;
             for x in &self.lines {
                 match x {

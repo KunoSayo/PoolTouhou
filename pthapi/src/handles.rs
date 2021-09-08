@@ -174,22 +174,17 @@ impl ResourcesHandles {
         self.fonts.get_mut().unwrap().insert(name.to_string(), font_arc);
     }
 
-    pub fn load_with_compile_shader(&mut self, name: &str, file_path: &str, entry: &str, shader_kind: ShaderKind) {
+    pub fn load_with_compile_shader(&mut self, name: &str, file_path: &str, entry: &str, shader_kind: ShaderKind) -> shaderc::Result<()> {
         let target = self.assets_dir.join("shaders").join(file_path);
         let s = std::fs::read_to_string(target).expect("read shader file failed.");
         let compile_result = shaderc::Compiler::new().unwrap()
             .compile_into_spirv(&s, shader_kind, name, entry, None);
-        match compile_result {
-            Ok(compile) => {
-                if compile.get_num_warnings() > 0 {
-                    log::warn!("compile shader warnings: {}", compile.get_warning_messages())
-                }
-                self.shaders.get_mut().unwrap().insert(name.to_string(), compile.as_binary().to_vec());
-            }
-            Err(e) => {
-                log::warn!("compile shader {} error: {}", file_path, e);
-            }
+        let compile = compile_result?;
+        if compile.get_num_warnings() > 0 {
+            // log::warn!("compile shader warnings: {}", compile.get_warning_messages())
         }
+        self.shaders.get_mut().unwrap().insert(name.to_string(), compile.as_binary().to_vec());
+        Ok(())
     }
 
     fn load_texture_static_inner(self: Arc<Self>, name: &'static str, file_path: &'static str,
@@ -263,7 +258,7 @@ impl ResourcesHandles {
                     state.queue.submit(None);
                 }
                 Err(e) => {
-                    log::warn!("load image error: {}", e);
+                    //todo: log here
                     progress.new_error_num();
                 }
             }
@@ -282,7 +277,7 @@ impl ResourcesHandles {
                         Ok(f) => f,
                         Err(e) => {
                             progress.new_error_num();
-                            log::error!("Decoder mp3 file first audio frame failed for {:?}", e);
+                            //todo: log here
                             panic!("Decoder mp3 file first audio frame failed for {:?}", e);
                         }
                     };
@@ -303,7 +298,7 @@ impl ResourcesHandles {
                         Ok(sr) => sr,
                         Err(e) => {
                             progress.new_error_num();
-                            log::error!("Decode ogg file failed for {:?}", e);
+                            //todo: log here
                             panic!("Decode ogg file failed for {:?}", e);
                         }
                     };
@@ -325,7 +320,7 @@ impl ResourcesHandles {
                     (audio_bin, freq as _, channel)
                 }
             };
-            log::info!("Loaded bgm {} and it has {} channels", name, channel);
+            // log::info!("Loaded bgm {} and it has {} channels", name, channel);
 
             let buf = if channel == 1 {
                 Arc::new(context.new_buffer::<alto::Mono<i16>, _>(&audio_bin, freq).unwrap())
