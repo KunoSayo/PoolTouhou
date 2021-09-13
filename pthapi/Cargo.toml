@@ -10,4 +10,4 @@ edition = "2018"
 
 [lib]
 name = "pthapi"
-crate-type = ["staticlib", "dylib"]
+crate-type = ["dylib"]
