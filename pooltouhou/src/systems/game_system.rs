@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::io::{Error, ErrorKind};
 
-use pth::nalgebra::Vector3;
+use nalgebra::Vector3;
 
 #[derive(Default)]
 pub struct Player {

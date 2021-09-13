@@ -10,10 +10,6 @@ edition = "2018"
 [[bin]]
 name = "pooltouhou"
 
-[lib]
-name = "pth"
-crate-type = ["lib", "rlib", "dylib"]
-
 [dependencies]
 #api
 pthapi = { path = "../pthapi" }
@@ -21,22 +17,25 @@ pthapi = { path = "../pthapi" }
 #mix
 env_logger = "*"
 log = "*"
-#wgpu = { version = "0.10.1", features = ["spirv"] }
-#wgpu_glyph = "0.14.1"
-#winit = "0.24"
-#pollster = "0.2.3"
-#futures = { version = "*", features = ["thread-pool"] }
-#image = "*"
-#rayon = "*"
-#bytemuck = "*"
-#chrono = "*"
-#alto = "3.0.4"
-#shaderc = { version = "0.7", features = ["build-from-source"] }
-#pool_script = { path = "../pool_script" }
-#nalgebra = { version = "0.28.0", features = ["convert-bytemuck"] }
+wgpu = { version = "0.10.1", features = ["spirv"] }
+wgpu_glyph = "0.14.1"
+winit = "0.24"
+pollster = "0.2.3"
+futures = { version = "*", features = ["thread-pool"] }
+image = "*"
+rayon = "*"
+bytemuck = "*"
+chrono = "*"
+alto = "3.0.4"
+shaderc = { version = "0.7", features = ["build-from-source"] }
+pool_script = { path = "../pool_script" }
+nalgebra = { version = "0.28.0", features = ["convert-bytemuck"] }
+
+
+#audio
+minimp3 = "0.5.1"
+lewton = "0.10.2"
+
 
 [features]
 debug-game = []
-
-[target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))']
-rustc-flags = "-C prefer-dynamic"

@@ -5,26 +5,112 @@ use std::time::{Duration, Instant};
 
 use env_logger::Target;
 
-use pth::audio::OpenalData;
-use pth::handles::ResourcesHandles;
-use pthapi as root;
-use root::*;
-use root::config::Config;
-use root::futures::task::LocalSpawnExt;
-use root::image::{DynamicImage, ImageBuffer, ImageFormat};
-use root::render::{GlobalState, MainRendererData, MainRenderViews};
-use root::shaderc::ShaderKind;
-use root::states::{GameState, StateData, Trans};
-use root::wgpu::{BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, Color, CommandEncoderDescriptor, Extent3d, ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, LoadOp, Maintain, MapMode, Operations, Origin3d, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, ShaderStages, TextureAspect, TextureFormat};
-use root::wgpu::util::{BufferInitDescriptor, DeviceExt};
-use root::winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
-use root::winit::event_loop::ControlFlow;
-use root::winit::window::Window;
+// use crate as root;
+use audio::OpenalData;
+use handles::ResourcesHandles;
+use pthapi::config::Config;
+use image::{DynamicImage, ImageBuffer, ImageFormat};
+use render::{GlobalState, MainRendererData, MainRenderViews};
+use shaderc::ShaderKind;
+use states::{GameState, StateData, Trans};
+use wgpu::{BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, Color, CommandEncoderDescriptor, Extent3d, ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, LoadOp, Maintain, MapMode, Operations, Origin3d, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, ShaderStages, TextureAspect, TextureFormat};
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
+use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
+use winit::event_loop::ControlFlow;
+use winit::window::Window;
+use futures::executor::{ThreadPool, LocalPool, LocalSpawner};
+use futures::task::LocalSpawnExt;
 
+mod render;
 mod systems;
 mod ui;
 mod game;
 mod states;
+mod input;
+mod handles;
+mod audio;
+
+pub struct Pools {
+    pub io_pool: ThreadPool,
+    pub render_pool: LocalPool,
+    pub render_spawner: LocalSpawner,
+}
+
+impl Default for Pools {
+    fn default() -> Self {
+        let render_pool = LocalPool::new();
+        let render_spawner = render_pool.spawner();
+        Self {
+            io_pool: ThreadPool::builder()
+                .pool_size(3)
+                .name_prefix("pth io")
+                .before_stop(|idx| {
+                    // log::info!("IO Thread #{} stop", idx);
+                })
+                .create()
+                .expect("Create pth io thread pool failed"),
+            render_pool,
+            render_spawner,
+        }
+    }
+}
+
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+pub struct LoopState {
+    pub control_flow: ControlFlow,
+    pub render: bool,
+}
+
+impl LoopState {
+    pub const WAIT_ALL: LoopState = LoopState {
+        control_flow: ControlFlow::Wait,
+        render: false,
+    };
+
+    pub const WAIT: LoopState = LoopState {
+        control_flow: ControlFlow::Wait,
+        render: true,
+    };
+
+    pub const POLL: LoopState = LoopState {
+        control_flow: ControlFlow::Poll,
+        render: true,
+    };
+
+    pub const POLL_WITHOUT_RENDER: LoopState = LoopState {
+        control_flow: ControlFlow::Poll,
+        render: false,
+    };
+
+    pub fn wait_until(dur: Duration, render: bool) -> Self {
+        Self {
+            control_flow: ControlFlow::WaitUntil(std::time::Instant::now() + dur),
+            render,
+        }
+    }
+}
+
+impl std::ops::BitOrAssign for LoopState {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.render |= rhs.render;
+        if self.control_flow != rhs.control_flow {
+            match self.control_flow {
+                ControlFlow::Wait => self.control_flow = rhs.control_flow,
+                ControlFlow::WaitUntil(t1) => match rhs.control_flow {
+                    ControlFlow::Wait => {}
+                    ControlFlow::WaitUntil(t2) => {
+                        self.control_flow = ControlFlow::WaitUntil(t1.min(t2));
+                    }
+                    _ => {
+                        self.control_flow = rhs.control_flow;
+                    }
+                },
+                _ => {}
+            }
+        }
+    }
+}
+
 
 // https://doc.rust-lang.org/book/
 pub struct PthData {

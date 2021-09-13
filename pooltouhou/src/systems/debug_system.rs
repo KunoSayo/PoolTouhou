@@ -1,9 +1,9 @@
 use std::cell::Cell;
 use std::sync::atomic::{AtomicU16, Ordering};
 
-use pth::wgpu;
-use pth::wgpu_glyph;
-use pthapi::wgpu_glyph::{GlyphCruncher, HorizontalAlign, Layout, VerticalAlign};
+use wgpu;
+use wgpu_glyph;
+use wgpu_glyph::{HorizontalAlign, Layout, VerticalAlign};
 
 use crate::{GlobalState, MainRendererData};
 

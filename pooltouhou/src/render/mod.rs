@@ -2,12 +2,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use wgpu::{BindGroup, BindGroupLayout, Extent3d, TextureDimension, TextureUsages};
-use winit::window::Window;
-
-use crate::audio::OpenalData;
-use crate::handles::{ResourcesHandles, Texture};
-use crate::render::texture2d::Texture2DRender;
-use crate::wgpu::Buffer;
+use crate as root;
+use root::audio::OpenalData;
+use root::handles::{ResourcesHandles, Texture};
+use root::render::texture2d::Texture2DRender;
+use wgpu::Buffer;
 
 pub mod texture2d;
 pub mod water_wave;

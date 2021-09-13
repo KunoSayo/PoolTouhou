@@ -1,9 +1,9 @@
 use std::time::{Duration, Instant};
 
-use pthapi as root;
-use root::handles::{CounterProgress, Progress};
-use root::LoopState;
-use root::states::{GameState, StateData, Trans};
+// use pthapi as root;
+use crate::handles::{CounterProgress, Progress};
+use crate::LoopState;
+use crate::states::{GameState, StateData, Trans};
 
 use crate::states::menu::MainMenu;
 
