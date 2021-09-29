@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::iter::FromIterator;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -20,6 +19,7 @@ use winit::event_loop::ControlFlow;
 use winit::window::Window;
 use futures::executor::{ThreadPool, LocalPool, LocalSpawner};
 use futures::task::LocalSpawnExt;
+use crate::states::StateEvent;
 
 mod render;
 mod systems;
@@ -45,7 +45,7 @@ impl Default for Pools {
                 .pool_size(3)
                 .name_prefix("pth io")
                 .before_stop(|idx| {
-                    // log::info!("IO Thread #{} stop", idx);
+                    log::info!("IO Thread #{} stop", idx);
                 })
                 .create()
                 .expect("Create pth io thread pool failed"),
@@ -212,7 +212,6 @@ impl PthData {
                     let tran = last.game_tick(&mut state_data);
                     self.process_tran(tran);
                 } else {
-                    println!("There is no states to run. Why run game thread?");
                     self.running_game_thread = false;
                 }
 
@@ -564,7 +563,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut released_keys = HashSet::new();
     let mut focused = true;
     let mut game_draw_requested = false;
-    let mut i = ui::TextInput::default();
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::WindowEvent {
@@ -588,6 +586,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if width != 0 && height != 0 {
                     pth.global_state.resize(width, height);
                     pth.render.views = MainRenderViews::new(&pth.global_state);
+                    let event = StateEvent::Resize {
+                        width,
+                        height,
+                    };
+                    for x in &mut pth.states {
+                        x.on_event(&event);
+                    }
                 }
             }
             Event::WindowEvent {
@@ -618,8 +623,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 event: WindowEvent::ReceivedCharacter(c),
                 ..
             } => {
-                i.input(c);
-                println!("{}", String::from_iter(i.chars.iter()));
+                let event = StateEvent::InputChar(c);
+                for x in &mut pth.states {
+                    x.on_event(&event);
+                }
             }
             Event::RedrawRequested(_) => {
                 if !game_draw_requested {
@@ -647,16 +654,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     *control_flow = c_f;
                 } else {
                     *control_flow = ControlFlow::Exit;
-                }
-
-                match pth.inputs.cur_frame_game_input.direction.0 {
-                    x if x > 0 => {
-                        i.move_cursor_right();
-                    }
-                    x if x < 0 => {
-                        i.move_cursor_left();
-                    }
-                    _ => {}
                 }
             }
             _ => {}

@@ -25,7 +25,7 @@ impl Default for Loading {
 
 impl GameState for Loading {
     fn start(&mut self, data: &mut StateData) {
-        // log::info!("loading state start");
+        log::info!("loading state start");
         self.start = Instant::now();
         let graphics_state = &data.global_state;
         let handles = &graphics_state.handles;

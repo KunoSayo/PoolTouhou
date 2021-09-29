@@ -39,9 +39,9 @@ impl OpenalData {
         self.bgm_source.stop();
         self.bgm_source.set_looping(true);
         if let Err(e) = self.bgm_source.set_buffer(buf) {
-            // log::warn!("Play bgm failed for {}", e);
+            log::warn!("Play bgm failed for {}", e);
         } else {
-            // log::info!("To play new bgm");
+            log::info!("To play new bgm");
             self.bgm_source.play();
         }
     }

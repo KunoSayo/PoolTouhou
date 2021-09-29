@@ -181,7 +181,7 @@ impl ResourcesHandles {
             .compile_into_spirv(&s, shader_kind, name, entry, None);
         let compile = compile_result?;
         if compile.get_num_warnings() > 0 {
-            // log::warn!("compile shader warnings: {}", compile.get_warning_messages())
+            log::warn!("compile shader warnings: {}", compile.get_warning_messages())
         }
         self.shaders.get_mut().unwrap().insert(name.to_string(), compile.as_binary().to_vec());
         Ok(())
@@ -258,7 +258,7 @@ impl ResourcesHandles {
                     state.queue.submit(None);
                 }
                 Err(e) => {
-                    //todo: log here
+                    log::warn!("Load image failed for {:?}", e);
                     progress.new_error_num();
                 }
             }
@@ -277,7 +277,7 @@ impl ResourcesHandles {
                         Ok(f) => f,
                         Err(e) => {
                             progress.new_error_num();
-                            //todo: log here
+                            log::error!("Decode mp3 file failed for {:?}", e);
                             panic!("Decoder mp3 file first audio frame failed for {:?}", e);
                         }
                     };
@@ -298,7 +298,7 @@ impl ResourcesHandles {
                         Ok(sr) => sr,
                         Err(e) => {
                             progress.new_error_num();
-                            //todo: log here
+                            log::error!("Decode ogg file failed for {:?}", e);
                             panic!("Decode ogg file failed for {:?}", e);
                         }
                     };
@@ -320,7 +320,7 @@ impl ResourcesHandles {
                     (audio_bin, freq as _, channel)
                 }
             };
-            // log::info!("Loaded bgm {} and it has {} channels", name, channel);
+            log::info!("Loaded bgm {} and it has {} channels", name, channel);
 
             let buf = if channel == 1 {
                 Arc::new(context.new_buffer::<alto::Mono<i16>, _>(&audio_bin, freq).unwrap())

@@ -4,8 +4,9 @@ use std::ops::Range;
 
 use crate::render::{GlobalState, MainRendererData};
 use wgpu;
-use wgpu_glyph::{HorizontalAlign, Layout, VerticalAlign};
+use wgpu_glyph::{HorizontalAlign, Layout, VerticalAlign, GlyphCruncher};
 use wgpu_glyph;
+use wgpu_glyph::ab_glyph::{Rect, Point};
 
 #[derive(Debug)]
 pub enum InputResult {
@@ -19,12 +20,22 @@ pub enum InputResult {
     Enter,
 }
 
-#[derive(Default, Debug)]
 pub struct TextInput {
     pub chars: Vec<char>,
     pub limit: Option<NonZeroUsize>,
     pub cursor: usize,
     pub select: Option<Range<usize>>,
+}
+
+impl Default for TextInput {
+    fn default() -> Self {
+        Self {
+            chars: vec![],
+            limit: None,
+            cursor: 0,
+            select: None,
+        }
+    }
 }
 
 impl TextInput {
@@ -92,7 +103,8 @@ impl TextInput {
         let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Text Render Encoder") });
 
         {
-            let text = String::from_iter(self.chars.iter());
+            let text = String::from_iter(&self.chars[..self.cursor]);
+            let text_after = String::from_iter(&self.chars[self.cursor..]);
             let section = wgpu_glyph::Section {
                 screen_position: pos,
                 bounds,
@@ -103,7 +115,33 @@ impl TextInput {
                 ],
                 layout: Layout::default_single_line().v_align(VerticalAlign::Bottom).h_align(HorizontalAlign::Left),
             };
+            let bound = render.glyph_brush.glyph_bounds(&section).unwrap_or(Rect {
+                min: Point::from(pos),
+                max: Point::from(pos),
+            });
+            let split = wgpu_glyph::Section {
+                screen_position: (bound.max.x, pos.1),
+                bounds,
+                text: vec![
+                    wgpu_glyph::Text::new("_")
+                        .with_color([1.0, 1.0, 1.0, 1.0])
+                        .with_scale(scale),
+                ],
+                layout: Layout::default_single_line().v_align(VerticalAlign::Bottom).h_align(HorizontalAlign::Left),
+            };
+            let section_after = wgpu_glyph::Section {
+                screen_position: (bound.max.x, pos.1),
+                bounds,
+                text: vec![
+                    wgpu_glyph::Text::new(&text_after)
+                        .with_color([1.0, 1.0, 1.0, 1.0])
+                        .with_scale(scale),
+                ],
+                layout: Layout::default_single_line().v_align(VerticalAlign::Bottom).h_align(HorizontalAlign::Left),
+            };
             render.glyph_brush.queue(section);
+            render.glyph_brush.queue(split);
+            render.glyph_brush.queue(section_after);
             render.glyph_brush
                 .draw_queued(
                     &state.device,

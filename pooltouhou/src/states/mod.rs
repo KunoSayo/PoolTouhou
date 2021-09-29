@@ -14,7 +14,8 @@ pub enum StateEvent {
     Resize {
         width: u32,
         height: u32,
-    }
+    },
+    InputChar(char),
 }
 
 pub enum Trans {

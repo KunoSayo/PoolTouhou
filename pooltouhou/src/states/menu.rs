@@ -30,6 +30,22 @@ pub struct MainMenu {
     time: std::time::SystemTime,
     texts: Vec<wgpu_glyph::Section<'static>>,
     background: Option<Texture2DObject>,
+    test: crate::ui::TextInput,
+    dirty: bool,
+}
+
+impl Default for MainMenu {
+    fn default() -> Self {
+        Self {
+            select: 0,
+            con: false,
+            time: std::time::SystemTime::now(),
+            texts: vec![],
+            background: None,
+            test: Default::default(),
+            dirty: false,
+        }
+    }
 }
 
 impl MainMenu {
@@ -46,11 +62,8 @@ impl MainMenu {
             })
         }
         Self {
-            select: 0,
-            con: false,
-            time: std::time::SystemTime::now(),
             texts,
-            background: None,
+            ..Default::default()
         }
     }
 }
@@ -138,6 +151,18 @@ impl GameState for MainMenu {
             }
         }
 
+        match input.direction.0 {
+            x if x > 0 => {
+                self.test.move_cursor_right();
+                self.dirty = true;
+            }
+            x if x < 0 => {
+                self.test.move_cursor_left();
+                self.dirty = true;
+            }
+            _ => {}
+        }
+
         for (i, s) in self.texts.iter_mut().enumerate() {
             if i as u8 == self.select {
                 s.text[0].extra.color = [1., 1., 1., 1.];
@@ -145,6 +170,8 @@ impl GameState for MainMenu {
                 s.text[0].extra.color = [0.5, 0.5, 0.5, 1.];
             }
         }
+        loop_state.render |= self.dirty;
+        self.dirty = false;
         (Trans::None, loop_state)
     }
 
@@ -182,6 +209,8 @@ impl GameState for MainMenu {
             data.render.staging_belt.finish();
             data.global_state.queue.submit(Some(encoder.finish()));
         }
+        let height = data.global_state.surface_cfg.height as _;
+        self.test.render_to_screen(&mut data.global_state, &mut data.render, 36.0, (0.0, height), (9961.0, 9961.0));
         Trans::None
     }
 
@@ -221,6 +250,10 @@ impl GameState for MainMenu {
                         })
                     }
                 }
+            }
+            StateEvent::InputChar(c) => {
+                self.dirty = true;
+                self.test.input(*c);
             }
         }
     }
