@@ -1,11 +1,14 @@
 use std::convert::TryInto;
+use std::time::Duration;
+
+use wgpu_glyph::Text;
 
 use crate::LoopState;
 use crate::render::GlobalState;
 use crate::render::texture2d::{Texture2DObject, Texture2DVertexData};
 use crate::states::{GameState, StateData, StateEvent, Trans};
-
-use wgpu_glyph::Text;
+use crate::states::game::Gaming;
+use crate::states::load::LoadState;
 
 // use amethyst::{
 //     ecs::Entity,
@@ -102,7 +105,7 @@ impl GameState for MainMenu {
         if input.shoot > 0 || input.enter > 0 {
             match self.select {
                 0 => {
-                    // return LoadState::switch_wait_load(Trans::Push(Box::new(Gaming::default())), 1.0);
+                    return (LoadState::switch_wait_load(Trans::Push(Box::new(Gaming::default())), Duration::from_secs(1)), LoopState::WAIT);
                 }
                 EXIT_IDX => {
                     return (Trans::Exit, loop_state);
@@ -152,7 +155,7 @@ impl GameState for MainMenu {
     fn render(&mut self, data: &mut StateData) -> Trans {
         let screen = &data.render.views.get_screen().view;
 
-        data.render.render2d.render(data.global_state, screen, &[self.background.as_ref().unwrap()]);
+        data.render.render2d.render(data.global_state, screen, &[self.background.as_ref().unwrap().clone()]);
         {
             let mut encoder = data.global_state.device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Menu Text Encoder") });

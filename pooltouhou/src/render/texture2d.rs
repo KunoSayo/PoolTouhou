@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::sync::Arc;
 
 use bytemuck::Pod;
@@ -16,6 +17,8 @@ use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry,
            VertexAttribute, VertexBufferLayout, VertexFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
+use pthapi::{PosType, TexHandle};
+
 use crate::GlobalState;
 use crate::handles::ResourcesHandles;
 
@@ -29,10 +32,42 @@ pub struct Texture2DVertexData {
 const VERTEX_DATA_SIZE: usize = std::mem::size_of::<Texture2DVertexData>();
 const OBJ_COUNT_IN_BUFFER: usize = 8192;
 
+#[derive(Clone, Debug)]
 pub struct Texture2DObject {
     pub vertex: [Texture2DVertexData; 4],
     pub z: f32,
-    pub tex: usize,
+    pub tex: TexHandle,
+}
+
+impl Texture2DObject {
+    #[inline]
+    pub fn with_game_pos(mut center: PosType, width: f32, height: f32, tex: TexHandle) -> Self {
+        center.0 += 800.0;
+        center.1 += 450.0;
+        let half_width = width / 2.0;
+        let half_height = height / 2.0;
+        Self {
+            vertex: (0..4).map(|x|
+                Texture2DVertexData {
+                    pos: match x {
+                        0 => [center.0 - half_width, center.1 + half_height],
+                        1 => [center.0 + half_width, center.1 + half_height],
+                        2 => [center.0 - half_width, center.1 - half_height],
+                        3 => [center.0 + half_width, center.1 - half_height],
+                        _ => unreachable!()
+                    },
+                    coord: match x {
+                        0 => [0.0, 0.0],
+                        1 => [1.0, 0.0],
+                        2 => [0.0, 1.0],
+                        3 => [1.0, 1.0],
+                        _ => unreachable!()
+                    },
+                }).collect::<Vec<_>>().try_into().unwrap(),
+            z: center.2,
+            tex,
+        }
+    }
 }
 
 impl PartialEq for Texture2DObject {
@@ -114,7 +149,7 @@ impl Texture2DRender {
         let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(&(0..OBJ_COUNT_IN_BUFFER).map(|obj_idx| {
-                let offset = obj_idx as u16 * 6;
+                let offset = obj_idx as u16 * 4;
                 [offset, offset + 1, offset + 2, offset + 1, offset + 2, offset + 3]
             }).collect::<Vec<_>>()),
             usage: BufferUsages::INDEX,
@@ -195,31 +230,38 @@ impl Texture2DRender {
         }
     }
 
-    pub fn render<'a>(&'a self, state: &GlobalState, render_target: &TextureView, sorted_obj: &[&Texture2DObject]) {
+    pub fn render<'a>(&'a self, state: &GlobalState, render_target: &TextureView, sorted_obj: &[Texture2DObject]) {
         let mut iter = sorted_obj.iter().enumerate();
         if let Some((_, fst)) = iter.next() {
+            let mut cur_tex = fst.tex;
             let mut last_tex = fst.tex;
             let mut start_idx = 0;
+            let mut last_idx = 0;
 
             let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("2D Render Encoder") });
-            let mut rp = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: None,
-                color_attachments: &[RenderPassColorAttachment {
-                    view: render_target,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Load,
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: None,
-            });
-            rp.set_pipeline(&self.render_pipeline);
+            'rp_loop:
+            loop {
+                let mut once_rp_offset = 0;
+                let mut rp = encoder.begin_render_pass(&RenderPassDescriptor {
+                    label: None,
+                    color_attachments: &[RenderPassColorAttachment {
+                        view: render_target,
+                        resolve_target: None,
+                        ops: Operations {
+                            load: LoadOp::Load,
+                            store: true,
+                        },
+                    }],
+                    depth_stencil_attachment: None,
+                });
+                rp.set_pipeline(&self.render_pipeline);
+                rp.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+                rp.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint16);
+                rp.set_bind_group(0, &state.screen_uni_bind, &[]);
 
-            let mut draw = |tex, start_idx, end_idx| {
-                if let Some(bind_group) = self.bind_groups.get(&tex) {
-                    let mut cur = start_idx;
-                    loop {
+                let mut draw = |tex, start_idx, end_idx, drew_obj| -> usize {
+                    if let Some(bind_group) = self.bind_groups.get(&tex) {
+                        let mut cur = start_idx;
                         let mut end = cur + OBJ_COUNT_IN_BUFFER;
 
                         if end > end_idx {
@@ -232,37 +274,48 @@ impl Texture2DRender {
                                 data.extend_from_slice(bytemuck::cast_slice(&x.pos));
                                 data.extend_from_slice(bytemuck::cast_slice(&x.coord));
                             }
-                            state.queue.write_buffer(&self.vertex_buffer, ((obj_idx << 2) * VERTEX_DATA_SIZE) as u64, &data);
+                            state.queue.write_buffer(&self.vertex_buffer, (((obj_idx + drew_obj as usize) << 2) * VERTEX_DATA_SIZE) as u64, &data);
                         });
-                        rp.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-                        rp.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint16);
-                        rp.set_bind_group(0, &state.screen_uni_bind, &[]);
                         rp.set_bind_group(1, &bind_group, &[]);
-
-                        rp.draw_indexed(0..((end - cur) * 6) as u32, 0, 0..1);
-                        cur = end;
-                        if cur >= end_idx {
-                            break;
-                        }
+                        rp.draw_indexed(drew_obj * 6..((end - cur + drew_obj as usize) * 6) as u32, 0, 0..1);
+                        end - cur
+                    } else {
+                        log::warn!("Tried to render not added tex handle by: {}", tex);
+                        0
                     }
-                } else {
-                    // log::warn!("Tried to render not added tex handle by: {}", tex);
-                }
-            };
-            let mut last_idx = 0;
-            while let Some((idx, cur)) = iter.next() {
-                if cur.tex != last_tex {
+                };
+                if last_idx != start_idx {
                     //here to render
-                    draw(cur.tex, start_idx, idx);
-                    //end render
-                    last_tex = cur.tex;
-                    start_idx = idx;
+                    let rendered = draw(cur_tex, start_idx, last_idx, once_rp_offset);
+                    once_rp_offset += rendered as u32;
+                    if rendered < last_idx - start_idx {
+                        start_idx += rendered;
+                        continue 'rp_loop;
+                    }
+                    start_idx = last_idx;
                 }
-                last_idx = idx;
-            }
+                while let Some((idx, cur)) = iter.next() {
+                    last_idx = idx;
+                    if cur.tex != last_tex {
+                        //here to render
+                        let rendered = draw(cur.tex, start_idx, idx, once_rp_offset);
+                        once_rp_offset += rendered as u32;
+                        last_tex = cur.tex;
+                        //end render
+                        if rendered < idx - start_idx {
+                            start_idx += rendered;
+                            continue 'rp_loop;
+                        }
+                        cur_tex = cur.tex;
+                        start_idx = idx;
+                    }
+                }
 
-            draw(last_tex, start_idx, last_idx + 1);
-            std::mem::drop(rp);
+                let rendered = draw(last_tex, start_idx, last_idx + 1, once_rp_offset);
+                if start_idx + rendered == last_idx + 1 {
+                    break;
+                }
+            }
             state.queue.submit(Some(encoder.finish()));
         }
     }

@@ -12,6 +12,8 @@ use shaderc::ShaderKind;
 use wgpu::{Extent3d, ImageCopyTexture, Origin3d, TextureAspect, TextureDimension, TextureFormat, TextureUsages};
 use wgpu_glyph::ab_glyph::FontArc;
 
+use pthapi::TexHandle;
+
 use crate::Pools;
 use crate::render::GlobalState;
 
@@ -22,13 +24,19 @@ pub struct Texture {
     pub sampler: wgpu::Sampler,
 }
 
+#[derive(Default)]
+pub struct TextureInfo {
+    pub width: u32,
+    pub height: u32,
+}
+
 pub struct ResourcesHandles {
     pub res_root: PathBuf,
     assets_dir: PathBuf,
     pub fonts: RwLock<HashMap<String, FontArc>>,
     pub shaders: RwLock<HashMap<String, Vec<u32>>>,
     pub textures: RwLock<Vec<Texture>>,
-    pub texture_map: RwLock<HashMap<String, usize>>,
+    pub texture_map: RwLock<HashMap<String, TexHandle>>,
 
     pub bgm_map: RwLock<HashMap<String, Arc<Buffer>>>,
 }

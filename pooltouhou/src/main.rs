@@ -4,31 +4,31 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use env_logger::Target;
-
-// use crate as root;
-use audio::OpenalData;
-use handles::ResourcesHandles;
-use pthapi::config::Config;
+use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
+use futures::task::LocalSpawnExt;
 use image::{DynamicImage, ImageBuffer, ImageFormat};
-use render::{GlobalState, MainRendererData, MainRenderViews};
 use shaderc::ShaderKind;
-use states::{GameState, StateData, Trans};
 use wgpu::{BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, Color, CommandEncoderDescriptor, Extent3d, ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, LoadOp, Maintain, MapMode, Operations, Origin3d, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, ShaderStages, TextureAspect, TextureFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
 use winit::window::Window;
-use futures::executor::{ThreadPool, LocalPool, LocalSpawner};
-use futures::task::LocalSpawnExt;
+
+// use crate as root;
+use audio::OpenalData;
+use handles::ResourcesHandles;
+use pthapi::config::Config;
+use render::{GlobalState, MainRendererData, MainRenderViews};
+use states::{GameState, StateData, Trans};
 
 mod render;
 mod systems;
 mod ui;
-mod game;
 mod states;
 mod input;
 mod handles;
 mod audio;
+mod script;
 
 pub struct Pools {
     pub io_pool: ThreadPool,
@@ -212,7 +212,7 @@ impl PthData {
                     let tran = last.game_tick(&mut state_data);
                     self.process_tran(tran);
                 } else {
-                    println!("There is no states to run. Why run game thread?");
+                    println!("There is no states to run. Why run states.game thread?");
                     self.running_game_thread = false;
                 }
 
@@ -528,6 +528,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = Config::read_from_path("opt.cfg")?;
     env_logger::Builder::default()
         .filter_module("wgpu_core::device", log::LevelFilter::Warn)
+        .filter_module("pool_script", log::LevelFilter::Warn)
         .filter_level(log::LevelFilter::Info)
         .target(Target::Pipe(Box::new(LogTarget::new(std::io::stderr()))))
         .parse_filters(config.or_default("log_filters", ""))
@@ -564,7 +565,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut released_keys = HashSet::new();
     let mut focused = true;
     let mut game_draw_requested = false;
-    let mut i = ui::TextInput::default();
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::WindowEvent {
@@ -615,12 +615,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ..
             } => { focused = f }
             Event::WindowEvent {
-                event: WindowEvent::ReceivedCharacter(c),
+                event: WindowEvent::ReceivedCharacter(_c),
                 ..
-            } => {
-                i.input(c);
-                println!("{}", String::from_iter(i.chars.iter()));
-            }
+            } => {}
             Event::RedrawRequested(_) => {
                 if !game_draw_requested {
                     log::trace!("System Redraw Requested");
@@ -647,16 +644,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     *control_flow = c_f;
                 } else {
                     *control_flow = ControlFlow::Exit;
-                }
-
-                match pth.inputs.cur_frame_game_input.direction.0 {
-                    x if x > 0 => {
-                        i.move_cursor_right();
-                    }
-                    x if x < 0 => {
-                        i.move_cursor_left();
-                    }
-                    _ => {}
                 }
             }
             _ => {}

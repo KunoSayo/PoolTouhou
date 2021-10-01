@@ -36,11 +36,11 @@ pub struct BakedInputs {
     pub cur_frame_input: input::RawInputData,
     pub cur_frame_game_input: input::GameInputData,
 
-    /// only swap in game tick
+    /// only swap in states.game tick
     pub cur_temp_game_input: input::RawInputData,
-    /// only swap in game tick
+    /// only swap in states.game tick
     pub last_temp_game_input: input::RawInputData,
-    /// only swap in game tick
+    /// only swap in states.game tick
     pub cur_game_input: input::GameInputData,
 }
 
@@ -76,7 +76,7 @@ impl BakedInputs {
         self.cur_frame_game_input.tick_mut(&self.cur_frame_input);
     }
 
-    /// save current game tick input to last
+    /// save current states.game tick input to last
     pub fn tick(&mut self) {
         self.last_temp_game_input = self.cur_temp_game_input.clone();
         self.cur_game_input.tick_mut(&self.cur_temp_game_input);
@@ -167,27 +167,35 @@ impl RawInputData {
     pub fn empty() -> Self {
         Self::default()
     }
+}
 
+impl GameInputData {
     pub fn get_move(&self, base_speed: f32) -> (f32, f32) {
-        let up = self.pressing.contains(&VirtualKeyCode::Up);
-        let down = self.pressing.contains(&VirtualKeyCode::Down);
-        let left = self.pressing.contains(&VirtualKeyCode::Left);
-        let right = self.pressing.contains(&VirtualKeyCode::Right);
-        if !(up ^ down) && !(left ^ right) {
-            (0.0, 0.0)
-        } else if up ^ down {
-            if left ^ right {
-                let corner_speed = base_speed * 2.0_f32.sqrt() * 0.5;
-                (if left { -corner_speed } else { corner_speed }, if up { corner_speed } else { -corner_speed })
-            } else {
-                (0.0, if up { base_speed } else { -base_speed })
-            }
+        let x = if self.left == self.right {
+            0
+        } else if self.left == 0 {
+            1
+        } else if self.right == 0 || self.left < self.right {
+            -1
         } else {
-            (if left { -base_speed } else if right { base_speed } else { 0.0 }, 0.0)
+            1
+        };
+        let y = if self.up == self.down {
+            0
+        } else if self.up == 0 {
+            -1
+        } else if self.down == 0 || self.up < self.down {
+            1
+        } else {
+            -1
+        };
+        if x == 0 || y == 0 {
+            (x as f32 * base_speed, y as f32 * base_speed)
+        } else {
+            (x as f32 * std::f32::consts::FRAC_1_SQRT_2 * base_speed, y as f32 * base_speed * std::f32::consts::FRAC_1_SQRT_2)
         }
     }
 }
-
 
 impl Clone for RawInputData {
     fn clone(&self) -> Self {
@@ -208,6 +216,7 @@ impl Clone for RawInputData {
 mod test {
     #[test]
     fn test_direction() {
+        use crate::input::get_direction;
         assert_eq!(get_direction(0, 0, 0, 5), (1, 0));
         assert_eq!(get_direction(3, 3, 10, 5), (1, 0));
         assert_eq!(get_direction(3, 3, 4, 4), (0, 0));

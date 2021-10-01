@@ -1,12 +1,11 @@
-use pool_script::pool_script::FunctionDesc;
-use pool_script::PoolScriptBin;
-use pth::nalgebra::Vector3;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
 
-use crate::systems::game_system::CollideType;
+use pool_script::pool_script::FunctionDesc;
+use pool_script::PoolScriptBin;
+use pthapi::{CollideType, PosType};
 
 pub mod script_context;
 
@@ -14,6 +13,7 @@ pub const ON_DIE_FUNCTION: &str = "on_die";
 
 #[derive(Debug, Clone)]
 pub struct ScriptDesc {
+    pub name: String,
     version: u32,
     data_count: u8,
     index: usize,
@@ -62,12 +62,15 @@ impl ScriptManager {
             let index = self.scripts.len();
             let tick_function = bin.functions.remove("tick");
             let script = ScriptDesc {
+                name: name.into(),
                 version: bin.version,
                 index,
-                functions: Default::default(),
+                functions: bin.functions,
                 tick_function,
-                data_count: 0,
+                data_count: bin.data.len() as _,
             };
+            log::info!("Loaded script {} with data count {} and tick max stack {}", name,
+                script.data_count, script.tick_function.as_ref().map(|x| x.max_stack).unwrap_or(u16::MAX));
             self.scripts.push(script);
             self.script_map.insert(name.into(), index);
             return self.scripts.get(index);
@@ -104,7 +107,7 @@ impl ScriptManager {
 
 #[derive(Debug)]
 pub enum ScriptGameCommand {
-    MoveUp(f32),
+    Move(f32),
     SummonEnemy(String, f32, f32, f32, f32, CollideType, String, Vec<f32>),
     SummonBullet(String, f32, f32, f32, f32, f32, CollideType, String, Vec<f32>),
     Kill,
@@ -112,7 +115,7 @@ pub enum ScriptGameCommand {
 
 #[derive(Debug)]
 pub struct ScriptGameData {
-    pub(crate) player_tran: Vector3<f32>,
+    pub(crate) player_tran: PosType,
     pub(crate) submit_command: Vec<ScriptGameCommand>,
     pub(crate) calc_stack: Vec<f32>,
 }

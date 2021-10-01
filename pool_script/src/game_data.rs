@@ -22,7 +22,7 @@ impl GameData {
             Self::CircleCollide => {
                 if args.len() < 1 {
                     eprintln!("There is no more args {:?}", self);
-                    Err(Error::new(ErrorKind::InvalidData, "[parse game data]args is not enough"))
+                    Err(Error::new(ErrorKind::InvalidData, "[parse states.game data]args is not enough"))
                 } else {
                     binary.push(*self as u8);
                     context.parse_value(args[0])?.flush(binary)?;
@@ -31,7 +31,7 @@ impl GameData {
             }
             _ => {
                 eprintln!("There is no args about {:?}", self);
-                Err(Error::new(ErrorKind::InvalidData, "[parse game data]get args failed"))
+                Err(Error::new(ErrorKind::InvalidData, "[parse states.game data]get args failed"))
             }
         }
     }
@@ -52,7 +52,7 @@ impl TryFrom<u8> for GameData {
             10 => Ok(GameData::CircleCollide),
             _ => {
                 eprintln!("There is unknown binary value {}", value);
-                Err(Error::new(ErrorKind::InvalidData, "[parse game data]no such game value"))
+                Err(Error::new(ErrorKind::InvalidData, "[parse states.game data]no such states.game value"))
             }
         }
     }
@@ -70,7 +70,7 @@ impl TryFrom<&str> for GameData {
             "player_y" => Ok(GameData::PlayerY),
             "player_z" => Ok(GameData::PlayerZ),
             "circle" => Ok(GameData::CircleCollide),
-            _ => Err(Error::new(ErrorKind::InvalidData, "[parse game data]expected game data but found : ".to_owned() + value))
+            _ => Err(Error::new(ErrorKind::InvalidData, "[parse states.game data]expected states.game data but found : ".to_owned() + value))
         }
     }
 }
