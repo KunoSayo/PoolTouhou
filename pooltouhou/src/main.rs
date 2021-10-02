@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::iter::FromIterator;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -45,7 +44,7 @@ impl Default for Pools {
                 .pool_size(3)
                 .name_prefix("pth io")
                 .before_stop(|idx| {
-                    // log::info!("IO Thread #{} stop", idx);
+                    log::info!("IO Thread #{} stop", idx);
                 })
                 .create()
                 .expect("Create pth io thread pool failed"),
@@ -178,6 +177,7 @@ impl PthData {
     }
 
     fn loop_once(&mut self) -> LoopState {
+        let start = std::time::Instant::now();
         self.inputs.swap_frame();
         let mut loop_result = LoopState::WAIT_ALL;
         {
@@ -231,6 +231,7 @@ impl PthData {
             log::info!("{:?}", self.global_state);
         }
 
+        log::trace!("Loop pth once in {}s", std::time::Instant::now().duration_since(start).as_secs_f32());
         loop_result
     }
 
@@ -311,6 +312,7 @@ impl PthData {
 
         self.pools.render_pool.try_run_one();
         self.last_render_time = render_now;
+        log::trace!("Render pth once in {}s", std::time::Instant::now().duration_since(render_now).as_secs_f32());
     }
 
     fn save_screen_shots(&mut self) {

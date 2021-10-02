@@ -39,8 +39,9 @@ impl ScriptContext {
             context: &mut function_context,
             temp,
         };
-
-        function_runner.execute(script_manager)
+unsafe {
+    function_runner.execute(script_manager)
+}
     }
 
     pub fn exe_fn_if_present(&mut self, name: &str, game_data: &mut ScriptGameData, script_manager: &mut ScriptManager, temp: &mut TempGameContext) -> Option<f32> {
@@ -53,31 +54,39 @@ impl ScriptContext {
                 context: &mut function_context,
                 temp,
             };
-
-            function_runner.execute(script_manager)
+            unsafe {
+                function_runner.execute(script_manager)
+            }
         } else {
             None
         }
     }
 
-    pub fn tick_function(&mut self, game_data: &mut ScriptGameData, script_manager: &mut ScriptManager, temp: &mut TempGameContext) -> Option<f32> {
-        let context = self.tick_function.as_mut().unwrap();
-        if context.wait > 0 {
-            context.wait -= 1;
-            return None;
-        }
+    pub fn tick_function(&mut self, game_data: &mut ScriptGameData, script_manager: &ScriptManager, temp: &mut TempGameContext, para: bool) -> Option<f32> {
         let script_desc = &script_manager.scripts[self.desc_index];
         let desc = script_desc.tick_function
             .as_ref().unwrap();
-        let mut function_runner = FunctionRunner {
-            data: &mut self.data,
-            desc,
-            script_data: game_data,
-            context,
-            temp,
-        };
+        if !(para ^ desc.thread_safe) {
+            let context = self.tick_function.as_mut().unwrap();
+            if context.wait > 0 {
+                context.wait -= 1;
+                return None;
+            }
 
-        function_runner.execute(script_manager)
+            let mut function_runner = FunctionRunner {
+                data: &mut self.data,
+                desc,
+                script_data: game_data,
+                context,
+                temp,
+            };
+
+            unsafe {
+                function_runner.execute(script_manager)
+            }
+        } else {
+            None
+        }
     }
 }
 
@@ -120,13 +129,9 @@ struct FunctionRunner<'a, 'b> {
 }
 
 impl<'a, 'b> FunctionRunner<'a, 'b> {
-    pub fn execute(&mut self, script_manager: &ScriptManager) -> Option<f32> {
+    pub unsafe fn execute(&mut self, script_manager: &ScriptManager) -> Option<f32> {
         loop {
-            if self.context.pointer >= self.desc.code.len() {
-                self.context.reset();
-                break;
-            }
-            //SAFETY: we checked the bound && it is unsigned.
+            //SAFETY: we checked the bound when loading
             let command = unsafe { self.desc.code.get_unchecked(self.context.pointer) };
             self.context.pointer += 1;
             match command {
@@ -243,75 +248,75 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                     self.script_data.submit_command.push(ScriptGameCommand::Kill)
                 }
                 20 => {
-                    let value = self.script_data.calc_stack.pop().unwrap();
-                    self.store_f32(value);
+                    let value = self.script_data.calc_stack.pop();
+                    self.store_unchecked_f32(value);
                 }
                 21 => {
-                    let x = self.script_data.calc_stack.pop().unwrap();
-                    let y = self.script_data.calc_stack.last_mut().unwrap();
+                    let x = self.script_data.calc_stack.pop();
+                    let y = self.script_data.calc_stack.last_mut();
                     *y = *y + x;
                 }
                 22 => {
-                    let x = self.script_data.calc_stack.pop().unwrap();
-                    let y = self.script_data.calc_stack.last_mut().unwrap();
+                    let x = self.script_data.calc_stack.pop();
+                    let y = self.script_data.calc_stack.last_mut();
                     *y = *y - x;
                 }
                 23 => {
-                    let x = self.script_data.calc_stack.pop().unwrap();
-                    let y = self.script_data.calc_stack.last_mut().unwrap();
+                    let x = self.script_data.calc_stack.pop();
+                    let y = self.script_data.calc_stack.last_mut();
                     *y = *y * x;
                 }
                 24 => {
-                    let x = self.script_data.calc_stack.pop().unwrap();
-                    let y = self.script_data.calc_stack.last_mut().unwrap();
+                    let x = self.script_data.calc_stack.pop();
+                    let y = self.script_data.calc_stack.last_mut();
                     *y = *y / x;
                 }
                 25 => {
-                    let x = self.script_data.calc_stack.pop().unwrap();
-                    let y = self.script_data.calc_stack.last_mut().unwrap();
+                    let x = self.script_data.calc_stack.pop();
+                    let y = self.script_data.calc_stack.last_mut();
                     *y = *y % x;
                 }
                 26 => {
-                    let x = self.script_data.calc_stack.pop().unwrap();
-                    let y = self.script_data.calc_stack.last_mut().unwrap();
+                    let x = self.script_data.calc_stack.pop();
+                    let y = self.script_data.calc_stack.last_mut();
                     *y = if *y == x { 1.0 } else { 0.0 };
                 }
                 27 => {
-                    let x = self.script_data.calc_stack.pop().unwrap();
-                    let y = self.script_data.calc_stack.last_mut().unwrap();
+                    let x = self.script_data.calc_stack.pop();
+                    let y = self.script_data.calc_stack.last_mut();
                     *y = if *y != x { 1.0 } else { 0.0 };
                 }
                 28 => {
-                    let x = self.script_data.calc_stack.pop().unwrap();
-                    let y = self.script_data.calc_stack.last_mut().unwrap();
+                    let x = self.script_data.calc_stack.pop();
+                    let y = self.script_data.calc_stack.last_mut();
                     *y = if *y < x { 1.0 } else { 0.0 };
                 }
                 29 => {
-                    let x = self.script_data.calc_stack.pop().unwrap();
-                    let y = self.script_data.calc_stack.last_mut().unwrap();
+                    let x = self.script_data.calc_stack.pop();
+                    let y = self.script_data.calc_stack.last_mut();
                     *y = if *y > x { 1.0 } else { 0.0 };
                 }
                 30 => {
-                    let x = self.script_data.calc_stack.pop().unwrap();
-                    let y = self.script_data.calc_stack.last_mut().unwrap();
+                    let x = self.script_data.calc_stack.pop();
+                    let y = self.script_data.calc_stack.last_mut();
                     *y = if *y <= x { 1.0 } else { 0.0 };
                 }
                 31 => {
-                    let x = self.script_data.calc_stack.pop().unwrap();
-                    let y = self.script_data.calc_stack.last_mut().unwrap();
+                    let x = self.script_data.calc_stack.pop();
+                    let y = self.script_data.calc_stack.last_mut();
                     *y = if *y >= x { 1.0 } else { 0.0 };
                 }
                 38 => {
                     let mut v = self.read_f32_unchecked();
                     v = (v * std::f32::consts::PI / 180.0).sin();
-                    self.store_f32(v);
+                    self.store_unchecked_f32(v);
                 }
                 39 => {
                     let mut v = self.read_f32_unchecked();
                     v = (v * std::f32::consts::PI / 180.0).cos();
-                    self.store_f32(v);
+                    self.store_unchecked_f32(v);
                 }
-                _ => panic!("Unknown byte command: {}", command)
+                _ => unreachable!("Unknown byte command: {}", command)
             }
         }
         None
@@ -329,7 +334,7 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
     }
 
     #[inline]
-    fn store_f32(&mut self, value: f32) {
+    unsafe fn store_unchecked_f32(&mut self, value: f32) {
         let src = self.desc.code[self.context.pointer];
         let index = self.desc.code[self.context.pointer + 1];
         self.context.pointer += 2;
@@ -362,51 +367,52 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                         let tran = &mut self.script_data.player_tran;
                         tran.2 = value;
                     }
-                    _ => panic!("Unknown script_data data byte: {}", index)
+                    _ => unreachable!("Unknown script_data data byte: {}", index)
                 };
             }
             2 => {
-                self.data[index as usize] = value;
+                *self.data.get_unchecked_mut(index as usize) = value;
             }
             3 => {
-                self.context.var_stack[index as usize] = value;
+                *self.context.var_stack.get_unchecked_mut(index as usize) = value;
             }
-            _ => panic!("Unknown data src: {}", src)
+            _ => unreachable!("Unknown data src: {}", src)
         }
     }
     #[inline]
-    fn read_f32_unchecked(&mut self) -> f32 {
+    unsafe fn read_f32_unchecked(&mut self) -> f32 {
         let src = self.desc.code[self.context.pointer];
         match src {
             0 => {
-                let data = self.desc.code[self.context.pointer + 1..self.context.pointer + 5].try_into().unwrap();
+                let data = self.desc.code.get_unchecked(self.context.pointer + 1..self.context.pointer + 5)
+                    .try_into().unwrap();
                 self.context.pointer += 5;
                 f32::from_be_bytes(data)
             }
             1 => {
-                let data = self.desc.code[self.context.pointer + 1];
+                let data = self.desc.code.get_unchecked(self.context.pointer + 1);
                 self.context.pointer += 2;
                 match data {
                     0 => self.temp.tran.as_ref().unwrap().0,
                     1 => self.temp.tran.as_ref().unwrap().1,
                     3 => self.script_data.player_tran.0,
                     4 => self.script_data.player_tran.1,
-                    _ => panic!("Unknown script_data data byte: {}", data)
+                    _ => unreachable!("Unknown script_data data byte: {}", data)
                 }
             }
             2 => {
-                let data = self.desc.code[self.context.pointer + 1];
+                let data = *self.desc.code.get_unchecked(self.context.pointer + 1);
                 self.context.pointer += 2;
-                self.data[data as usize]
+                *self.data.get_unchecked(data as usize)
             }
             3 => {
-                let data = self.desc.code[self.context.pointer + 1];
+                let data = *self.desc.code.get_unchecked(self.context.pointer + 1);
                 self.context.pointer += 2;
-                self.context.var_stack[data as usize]
+                *self.context.var_stack.get_unchecked(data as usize)
             }
             4 => {
                 self.context.pointer += 1;
-                self.script_data.calc_stack.pop().unwrap()
+                self.script_data.calc_stack.pop()
             }
             _ => panic!("Unknown data src: {}", src)
         }
@@ -444,7 +450,13 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
             }
             4 => {
                 self.context.pointer += 1;
-                Some(self.script_data.calc_stack.pop().unwrap())
+                if self.script_data.calc_stack.last_idx >= 0 {
+                    unsafe {
+                        Some(self.script_data.calc_stack.pop())
+                    }
+                } else {
+                    panic!("not script");
+                }
             }
             9 => {
                 self.context.pointer += 1;

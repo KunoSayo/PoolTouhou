@@ -22,12 +22,19 @@ pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
+    pub info: TextureInfo,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct TextureInfo {
     pub width: u32,
     pub height: u32,
+}
+
+impl TextureInfo {
+    pub(crate) fn new(width: u32, height: u32) -> TextureInfo {
+        Self { width, height }
+    }
 }
 
 pub struct ResourcesHandles {
@@ -242,7 +249,7 @@ impl ResourcesHandles {
                         address_mode_v: wgpu::AddressMode::ClampToEdge,
                         address_mode_w: wgpu::AddressMode::ClampToEdge,
                         mag_filter: wgpu::FilterMode::Linear,
-                        min_filter: wgpu::FilterMode::Linear,
+                        min_filter: wgpu::FilterMode::Nearest,
                         mipmap_filter: wgpu::FilterMode::Nearest,
                         compare: None,
                         lod_min_clamp: -100.0,
@@ -257,6 +264,7 @@ impl ResourcesHandles {
                                 texture,
                                 view,
                                 sampler,
+                                info: TextureInfo::new(width, height)
                             });
                             idx
                         };
@@ -266,7 +274,7 @@ impl ResourcesHandles {
                     state.queue.submit(None);
                 }
                 Err(e) => {
-                    //todo: log here
+                    log::warn!("Load image failed for {:?}", e);
                     progress.new_error_num();
                 }
             }

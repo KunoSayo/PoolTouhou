@@ -47,23 +47,19 @@ pub struct BakedInputs {
 
 impl BakedInputs {
     pub fn process(&mut self, pressed: &HashSet<VirtualKeyCode>, released: &HashSet<VirtualKeyCode>) {
-        for key in released.iter() {
-            if self.cur_frame_input.pressing.contains(key) {
-                self.cur_temp_input.pressing.remove(key);
-            }
-        }
+
         for key in pressed.iter() {
             self.cur_temp_input.pressing.insert(*key);
+            self.cur_temp_game_input.pressing.insert(*key);
         }
 
         for key in released.iter() {
             if self.last_temp_game_input.pressing.contains(key) {
                 self.cur_temp_game_input.pressing.remove(key);
             }
-        }
-
-        for key in pressed.iter() {
-            self.cur_temp_game_input.pressing.insert(*key);
+            if self.cur_frame_input.pressing.contains(key) {
+                self.cur_temp_input.pressing.remove(key);
+            }
         }
     }
     /// save current input to last
@@ -78,8 +74,8 @@ impl BakedInputs {
 
     /// save current states.game tick input to last
     pub fn tick(&mut self) {
-        self.last_temp_game_input = self.cur_temp_game_input.clone();
         self.cur_game_input.tick_mut(&self.cur_temp_game_input);
+        self.last_temp_game_input = self.cur_temp_game_input.clone();
     }
 
     pub fn is_pressed(&self, keys: &[VirtualKeyCode]) -> bool {
@@ -171,28 +167,10 @@ impl RawInputData {
 
 impl GameInputData {
     pub fn get_move(&self, base_speed: f32) -> (f32, f32) {
-        let x = if self.left == self.right {
-            0
-        } else if self.left == 0 {
-            1
-        } else if self.right == 0 || self.left < self.right {
-            -1
+        if self.direction.0 == 0 || self.direction.1 == 0 {
+            (self.direction.0 as f32 * base_speed, self.direction.1 as f32 * base_speed)
         } else {
-            1
-        };
-        let y = if self.up == self.down {
-            0
-        } else if self.up == 0 {
-            -1
-        } else if self.down == 0 || self.up < self.down {
-            1
-        } else {
-            -1
-        };
-        if x == 0 || y == 0 {
-            (x as f32 * base_speed, y as f32 * base_speed)
-        } else {
-            (x as f32 * std::f32::consts::FRAC_1_SQRT_2 * base_speed, y as f32 * base_speed * std::f32::consts::FRAC_1_SQRT_2)
+            (self.direction.0 as f32 * std::f32::consts::FRAC_1_SQRT_2 * base_speed, self.direction.1 as f32 * base_speed * std::f32::consts::FRAC_1_SQRT_2)
         }
     }
 }

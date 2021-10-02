@@ -8,12 +8,10 @@ use bytemuck::Pod;
 use bytemuck::Zeroable;
 use rayon::iter::*;
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry,
-           BindGroupLayout, BindGroupLayoutDescriptor,
-           BindGroupLayoutEntry, BindingResource, BindingType,
-           Buffer, BufferDescriptor,
-           BufferUsages, IndexFormat, LoadOp, Operations, RenderPassColorAttachment,
-           RenderPassDescriptor, RenderPipeline,
-           ShaderStages, TextureSampleType, TextureView, TextureViewDimension,
+           BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
+           BindingResource, BindingType, Buffer, BufferDescriptor, BufferUsages,
+           IndexFormat, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
+           RenderPipeline, ShaderStages, TextureSampleType, TextureView, TextureViewDimension,
            VertexAttribute, VertexBufferLayout, VertexFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
@@ -30,13 +28,33 @@ pub struct Texture2DVertexData {
 }
 
 const VERTEX_DATA_SIZE: usize = std::mem::size_of::<Texture2DVertexData>();
-const OBJ_COUNT_IN_BUFFER: usize = 8192;
+const OBJ_COUNT_IN_BUFFER: usize = 2048;
 
 #[derive(Clone, Debug)]
 pub struct Texture2DObject {
     pub vertex: [Texture2DVertexData; 4],
     pub z: f32,
     pub tex: TexHandle,
+}
+
+pub trait AsTexture2DObject {
+    fn vertex(&self) -> &[Texture2DVertexData; 4];
+    fn z(&self) -> f32;
+    fn tex(&self) -> TexHandle;
+}
+
+impl AsTexture2DObject for Texture2DObject {
+    fn vertex(&self) -> &[Texture2DVertexData; 4] {
+        &self.vertex
+    }
+
+    fn z(&self) -> f32 {
+        self.z
+    }
+
+    fn tex(&self) -> TexHandle {
+        self.tex
+    }
 }
 
 impl Texture2DObject {
@@ -232,18 +250,19 @@ impl Texture2DRender {
 
     pub fn render<'a>(&'a self, state: &GlobalState, render_target: &TextureView, sorted_obj: &[Texture2DObject]) {
         let mut iter = sorted_obj.iter().enumerate();
+        let mut data = Vec::with_capacity(OBJ_COUNT_IN_BUFFER * VERTEX_DATA_SIZE << 2);
         if let Some((_, fst)) = iter.next() {
             let mut cur_tex = fst.tex;
             let mut last_tex = fst.tex;
             let mut start_idx = 0;
             let mut last_idx = 0;
 
-            let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("2D Render Encoder") });
             'rp_loop:
             loop {
+                let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("2D Render Encoder") });
                 let mut once_rp_offset = 0;
                 let mut rp = encoder.begin_render_pass(&RenderPassDescriptor {
-                    label: None,
+                    label: Some("t2d rp"),
                     color_attachments: &[RenderPassColorAttachment {
                         view: render_target,
                         resolve_target: None,
@@ -261,24 +280,28 @@ impl Texture2DRender {
 
                 let mut draw = |tex, start_idx, end_idx, drew_obj| -> usize {
                     if let Some(bind_group) = self.bind_groups.get(&tex) {
-                        let mut cur = start_idx;
-                        let mut end = cur + OBJ_COUNT_IN_BUFFER;
+                        let mut end = end_idx;
 
-                        if end > end_idx {
-                            end = end_idx;
+                        if end - start_idx + drew_obj > OBJ_COUNT_IN_BUFFER {
+                            end = OBJ_COUNT_IN_BUFFER - drew_obj + start_idx;
                         }
-
-                        sorted_obj[cur..end].par_iter().enumerate().for_each(|(obj_idx, obj)| {
-                            let mut data = Vec::with_capacity(VERTEX_DATA_SIZE << 2);
+                        if end <= start_idx {
+                            return 0;
+                        }
+                        data.clear();
+                        data.par_extend(sorted_obj[start_idx..end].par_iter().enumerate().flat_map(|(obj_idx, obj)| {
+                            let mut data: Vec<u8> = Vec::with_capacity(VERTEX_DATA_SIZE << 2);
                             for x in obj.vertex.iter() {
                                 data.extend_from_slice(bytemuck::cast_slice(&x.pos));
                                 data.extend_from_slice(bytemuck::cast_slice(&x.coord));
                             }
-                            state.queue.write_buffer(&self.vertex_buffer, (((obj_idx + drew_obj as usize) << 2) * VERTEX_DATA_SIZE) as u64, &data);
-                        });
+                            data.into_par_iter()
+                        }));
+
+                        state.queue.write_buffer(&self.vertex_buffer, ((drew_obj << 2) * VERTEX_DATA_SIZE) as u64, &data);
                         rp.set_bind_group(1, &bind_group, &[]);
-                        rp.draw_indexed(drew_obj * 6..((end - cur + drew_obj as usize) * 6) as u32, 0, 0..1);
-                        end - cur
+                        rp.draw_indexed(0..((end - start_idx) * 6) as u32, drew_obj as i32 * 4, 0..1);
+                        end - start_idx
                     } else {
                         log::warn!("Tried to render not added tex handle by: {}", tex);
                         0
@@ -286,37 +309,43 @@ impl Texture2DRender {
                 };
                 if last_idx != start_idx {
                     //here to render
-                    let rendered = draw(cur_tex, start_idx, last_idx, once_rp_offset);
-                    once_rp_offset += rendered as u32;
+                    let rendered = draw(last_tex, start_idx, last_idx, once_rp_offset);
+                    once_rp_offset += rendered;
                     if rendered < last_idx - start_idx {
                         start_idx += rendered;
+                        std::mem::drop(rp);
+                        state.queue.submit(Some(encoder.finish()));
                         continue 'rp_loop;
                     }
                     start_idx = last_idx;
+                    last_tex = cur_tex;
                 }
                 while let Some((idx, cur)) = iter.next() {
                     last_idx = idx;
                     if cur.tex != last_tex {
                         //here to render
-                        let rendered = draw(cur.tex, start_idx, idx, once_rp_offset);
-                        once_rp_offset += rendered as u32;
-                        last_tex = cur.tex;
+                        let rendered = draw(last_tex, start_idx, last_idx, once_rp_offset);
+                        once_rp_offset += rendered;
+                        cur_tex = cur.tex;
                         //end render
                         if rendered < idx - start_idx {
                             start_idx += rendered;
+                            std::mem::drop(rp);
+                            state.queue.submit(Some(encoder.finish()));
                             continue 'rp_loop;
                         }
-                        cur_tex = cur.tex;
+                        last_tex = cur.tex;
                         start_idx = idx;
                     }
                 }
 
                 let rendered = draw(last_tex, start_idx, last_idx + 1, once_rp_offset);
+                std::mem::drop(rp);
+                state.queue.submit(Some(encoder.finish()));
                 if start_idx + rendered == last_idx + 1 {
                     break;
                 }
             }
-            state.queue.submit(Some(encoder.finish()));
         }
     }
 
@@ -327,7 +356,7 @@ impl Texture2DRender {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
+            mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::FilterMode::Nearest,
             compare: None,

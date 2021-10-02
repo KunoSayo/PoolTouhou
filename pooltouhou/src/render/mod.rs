@@ -2,11 +2,14 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use wgpu::{BindGroup, BindGroupLayout, Extent3d, TextureDimension, TextureUsages};
-use crate as root;
+use wgpu::Buffer;
+
 use root::audio::OpenalData;
 use root::handles::{ResourcesHandles, Texture};
 use root::render::texture2d::Texture2DRender;
-use wgpu::Buffer;
+
+use crate as root;
+use crate::handles::TextureInfo;
 
 pub mod texture2d;
 pub mod water_wave;
@@ -84,6 +87,7 @@ impl MainRenderViews {
                 texture,
                 view,
                 sampler,
+                info: TextureInfo::new(size.0, size.1)
             }
         };
 
@@ -96,6 +100,7 @@ impl MainRenderViews {
                 texture,
                 view,
                 sampler,
+                info: TextureInfo::new(size.0, size.1)
             }
         };
 

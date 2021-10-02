@@ -105,7 +105,7 @@ impl GameState for MainMenu {
         if input.shoot > 0 || input.enter > 0 {
             match self.select {
                 0 => {
-                    return (LoadState::switch_wait_load(Trans::Push(Box::new(Gaming::default())), Duration::from_secs(1)), LoopState::WAIT);
+                    return (LoadState::switch_wait_load(Trans::Push(Box::new(Gaming::default())), Duration::from_secs(0)), LoopState::WAIT);
                 }
                 EXIT_IDX => {
                     return (Trans::Exit, loop_state);

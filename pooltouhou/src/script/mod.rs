@@ -105,7 +105,18 @@ impl ScriptManager {
     }
 }
 
-#[derive(Debug)]
+struct SummonEnemyArg {
+    name: String,
+    x: f32,
+    y: f32,
+    z: f32,
+    hp: f32,
+    collide: CollideType,
+    script: String,
+    args: Vec<f32>,
+}
+
+#[derive(Debug, Clone)]
 pub enum ScriptGameCommand {
     Move(f32),
     SummonEnemy(String, f32, f32, f32, f32, CollideType, String, Vec<f32>),
@@ -113,9 +124,48 @@ pub enum ScriptGameCommand {
     Kill,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub struct CalcStack {
+    data: Vec<f32>,
+    pub last_idx: isize,
+}
+
+impl Default for CalcStack {
+    fn default() -> Self {
+        let mut data = Vec::with_capacity(64);
+        data.resize(data.capacity(), 0.0);
+        Self {
+            data,
+            last_idx: -1,
+        }
+    }
+}
+
+impl CalcStack {
+    pub unsafe fn pop(&mut self) -> f32 {
+        let last = *self.data.get_unchecked(self.last_idx as usize);
+        self.last_idx -= 1;
+        last
+    }
+
+    pub fn push(&mut self, v: f32) {
+        if self.last_idx >= (self.data.len() - 1) as isize {
+            panic!("Overflow!");
+        }
+        unsafe {
+            self.last_idx += 1;
+            *self.data.get_unchecked_mut(self.last_idx as usize) = v;
+        }
+    }
+
+    pub unsafe fn last_mut(&mut self) -> &mut f32 {
+        self.data.get_unchecked_mut(self.last_idx as usize)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct ScriptGameData {
-    pub(crate) player_tran: PosType,
+    pub player_tran: PosType,
     pub(crate) submit_command: Vec<ScriptGameCommand>,
-    pub(crate) calc_stack: Vec<f32>,
+    pub calc_stack: CalcStack,
 }

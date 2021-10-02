@@ -22,6 +22,7 @@ pub struct FunctionDesc {
     pub code: Vec<u8>,
     pub loops: Vec<Loop>,
     pub max_stack: u16,
+    pub thread_safe: bool
 }
 
 #[derive(Clone, Debug)]
@@ -221,7 +222,8 @@ impl PoolScriptBin {
             let function_desc = FunctionDesc {
                 code: binary,
                 loops: loop_vec,
-                max_stack: (max_stack_idx + 1) as u16
+                max_stack: (max_stack_idx + 1) as u16,
+                thread_safe: true,
             };
             functions.insert(function_name, function_desc);
         }
@@ -390,7 +392,8 @@ fn parse_function(name: &str, parser: &mut Parser, context: &mut Context) -> Res
         Ok(FunctionDesc {
             code: binary,
             loops: vec![],
-            max_stack: 0
+            max_stack: 0,
+            thread_safe: true,
         })
     }
 }
