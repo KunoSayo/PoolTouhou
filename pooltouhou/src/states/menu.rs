@@ -10,20 +10,6 @@ use crate::states::{GameState, StateData, StateEvent, Trans};
 use crate::states::game::Gaming;
 use crate::states::load::LoadState;
 
-// use amethyst::{
-//     ecs::Entity,
-//     prelude::*,
-// };
-//
-// use crate::{GameCore};
-// use crate::handles::ResourcesHandles;
-// use amethyst::ui::{UiTransform, Anchor, UiText, LineMode};
-// use std::convert::TryInto;
-// use crate::states::Gaming;
-// use crate::states::load::LoadState;
-// use amethyst::core::Transform;
-//
-//
 const BUTTON_COUNT: usize = 9;
 const BUTTON_NAME: [&str; BUTTON_COUNT] = ["Singleplayer", "Multiplayer", "Extra", "Profile", "Replay", "Music Room", "Option", "Cloud", "Exit"];
 

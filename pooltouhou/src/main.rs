@@ -549,7 +549,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let height: u32 = config.parse_or_default("height", "900");
     log::info!("going to build window");
     let window = winit::window::WindowBuilder::new()
-        .with_title("PoolTouhou")
+        .with_title(config.get("title").unwrap_or(&"PoolTouhou".into()))
         .with_inner_size(winit::dpi::PhysicalSize::new(width, height))
         .with_resizable(false)
         .build(&event_loop)
