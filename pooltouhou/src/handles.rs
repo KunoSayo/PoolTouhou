@@ -348,6 +348,7 @@ impl ResourcesHandles {
         });
     }
 
+    #[inline]
     pub fn load_texture_static(self: &Arc<Self>, name: &'static str, file_path: &'static str,
                                state: &GlobalState, pools: &Pools, progress: impl ProgressTracker) {
         self.clone().load_texture(name.into(), file_path.into(), state, pools, progress);

@@ -101,7 +101,13 @@ impl GameState for Gaming {
             match x {
                 crate::script::ScriptGameCommand::SummonEnemy(name, x, y, z, hp, collide, script_name, args) => {
                     let script = self.script_manager.get_script(&script_name).expect(&format!("Using unloaded script {}", name));
-                    let tex = data.global_state.handles.texture_map.read().unwrap().get(&name).map(|x| *x).unwrap_or_else(|| {
+                    let lock = data.global_state.handles.texture_map.read().unwrap();
+                    let tex = if let Some(x) = lock.get(&name) {
+                        let x = *x;
+                        std::mem::drop(lock);
+                        x
+                    } else {
+                        std::mem::drop(lock);
                         let progress = CounterProgress::default();
                         data.global_state.handles.clone().load_texture(name.clone(), format!("{}.png", name),
                                                                        &data.global_state, &data.pools, progress.create_tracker());
@@ -109,7 +115,7 @@ impl GameState for Gaming {
                             std::thread::yield_now();
                         }
                         data.global_state.handles.texture_map.read().unwrap()[&name]
-                    });
+                    };
                     data.render.render2d.add_tex(data.global_state, tex);
                     self.enemies.push(Enemy {
                         pos: (x, y, z),
