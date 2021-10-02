@@ -6,6 +6,7 @@ use wgpu_glyph::{HorizontalAlign, Layout, VerticalAlign};
 
 use pthapi::{CollideType, GAME_MAX_X, GAME_MAX_Y, GAME_MIN_X, GAME_MIN_Y, Player, PlayerBullet, PosType, Rotation, SimpleEnemyBullet, TexHandle};
 
+use crate::handles::{CounterProgress, Progress};
 use crate::LoopState;
 use crate::render::texture2d::Texture2DObject;
 use crate::script::{ON_DIE_FUNCTION, ScriptGameCommand, ScriptGameData, ScriptManager};
@@ -100,7 +101,15 @@ impl GameState for Gaming {
             match x {
                 crate::script::ScriptGameCommand::SummonEnemy(name, x, y, z, hp, collide, script_name, args) => {
                     let script = self.script_manager.get_script(&script_name).expect(&format!("Using unloaded script {}", name));
-                    let tex = data.global_state.handles.texture_map.read().unwrap()[&name];
+                    let tex = data.global_state.handles.texture_map.read().unwrap().get(&name).map(|x| *x).unwrap_or_else(|| {
+                        let progress = CounterProgress::default();
+                        data.global_state.handles.clone().load_texture(name.clone(), format!("{}.png", name),
+                                                                       &data.global_state, &data.pools, progress.create_tracker());
+                        while progress.num_loading() > 0 {
+                            std::thread::yield_now();
+                        }
+                        data.global_state.handles.texture_map.read().unwrap()[&name]
+                    });
                     data.render.render2d.add_tex(data.global_state, tex);
                     self.enemies.push(Enemy {
                         pos: (x, y, z),
