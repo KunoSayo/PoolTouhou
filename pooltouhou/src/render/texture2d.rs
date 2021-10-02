@@ -300,7 +300,7 @@ impl Texture2DRender {
                                     data.extend_from_slice(bytemuck::cast_slice(&x.coord));
                                 }
                             }
-                            state.queue.write_buffer(&self.vertex_buffer, (((drew_obj + (obj_idx << 6)) << 2) * VERTEX_DATA_SIZE) as _, &data);
+                            state.queue.write_buffer(&self.vertex_buffer, (((drew_obj + (obj_idx * chunk_size)) << 2) * VERTEX_DATA_SIZE) as _, &data);
                         });
 
                         state.queue.submit(None);
