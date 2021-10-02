@@ -133,7 +133,7 @@ pub struct Texture2DRender {
 
 impl Texture2DRender {
     pub fn new(state: &GlobalState, target_color_state: wgpu::ColorTargetState, handles: &Arc<ResourcesHandles>) -> Self {
-        let obj_count_in_buffer = state.config.get_or_default("obj2d_count_once", 2048);
+        let obj_count_in_buffer = state.config.get_or_default("obj2d_count_once", 8192);
         let device = &state.device;
         let frag_bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: None,
@@ -258,6 +258,8 @@ impl Texture2DRender {
             let mut start_idx = 0;
             let mut last_idx = 0;
 
+            let chunk_size = (self.obj_count_in_buffer >> 6) + 64;
+
             'rp_loop:
             loop {
                 let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("2D Render Encoder") });
@@ -289,9 +291,8 @@ impl Texture2DRender {
                         if end <= start_idx {
                             return 0;
                         }
-                        let start = std::time::Instant::now();
                         //16 Bytes per obj
-                        sorted_obj[start_idx..end].par_chunks(64).enumerate().for_each(|(obj_idx, obj)| {
+                        sorted_obj[start_idx..end].par_chunks(chunk_size).enumerate().for_each(|(obj_idx, obj)| {
                             let mut data: Vec<u8> = Vec::with_capacity(VERTEX_DATA_SIZE << 8);
                             for x in obj {
                                 for x in &x.vertex {
@@ -301,10 +302,8 @@ impl Texture2DRender {
                             }
                             state.queue.write_buffer(&self.vertex_buffer, (((drew_obj + (obj_idx << 6)) << 2) * VERTEX_DATA_SIZE) as _, &data);
                         });
-                        println!("make data in {}s", std::time::Instant::now().duration_since(start).as_secs_f32());
 
                         state.queue.submit(None);
-                        println!("write all data in {}s", std::time::Instant::now().duration_since(start).as_secs_f32());
                         rp.set_bind_group(1, &bind_group, &[]);
                         rp.draw_indexed(0..((end - start_idx) * 6) as u32, drew_obj as i32 * 4, 0..1);
                         end - start_idx

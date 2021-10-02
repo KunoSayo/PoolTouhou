@@ -114,7 +114,7 @@ impl GameState for Gaming {
             }
         }
 
-        println!("Gaming state started.");
+        log::info!("Gaming state started.");
     }
 
     fn update(&mut self, _: &mut StateData) -> (Trans, LoopState) {
@@ -333,14 +333,13 @@ impl GameState for Gaming {
         }
 
         if game_data.calc_stack.last_idx != -1 {
-            eprintln!("Not balance");
+            log::warn!("Not balance");
         }
         log::trace!("gaming state end tick in {}s", std::time::Instant::now().duration_since(start).as_secs_f32());
         Trans::None
     }
 
     fn render(&mut self, data: &mut StateData) -> Trans {
-        let start = std::time::Instant::now();
         self.obj.clear();
 
         self.obj.push(Texture2DObject::with_game_pos(self.player.pos, 100.0, 100.0, self.player.tex));
@@ -350,10 +349,7 @@ impl GameState for Gaming {
         self.obj.par_extend(self.enemies.par_iter().map(|x| Texture2DObject::with_game_pos(x.pos, 100.0, 100.0, x.tex)));
         self.obj.sort();
 
-        println!("gaming state end render obj collecting in {}s", std::time::Instant::now().duration_since(start).as_secs_f32());
-        let start = std::time::Instant::now();
         data.render.render2d.render(&data.global_state, &data.render.views.get_screen().view, &self.obj);
-        println!("gaming state end render obj render in {}s", std::time::Instant::now().duration_since(start).as_secs_f32());
         #[cfg(feature = "debug-game")]
             {
                 let mut encoder = data.global_state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Debug Encoder") });
