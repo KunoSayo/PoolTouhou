@@ -122,7 +122,6 @@ pub struct PthData {
     last_render_time: Instant,
     last_tick_time: Instant,
     tick_interval: Duration,
-    config: Config,
 }
 
 impl PthData {
@@ -363,7 +362,7 @@ impl PthData {
         });
     }
 
-    fn new(graphics_state: GlobalState, config: Config, game_state: impl GameState) -> Self {
+    fn new(graphics_state: GlobalState, game_state: impl GameState) -> Self {
         let render = MainRendererData::new(&graphics_state);
         Self {
             global_state: graphics_state,
@@ -375,7 +374,7 @@ impl PthData {
             last_render_time: Instant::now(),
             last_tick_time: Instant::now(),
             tick_interval: Duration::from_secs_f64(1.0 / 60.0),
-            config,
+
         }
     }
 }
@@ -418,7 +417,7 @@ impl<Console: std::io::Write> std::io::Write for LogTarget<Console> {
     }
 }
 
-async fn new_global(window: &Window) -> GlobalState {
+async fn new_global(window: &Window, config: Config) -> GlobalState {
     log::info!("New graphics state");
     let mut res = ResourcesHandles::default();
     let size = window.inner_size();
@@ -516,6 +515,7 @@ async fn new_global(window: &Window) -> GlobalState {
         screen_uni_bind_layout,
         screen_uni_bind,
         dyn_data: Default::default(),
+        config,
         al: match OpenalData::new() {
             Ok(data) => Some(data),
             Err(e) => {
@@ -558,8 +558,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("building graphics state.");
 
 
-    let state = pollster::block_on(new_global(&window));
-    let mut pth = PthData::new(state, config, crate::states::init::Loading::default());
+    let state = pollster::block_on(new_global(&window, config));
+    let mut pth = PthData::new(state, crate::states::init::Loading::default());
     pth.start_init();
 
     log::info!("going to run event loop");

@@ -1,10 +1,8 @@
-use std::cell::UnsafeCell;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Receiver, Sender};
 
 use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelExtend};
 use wgpu_glyph::{HorizontalAlign, Layout, VerticalAlign};
-use winit::event::VirtualKeyCode;
 
 use pthapi::{CollideType, GAME_MAX_X, GAME_MAX_Y, GAME_MIN_X, GAME_MIN_Y, Player, PlayerBullet, PosType, Rotation, SimpleEnemyBullet, TexHandle};
 
@@ -352,8 +350,10 @@ impl GameState for Gaming {
         self.obj.par_extend(self.enemies.par_iter().map(|x| Texture2DObject::with_game_pos(x.pos, 100.0, 100.0, x.tex)));
         self.obj.sort();
 
-        log::trace!("gaming state end render obj collecting in {}s", std::time::Instant::now().duration_since(start).as_secs_f32());
+        println!("gaming state end render obj collecting in {}s", std::time::Instant::now().duration_since(start).as_secs_f32());
+        let start = std::time::Instant::now();
         data.render.render2d.render(&data.global_state, &data.render.views.get_screen().view, &self.obj);
+        println!("gaming state end render obj render in {}s", std::time::Instant::now().duration_since(start).as_secs_f32());
         #[cfg(feature = "debug-game")]
             {
                 let mut encoder = data.global_state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Debug Encoder") });

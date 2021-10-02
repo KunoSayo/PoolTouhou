@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use bytemuck::Pod;
 use bytemuck::Zeroable;
-use rayon::iter::*;
+use rayon::prelude::*;
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry,
            BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
            BindingResource, BindingType, Buffer, BufferDescriptor, BufferUsages,
@@ -28,7 +28,6 @@ pub struct Texture2DVertexData {
 }
 
 const VERTEX_DATA_SIZE: usize = std::mem::size_of::<Texture2DVertexData>();
-const OBJ_COUNT_IN_BUFFER: usize = 2048;
 
 #[derive(Clone, Debug)]
 pub struct Texture2DObject {
@@ -129,10 +128,12 @@ pub struct Texture2DRender {
     vertex_buffer: Buffer,
     index_buffer: Buffer,
     bind_groups: HashMap<usize, BindGroup>,
+    obj_count_in_buffer: usize,
 }
 
 impl Texture2DRender {
     pub fn new(state: &GlobalState, target_color_state: wgpu::ColorTargetState, handles: &Arc<ResourcesHandles>) -> Self {
+        let obj_count_in_buffer = state.config.get_or_default("obj2d_count_once", 2048);
         let device = &state.device;
         let frag_bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: None,
@@ -159,14 +160,14 @@ impl Texture2DRender {
 
         let vertex_buffer = device.create_buffer(&BufferDescriptor {
             label: None,
-            size: (std::mem::size_of::<Texture2DVertexData>() * OBJ_COUNT_IN_BUFFER * 4) as u64,
+            size: (std::mem::size_of::<Texture2DVertexData>() * obj_count_in_buffer * 4) as u64,
             usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
         let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: None,
-            contents: bytemuck::cast_slice(&(0..OBJ_COUNT_IN_BUFFER).map(|obj_idx| {
+            contents: bytemuck::cast_slice(&(0..obj_count_in_buffer).map(|obj_idx| {
                 let offset = obj_idx as u16 * 4;
                 [offset, offset + 1, offset + 2, offset + 1, offset + 2, offset + 3]
             }).collect::<Vec<_>>()),
@@ -227,6 +228,7 @@ impl Texture2DRender {
             vertex_buffer,
             index_buffer,
             bind_groups: Default::default(),
+            obj_count_in_buffer
         }
     }
 
@@ -250,7 +252,6 @@ impl Texture2DRender {
 
     pub fn render<'a>(&'a self, state: &GlobalState, render_target: &TextureView, sorted_obj: &[Texture2DObject]) {
         let mut iter = sorted_obj.iter().enumerate();
-        let mut data = Vec::with_capacity(OBJ_COUNT_IN_BUFFER * VERTEX_DATA_SIZE << 2);
         if let Some((_, fst)) = iter.next() {
             let mut cur_tex = fst.tex;
             let mut last_tex = fst.tex;
@@ -282,23 +283,28 @@ impl Texture2DRender {
                     if let Some(bind_group) = self.bind_groups.get(&tex) {
                         let mut end = end_idx;
 
-                        if end - start_idx + drew_obj > OBJ_COUNT_IN_BUFFER {
-                            end = OBJ_COUNT_IN_BUFFER - drew_obj + start_idx;
+                        if end - start_idx + drew_obj > self.obj_count_in_buffer {
+                            end = self.obj_count_in_buffer - drew_obj + start_idx;
                         }
                         if end <= start_idx {
                             return 0;
                         }
-                        data.clear();
-                        data.par_extend(sorted_obj[start_idx..end].par_iter().enumerate().flat_map(|(obj_idx, obj)| {
-                            let mut data: Vec<u8> = Vec::with_capacity(VERTEX_DATA_SIZE << 2);
-                            for x in obj.vertex.iter() {
-                                data.extend_from_slice(bytemuck::cast_slice(&x.pos));
-                                data.extend_from_slice(bytemuck::cast_slice(&x.coord));
+                        let start = std::time::Instant::now();
+                        //16 Bytes per obj
+                        sorted_obj[start_idx..end].par_chunks(64).enumerate().for_each(|(obj_idx, obj)| {
+                            let mut data: Vec<u8> = Vec::with_capacity(VERTEX_DATA_SIZE << 8);
+                            for x in obj {
+                                for x in &x.vertex {
+                                    data.extend_from_slice(bytemuck::cast_slice(&x.pos));
+                                    data.extend_from_slice(bytemuck::cast_slice(&x.coord));
+                                }
                             }
-                            data.into_par_iter()
-                        }));
+                            state.queue.write_buffer(&self.vertex_buffer, (((drew_obj + (obj_idx << 6)) << 2) * VERTEX_DATA_SIZE) as _, &data);
+                        });
+                        println!("make data in {}s", std::time::Instant::now().duration_since(start).as_secs_f32());
 
-                        state.queue.write_buffer(&self.vertex_buffer, ((drew_obj << 2) * VERTEX_DATA_SIZE) as u64, &data);
+                        state.queue.submit(None);
+                        println!("write all data in {}s", std::time::Instant::now().duration_since(start).as_secs_f32());
                         rp.set_bind_group(1, &bind_group, &[]);
                         rp.draw_indexed(0..((end - start_idx) * 6) as u32, drew_obj as i32 * 4, 0..1);
                         end - start_idx

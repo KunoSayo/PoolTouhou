@@ -132,7 +132,7 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
     pub unsafe fn execute(&mut self, script_manager: &ScriptManager) -> Option<f32> {
         loop {
             //SAFETY: we checked the bound when loading
-            let command = unsafe { self.desc.code.get_unchecked(self.context.pointer) };
+            let command = self.desc.code.get_unchecked(self.context.pointer);
             self.context.pointer += 1;
             match command {
                 0 => {

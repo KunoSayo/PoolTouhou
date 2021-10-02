@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::io::{Read, Write};
 use std::str::FromStr;
 
+#[derive(Debug)]
 pub struct Config {
     path: String,
     map: HashMap<String, String>,
@@ -9,6 +11,7 @@ pub struct Config {
     dirty: bool,
 }
 
+#[derive(Debug)]
 enum LineType {
     KeyValue(String),
     Line(String),
@@ -49,6 +52,11 @@ impl Config {
 
     pub fn get(&self, key: &str) -> Option<&String> {
         self.map.get(key)
+    }
+
+    pub fn get_or_default<T: FromStr>(&self, key: &str, default: T) -> T where <T as FromStr>::Err: Debug {
+        self.map.get(key)
+            .map_or(default, |x| T::from_str(x).unwrap())
     }
 
     pub fn parse_or_default<T: FromStr>(&mut self, key: &str, default: &str) -> T

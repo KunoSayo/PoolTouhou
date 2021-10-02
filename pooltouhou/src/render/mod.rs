@@ -4,6 +4,7 @@ use std::sync::Arc;
 use wgpu::{BindGroup, BindGroupLayout, Extent3d, TextureDimension, TextureUsages};
 use wgpu::Buffer;
 
+use pthapi::config::Config;
 use root::audio::OpenalData;
 use root::handles::{ResourcesHandles, Texture};
 use root::render::texture2d::Texture2DRender;
@@ -42,6 +43,7 @@ pub struct GlobalState {
     pub screen_uni_bind: BindGroup,
 
     pub dyn_data: DynamicData,
+    pub config: Config,
     pub al: Option<OpenalData>,
 }
 
