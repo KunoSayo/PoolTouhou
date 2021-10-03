@@ -1,11 +1,11 @@
+use crate::{GlobalState, LoopState, MainRendererData, Pools};
+use crate::input::BakedInputs;
+
 pub mod init;
 pub mod menu;
 pub mod load;
-mod gaming;
+mod game;
 
-
-use crate::{GlobalState, LoopState, MainRendererData, Pools};
-use crate::input::BakedInputs;
 
 pub const ARENA_WIDTH: f32 = 1600.0;
 pub const ARENA_HEIGHT: f32 = 900.0;

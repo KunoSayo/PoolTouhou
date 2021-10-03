@@ -3,32 +3,32 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use env_logger::Target;
-
-// use crate as root;
-use audio::OpenalData;
-use handles::ResourcesHandles;
-use pthapi::config::Config;
+use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
+use futures::task::LocalSpawnExt;
 use image::{DynamicImage, ImageBuffer, ImageFormat};
-use render::{GlobalState, MainRendererData, MainRenderViews};
 use shaderc::ShaderKind;
-use states::{GameState, StateData, Trans};
 use wgpu::{BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, Color, CommandEncoderDescriptor, Extent3d, ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, LoadOp, Maintain, MapMode, Operations, Origin3d, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, ShaderStages, TextureAspect, TextureFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::ControlFlow;
 use winit::window::Window;
-use futures::executor::{ThreadPool, LocalPool, LocalSpawner};
-use futures::task::LocalSpawnExt;
+
+// use crate as root;
+use audio::OpenalData;
+use handles::ResourcesHandles;
+use pthapi::config::Config;
+use render::{GlobalState, MainRendererData, MainRenderViews};
+use states::{GameState, StateData, Trans};
 use crate::states::StateEvent;
 
 mod render;
 mod systems;
 mod ui;
-mod game;
 mod states;
 mod input;
 mod handles;
 mod audio;
+mod script;
 
 pub struct Pools {
     pub io_pool: ThreadPool,
@@ -123,7 +123,6 @@ pub struct PthData {
     last_render_time: Instant,
     last_tick_time: Instant,
     tick_interval: Duration,
-    config: Config,
 }
 
 impl PthData {
@@ -212,6 +211,7 @@ impl PthData {
                     let tran = last.game_tick(&mut state_data);
                     self.process_tran(tran);
                 } else {
+                    println!("There is no states to run. Why run states.game thread?");
                     self.running_game_thread = false;
                 }
 
@@ -360,7 +360,7 @@ impl PthData {
         });
     }
 
-    fn new(graphics_state: GlobalState, config: Config, game_state: impl GameState) -> Self {
+    fn new(graphics_state: GlobalState, game_state: impl GameState) -> Self {
         let render = MainRendererData::new(&graphics_state);
         Self {
             global_state: graphics_state,
@@ -372,7 +372,7 @@ impl PthData {
             last_render_time: Instant::now(),
             last_tick_time: Instant::now(),
             tick_interval: Duration::from_secs_f64(1.0 / 60.0),
-            config,
+
         }
     }
 }
@@ -415,7 +415,7 @@ impl<Console: std::io::Write> std::io::Write for LogTarget<Console> {
     }
 }
 
-async fn new_global(window: &Window) -> GlobalState {
+async fn new_global(window: &Window, config: Config) -> GlobalState {
     log::info!("New graphics state");
     let mut res = ResourcesHandles::default();
     let size = window.inner_size();
@@ -513,6 +513,7 @@ async fn new_global(window: &Window) -> GlobalState {
         screen_uni_bind_layout,
         screen_uni_bind,
         dyn_data: Default::default(),
+        config,
         al: match OpenalData::new() {
             Ok(data) => Some(data),
             Err(e) => {
@@ -527,6 +528,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = Config::read_from_path("opt.cfg")?;
     env_logger::Builder::default()
         .filter_module("wgpu_core::device", log::LevelFilter::Warn)
+        .filter_module("pool_script", log::LevelFilter::Warn)
         .filter_level(log::LevelFilter::Info)
         .target(Target::Pipe(Box::new(LogTarget::new(std::io::stderr()))))
         .parse_filters(config.or_default("log_filters", ""))
@@ -545,7 +547,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let height: u32 = config.parse_or_default("height", "900");
     log::info!("going to build window");
     let window = winit::window::WindowBuilder::new()
-        .with_title("PoolTouhou")
+        .with_title(config.get("title").unwrap_or(&"PoolTouhou".into()))
         .with_inner_size(winit::dpi::PhysicalSize::new(width, height))
         .with_resizable(false)
         .build(&event_loop)
@@ -554,8 +556,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("building graphics state.");
 
 
-    let state = pollster::block_on(new_global(&window));
-    let mut pth = PthData::new(state, config, crate::states::init::Loading::default());
+    let state = pollster::block_on(new_global(&window, config));
+    let mut pth = PthData::new(state, crate::states::init::Loading::default());
     pth.start_init();
 
     log::info!("going to run event loop");

@@ -22,6 +22,7 @@ pub struct FunctionDesc {
     pub code: Vec<u8>,
     pub loops: Vec<Loop>,
     pub max_stack: u16,
+    pub thread_safe: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -104,13 +105,13 @@ impl PoolScriptBin {
         let mut functions = HashMap::new();
         loop {
             let mut binary = Vec::with_capacity(128);
-            let mut max_stack = 0u16;
+            let mut max_stack_idx = -1i32;
             let mut loop_vec = Vec::new();
             let function_name = read_str(&mut reader, &mut binary, false);
             if function_name.is_empty() {
                 break;
             }
-
+            log::info!("Loading script function '{}'", function_name);
             binary.clear();
 
             let mut loops = 0;
@@ -122,11 +123,12 @@ impl PoolScriptBin {
                 binary.push(buf[0]);
                 match buf[0] {
                     0 => {
-                        log::debug!("return");
                         if loops > 0 {
+                            log::debug!("end loop");
                             loops -= 1;
                             loop_vec.push(Loop::End(binary.len()));
                         } else {
+                            log::debug!("return");
                             break;
                         }
                     }
@@ -143,8 +145,8 @@ impl PoolScriptBin {
                                 20 => "store",
                                 _ => "Unknown",
                             });
-                        if let Some(s) = read_f32(&mut binary, &mut reader) {
-                            max_stack = max_stack.max(s as _);
+                        if let Ok(s) = read_f32(&mut binary, &mut reader) {
+                            max_stack_idx = max_stack_idx.max(s as _);
                         }
                     }
                     4 => {
@@ -152,26 +154,32 @@ impl PoolScriptBin {
                         //allocate needn't execute
                         binary.pop().unwrap();
                     }
+                    6 => {
+                        log::debug!("wait");
+                        max_stack_idx = max_stack_idx.max(read_f32(&mut binary, &mut reader).unwrap() as _);
+                    }
                     11 => {
                         log::debug!("summon_e");
                         //name
                         read_str(&mut reader, &mut binary, true);
 
                         //xyz hp
-                        read_f32(&mut binary, &mut reader);
-                        read_f32(&mut binary, &mut reader);
-                        read_f32(&mut binary, &mut reader);
-                        read_f32(&mut binary, &mut reader);
+                        max_stack_idx = max_stack_idx.max(read_f32(&mut binary, &mut reader).unwrap() as _);
+                        max_stack_idx = max_stack_idx.max(read_f32(&mut binary, &mut reader).unwrap() as _);
+                        max_stack_idx = max_stack_idx.max(read_f32(&mut binary, &mut reader).unwrap() as _);
+                        max_stack_idx = max_stack_idx.max(read_f32(&mut binary, &mut reader).unwrap() as _);
                         //collide & args
                         reader.read(&mut buf[0..1]).unwrap();
                         binary.push(buf[0]);
 
                         for _ in 0..GameData::try_from(buf[0]).unwrap().get_args_count() {
-                            read_f32(&mut binary, &mut reader);
+                            max_stack_idx = max_stack_idx.max(read_f32(&mut binary, &mut reader).unwrap() as _);
                         }
                         //ai & args
                         let _script_name = read_str(&mut reader, &mut binary, true);
-                        while let Some(_) = read_f32(&mut binary, &mut reader) {}
+                        while let Ok(s) = read_f32(&mut binary, &mut reader) {
+                            max_stack_idx = max_stack_idx.max(s as _);
+                        }
                     }
                     12 => {
                         log::debug!("summon_b");
@@ -179,29 +187,31 @@ impl PoolScriptBin {
                         read_str(&mut reader, &mut binary, true);
 
                         //xyz scale angle
-                        read_f32(&mut binary, &mut reader);
-                        read_f32(&mut binary, &mut reader);
-                        read_f32(&mut binary, &mut reader);
-                        read_f32(&mut binary, &mut reader);
-                        read_f32(&mut binary, &mut reader);
+                        max_stack_idx = max_stack_idx.max(read_f32(&mut binary, &mut reader).unwrap() as _);
+                        max_stack_idx = max_stack_idx.max(read_f32(&mut binary, &mut reader).unwrap() as _);
+                        max_stack_idx = max_stack_idx.max(read_f32(&mut binary, &mut reader).unwrap() as _);
+                        max_stack_idx = max_stack_idx.max(read_f32(&mut binary, &mut reader).unwrap() as _);
+                        max_stack_idx = max_stack_idx.max(read_f32(&mut binary, &mut reader).unwrap() as _);
                         //collide & args
                         reader.read(&mut buf[0..1]).unwrap();
                         binary.push(buf[0]);
 
                         for _ in 0..GameData::try_from(buf[0]).unwrap().get_args_count() {
-                            read_f32(&mut binary, &mut reader);
+                            max_stack_idx = max_stack_idx.max(read_f32(&mut binary, &mut reader).unwrap() as _);
                         }
                         //ai & args
                         let _script_name = read_str(&mut reader, &mut binary, true);
-                        while let Some(_) = read_f32(&mut binary, &mut reader) {}
+                        while let Ok(s) = read_f32(&mut binary, &mut reader) {
+                            max_stack_idx = max_stack_idx.max(s as _);
+                        }
                     }
                     38 | 39 => {
                         log::debug!("sin/cos command{}", buf[0]);
-                        if let Some(s) = read_f32(&mut binary, &mut reader) {
-                            max_stack = max_stack.max(s as _);
+                        if let Ok(s) = read_f32(&mut binary, &mut reader) {
+                            max_stack_idx = max_stack_idx.max(s as _);
                         }
-                        if let Some(s) = read_f32(&mut binary, &mut reader) {
-                            max_stack = max_stack.max(s as _);
+                        if let Ok(s) = read_f32(&mut binary, &mut reader) {
+                            max_stack_idx = max_stack_idx.max(s as _);
                         }
                     }
                     _ => {
@@ -212,7 +222,8 @@ impl PoolScriptBin {
             let function_desc = FunctionDesc {
                 code: binary,
                 loops: loop_vec,
-                max_stack
+                max_stack: (max_stack_idx + 1) as u16,
+                thread_safe: true,
             };
             functions.insert(function_name, function_desc);
         }
@@ -381,7 +392,8 @@ fn parse_function(name: &str, parser: &mut Parser, context: &mut Context) -> Res
         Ok(FunctionDesc {
             code: binary,
             loops: vec![],
-            max_stack: 0
+            max_stack: 0,
+            thread_safe: true,
         })
     }
 }
@@ -457,43 +469,46 @@ impl Compile for &str {
     }
 }
 
-fn read_f32(binary: &mut Vec<u8>, reader: &mut BufReader<File>) -> Option<u8> {
+/// 读f32的值 返回Ok则为堆栈值或0 Err则表示是否无值
+fn read_f32(binary: &mut Vec<u8>, reader: &mut BufReader<File>) -> Result<i16, bool> {
     let mut buf = [0; 4];
     reader.read(&mut buf[0..1]).unwrap();
     binary.push(buf[0]);
     match buf[0] {
         0 => {
-            log::debug!("point const ({})", buf[0]);
             reader.read(&mut buf[0..4]).unwrap();
+            log::debug!("read f32 point const: {}", f32::from_be_bytes(buf as _));
             binary.push(buf[0]);
             binary.push(buf[1]);
             binary.push(buf[2]);
             binary.push(buf[3]);
         }
         3 => {
-            log::debug!("point stack value ({})", buf[0]);
+            log::debug!("read f32 from point stack value ({})", buf[0]);
             reader.read(&mut buf[0..1]).unwrap();
             binary.push(buf[0]);
-            return Some(buf[0]);
+            return Ok(buf[0] as _);
         }
         4 => {
-            log::debug!("point calc value ({})", buf[0]);
+            log::debug!("read f32 from pop calc value ({})", buf[0]);
         }
         9 => {
             log::debug!("no data");
+            return Err(true);
         }
         _ => {
-            log::debug!("point value ({})", buf[0]);
+            log::debug!("Read f32 from the point value ({})", buf[0]);
             reader.read(&mut buf[0..1]).unwrap();
+            log::debug!("    the idx is {}", buf[0]);
             binary.push(buf[0]);
         }
     }
-    None
+    Ok(-1)
 }
 
 fn read_str(reader: &mut BufReader<File>, binary: &mut Vec<u8>, write: bool) -> String {
     let mut buf = [0; 32];
-    if reader.read(&mut buf[0..2]).unwrap() == 0 {
+    if reader.read(&mut buf[0..2]).unwrap() < 2 {
         return "".to_string();
     }
     if write {
@@ -505,6 +520,10 @@ fn read_str(reader: &mut BufReader<File>, binary: &mut Vec<u8>, write: bool) -> 
     let mut len = 0;
     while len < str_len {
         let read = reader.read(&mut buf[0..(str_len - len).min(32)]).unwrap();
+        if read == 0 {
+            log::error!("EOF but read str...?");
+            return "".to_string();
+        }
         for x in &buf[0..read] {
             vec.push(*x);
         }

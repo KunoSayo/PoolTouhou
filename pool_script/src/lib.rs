@@ -1,3 +1,4 @@
+pub use pool_script::*;
 pub use pool_script::PoolScriptBin;
 
 pub mod game_data;

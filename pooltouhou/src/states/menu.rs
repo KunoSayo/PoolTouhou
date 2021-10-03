@@ -1,26 +1,15 @@
 use std::convert::TryInto;
+use std::time::Duration;
+
+use wgpu_glyph::Text;
 
 use crate::LoopState;
 use crate::render::GlobalState;
 use crate::render::texture2d::{Texture2DObject, Texture2DVertexData};
 use crate::states::{GameState, StateData, StateEvent, Trans};
+use crate::states::game::Gaming;
+use crate::states::load::LoadState;
 
-use wgpu_glyph::Text;
-
-// use amethyst::{
-//     ecs::Entity,
-//     prelude::*,
-// };
-//
-// use crate::{GameCore};
-// use crate::handles::ResourcesHandles;
-// use amethyst::ui::{UiTransform, Anchor, UiText, LineMode};
-// use std::convert::TryInto;
-// use crate::states::Gaming;
-// use crate::states::load::LoadState;
-// use amethyst::core::Transform;
-//
-//
 const BUTTON_COUNT: usize = 9;
 const BUTTON_NAME: [&str; BUTTON_COUNT] = ["Singleplayer", "Multiplayer", "Extra", "Profile", "Replay", "Music Room", "Option", "Cloud", "Exit"];
 
@@ -115,7 +104,7 @@ impl GameState for MainMenu {
         if input.shoot > 0 || input.enter > 0 {
             match self.select {
                 0 => {
-                    // return LoadState::switch_wait_load(Trans::Push(Box::new(Gaming::default())), 1.0);
+                    return (LoadState::switch_wait_load(Trans::Push(Box::new(Gaming::default())), Duration::from_secs(0)), LoopState::WAIT);
                 }
                 EXIT_IDX => {
                     return (Trans::Exit, loop_state);
@@ -179,7 +168,7 @@ impl GameState for MainMenu {
     fn render(&mut self, data: &mut StateData) -> Trans {
         let screen = &data.render.views.get_screen().view;
 
-        data.render.render2d.render(data.global_state, screen, &[self.background.as_ref().unwrap()]);
+        data.render.render2d.render(data.global_state, screen, &[self.background.as_ref().unwrap().clone()]);
         {
             let mut encoder = data.global_state.device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Menu Text Encoder") });

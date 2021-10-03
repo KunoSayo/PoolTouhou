@@ -113,10 +113,11 @@ impl Compile for ExpressionElement {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Default)]
 pub struct Expression {
     tree: Vec<ExpressionElement>,
     op: Vec<Operator>,
+    ops: usize,
 }
 
 impl Expression {
@@ -130,14 +131,17 @@ impl Expression {
                     if old_op == Operator::LeftB {
                         break;
                     }
+                    self.ops -= 1;
                     self.push_tree(ExpressionElement::OP(old_op));
                 }
             }
             _ => {
+                self.ops += 1;
                 while self.op.len() > 0 {
                     let top_op = self.op[self.op.len() - 1];
                     if top_op.get_priority() >= op.get_priority() {
                         self.push_tree(ExpressionElement::OP(top_op));
+                        self.ops -= 1;
                         self.op.pop();
                     } else {
                         break;
@@ -181,10 +185,7 @@ impl Compile for Expression {
 pub fn try_parse_expression(raw_str: &str, context: &Context) -> Result<Expression, Error> {
     let s = raw_str.replace(" ", "");
     let mut begin = 0;
-    let mut expression = Expression {
-        tree: vec![],
-        op: vec![],
-    };
+    let mut expression = Expression::default();
 
     let mut index = 0;
     let mut parsing_value = true;
@@ -204,9 +205,9 @@ pub fn try_parse_expression(raw_str: &str, context: &Context) -> Result<Expressi
             }
         }
         if let Ok(op) = Operator::try_from(&s[index..index + 1]) {
-            if parsing_value && index == begin && op == Operator::SUB && (expression.tree.len() == expression.op.len()) {
+            if parsing_value && index == begin && op == Operator::SUB && (expression.tree.len() == expression.ops) {
                 index += 1;
-                while s[index..index + 1].chars().next().unwrap().is_ascii_digit() {
+                while index < s.len() && s[index..index + 1].chars().next().unwrap().is_ascii_digit() {
                     index += 1;
                 }
                 if begin != index {
@@ -309,6 +310,18 @@ mod test {
         assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(0.0));
 
         let mut value = try_parse_expression("1 + 2 <= 3", &context).unwrap();
+        assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(1.0));
+
+        let mut value = try_parse_expression("(-1)", &context).unwrap();
+        assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(-1.0));
+
+        let mut value = try_parse_expression("(-1-1)", &context).unwrap();
+        assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(-2.0));
+
+        let mut value = try_parse_expression("(-1)==(-1)", &context).unwrap();
+        assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(1.0));
+
+        let mut value = try_parse_expression("1 + 2 >= -3", &context).unwrap();
         assert_eq!(value.tree.pop().unwrap(), ExpressionElement::CONST(1.0));
 
         let mut value = try_parse_expression("(2+(1+2-3)*6-0.7)*3+2.4-15", &context).unwrap();

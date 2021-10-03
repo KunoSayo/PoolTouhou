@@ -36,34 +36,29 @@ pub struct BakedInputs {
     pub cur_frame_input: input::RawInputData,
     pub cur_frame_game_input: input::GameInputData,
 
-    /// only swap in game tick
+    /// only swap in states.game tick
     pub cur_temp_game_input: input::RawInputData,
-    /// only swap in game tick
+    /// only swap in states.game tick
     pub last_temp_game_input: input::RawInputData,
-    /// only swap in game tick
+    /// only swap in states.game tick
     pub cur_game_input: input::GameInputData,
 }
 
 
 impl BakedInputs {
     pub fn process(&mut self, pressed: &HashSet<VirtualKeyCode>, released: &HashSet<VirtualKeyCode>) {
-        for key in released.iter() {
-            if self.cur_frame_input.pressing.contains(key) {
-                self.cur_temp_input.pressing.remove(key);
-            }
-        }
         for key in pressed.iter() {
             self.cur_temp_input.pressing.insert(*key);
+            self.cur_temp_game_input.pressing.insert(*key);
         }
 
         for key in released.iter() {
             if self.last_temp_game_input.pressing.contains(key) {
                 self.cur_temp_game_input.pressing.remove(key);
             }
-        }
-
-        for key in pressed.iter() {
-            self.cur_temp_game_input.pressing.insert(*key);
+            if self.cur_frame_input.pressing.contains(key) {
+                self.cur_temp_input.pressing.remove(key);
+            }
         }
     }
     /// save current input to last
@@ -76,10 +71,10 @@ impl BakedInputs {
         self.cur_frame_game_input.tick_mut(&self.cur_frame_input);
     }
 
-    /// save current game tick input to last
+    /// save current states.game tick input to last
     pub fn tick(&mut self) {
-        self.last_temp_game_input = self.cur_temp_game_input.clone();
         self.cur_game_input.tick_mut(&self.cur_temp_game_input);
+        self.last_temp_game_input = self.cur_temp_game_input.clone();
     }
 
     pub fn is_pressed(&self, keys: &[VirtualKeyCode]) -> bool {
@@ -167,27 +162,17 @@ impl RawInputData {
     pub fn empty() -> Self {
         Self::default()
     }
+}
 
+impl GameInputData {
     pub fn get_move(&self, base_speed: f32) -> (f32, f32) {
-        let up = self.pressing.contains(&VirtualKeyCode::Up);
-        let down = self.pressing.contains(&VirtualKeyCode::Down);
-        let left = self.pressing.contains(&VirtualKeyCode::Left);
-        let right = self.pressing.contains(&VirtualKeyCode::Right);
-        if !(up ^ down) && !(left ^ right) {
-            (0.0, 0.0)
-        } else if up ^ down {
-            if left ^ right {
-                let corner_speed = base_speed * 2.0_f32.sqrt() * 0.5;
-                (if left { -corner_speed } else { corner_speed }, if up { corner_speed } else { -corner_speed })
-            } else {
-                (0.0, if up { base_speed } else { -base_speed })
-            }
+        if self.direction.0 == 0 || self.direction.1 == 0 {
+            (self.direction.0 as f32 * base_speed, self.direction.1 as f32 * base_speed)
         } else {
-            (if left { -base_speed } else if right { base_speed } else { 0.0 }, 0.0)
+            (self.direction.0 as f32 * std::f32::consts::FRAC_1_SQRT_2 * base_speed, self.direction.1 as f32 * base_speed * std::f32::consts::FRAC_1_SQRT_2)
         }
     }
 }
-
 
 impl Clone for RawInputData {
     fn clone(&self) -> Self {
@@ -208,6 +193,7 @@ impl Clone for RawInputData {
 mod test {
     #[test]
     fn test_direction() {
+        use crate::input::get_direction;
         assert_eq!(get_direction(0, 0, 0, 5), (1, 0));
         assert_eq!(get_direction(3, 3, 10, 5), (1, 0));
         assert_eq!(get_direction(3, 3, 4, 4), (0, 0));

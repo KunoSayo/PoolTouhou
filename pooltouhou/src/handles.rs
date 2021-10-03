@@ -12,6 +12,8 @@ use shaderc::ShaderKind;
 use wgpu::{Extent3d, ImageCopyTexture, Origin3d, TextureAspect, TextureDimension, TextureFormat, TextureUsages};
 use wgpu_glyph::ab_glyph::FontArc;
 
+use pthapi::TexHandle;
+
 use crate::Pools;
 use crate::render::GlobalState;
 
@@ -20,6 +22,19 @@ pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
+    pub info: TextureInfo,
+}
+
+#[derive(Default, Debug)]
+pub struct TextureInfo {
+    pub width: u32,
+    pub height: u32,
+}
+
+impl TextureInfo {
+    pub(crate) fn new(width: u32, height: u32) -> TextureInfo {
+        Self { width, height }
+    }
 }
 
 pub struct ResourcesHandles {
@@ -28,7 +43,7 @@ pub struct ResourcesHandles {
     pub fonts: RwLock<HashMap<String, FontArc>>,
     pub shaders: RwLock<HashMap<String, Vec<u32>>>,
     pub textures: RwLock<Vec<Texture>>,
-    pub texture_map: RwLock<HashMap<String, usize>>,
+    pub texture_map: RwLock<HashMap<String, TexHandle>>,
 
     pub bgm_map: RwLock<HashMap<String, Arc<Buffer>>>,
 }
@@ -187,8 +202,8 @@ impl ResourcesHandles {
         Ok(())
     }
 
-    fn load_texture_static_inner(self: Arc<Self>, name: &'static str, file_path: &'static str,
-                                 state: &GlobalState, pools: &Pools, mut progress: impl ProgressTracker) {
+    pub fn load_texture(self: Arc<Self>, name: String, file_path: String,
+                        state: &GlobalState, pools: &Pools, mut progress: impl ProgressTracker) {
         let state = unsafe { std::mem::transmute::<_, &'static GlobalState>(state) };
         let target = self.assets_dir.join("texture").join(file_path);
         pools.io_pool.spawn_ok(async move {
@@ -234,7 +249,7 @@ impl ResourcesHandles {
                         address_mode_v: wgpu::AddressMode::ClampToEdge,
                         address_mode_w: wgpu::AddressMode::ClampToEdge,
                         mag_filter: wgpu::FilterMode::Linear,
-                        min_filter: wgpu::FilterMode::Linear,
+                        min_filter: wgpu::FilterMode::Nearest,
                         mipmap_filter: wgpu::FilterMode::Nearest,
                         compare: None,
                         lod_min_clamp: -100.0,
@@ -249,6 +264,7 @@ impl ResourcesHandles {
                                 texture,
                                 view,
                                 sampler,
+                                info: TextureInfo::new(width, height),
                             });
                             idx
                         };
@@ -332,8 +348,9 @@ impl ResourcesHandles {
         });
     }
 
+    #[inline]
     pub fn load_texture_static(self: &Arc<Self>, name: &'static str, file_path: &'static str,
                                state: &GlobalState, pools: &Pools, progress: impl ProgressTracker) {
-        self.clone().load_texture_static_inner(name, file_path, state, pools, progress);
+        self.clone().load_texture(name.into(), file_path.into(), state, pools, progress);
     }
 }
