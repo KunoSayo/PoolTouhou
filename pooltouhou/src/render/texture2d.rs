@@ -228,7 +228,7 @@ impl Texture2DRender {
             vertex_buffer,
             index_buffer,
             bind_groups: Default::default(),
-            obj_count_in_buffer
+            obj_count_in_buffer,
         }
     }
 

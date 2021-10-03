@@ -47,7 +47,6 @@ pub struct BakedInputs {
 
 impl BakedInputs {
     pub fn process(&mut self, pressed: &HashSet<VirtualKeyCode>, released: &HashSet<VirtualKeyCode>) {
-
         for key in pressed.iter() {
             self.cur_temp_input.pressing.insert(*key);
             self.cur_temp_game_input.pressing.insert(*key);

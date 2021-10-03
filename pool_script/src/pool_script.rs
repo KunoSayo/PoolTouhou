@@ -22,7 +22,7 @@ pub struct FunctionDesc {
     pub code: Vec<u8>,
     pub loops: Vec<Loop>,
     pub max_stack: u16,
-    pub thread_safe: bool
+    pub thread_safe: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -494,7 +494,7 @@ fn read_f32(binary: &mut Vec<u8>, reader: &mut BufReader<File>) -> Result<i16, b
         }
         9 => {
             log::debug!("no data");
-            return Err(true)
+            return Err(true);
         }
         _ => {
             log::debug!("Read f32 from the point value ({})", buf[0]);

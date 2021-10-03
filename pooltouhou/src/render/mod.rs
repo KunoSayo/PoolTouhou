@@ -89,7 +89,7 @@ impl MainRenderViews {
                 texture,
                 view,
                 sampler,
-                info: TextureInfo::new(size.0, size.1)
+                info: TextureInfo::new(size.0, size.1),
             }
         };
 
@@ -102,7 +102,7 @@ impl MainRenderViews {
                 texture,
                 view,
                 sampler,
-                info: TextureInfo::new(size.0, size.1)
+                info: TextureInfo::new(size.0, size.1),
             }
         };
 

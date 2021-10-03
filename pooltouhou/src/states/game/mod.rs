@@ -30,7 +30,7 @@ pub struct EnemyBullet {
     pub tex: TexHandle,
     pub collide: CollideType,
     pub script: ScriptContext,
-    pub died: bool
+    pub died: bool,
 }
 
 impl Enemy {
@@ -157,7 +157,7 @@ impl GameState for Gaming {
         let mut game_data = ScriptGameData {
             player_tran: self.player.pos,
             submit_command: Vec::with_capacity(4),
-            calc_stack: Default::default()
+            calc_stack: Default::default(),
         };
 
         let mut idx = 0;

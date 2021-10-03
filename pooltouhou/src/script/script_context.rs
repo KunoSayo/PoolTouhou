@@ -39,9 +39,9 @@ impl ScriptContext {
             context: &mut function_context,
             temp,
         };
-unsafe {
-    function_runner.execute(script_manager)
-}
+        unsafe {
+            function_runner.execute(script_manager)
+        }
     }
 
     pub fn exe_fn_if_present(&mut self, name: &str, game_data: &mut ScriptGameData, script_manager: &mut ScriptManager, temp: &mut TempGameContext) -> Option<f32> {

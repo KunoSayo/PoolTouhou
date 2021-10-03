@@ -264,7 +264,7 @@ impl ResourcesHandles {
                                 texture,
                                 view,
                                 sampler,
-                                info: TextureInfo::new(width, height)
+                                info: TextureInfo::new(width, height),
                             });
                             idx
                         };
