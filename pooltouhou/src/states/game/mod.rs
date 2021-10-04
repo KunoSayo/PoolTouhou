@@ -1,4 +1,3 @@
-use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Receiver, Sender};
 
 use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelExtend};
@@ -200,25 +199,17 @@ impl GameState for Gaming {
 
         use rayon::iter::ParallelIterator;
         let script_manager = &mut self.script_manager;
-        let sender = self.commands.0.clone();
-        let threads = rayon::current_num_threads();
-        let mut game_datas = Vec::with_capacity(threads);
-        game_datas.resize_with(game_datas.capacity(), ||
-            Arc::new(Mutex::new(ScriptGameData { player_tran: game_data.player_tran, ..Default::default() })));
-        self.enemy_bullets.par_iter_mut().map(|enemy_bullet| {
+        self.enemy_bullets.par_iter_mut().for_each_with((self.commands.0.clone(), ScriptGameData::default()), |(sender, ref mut data), enemy_bullet| {
             let bullet_tran = &mut enemy_bullet.pos;
             if is_out_of_game(bullet_tran) {
                 enemy_bullet.died = true;
-                return vec![];
+                return;
             }
-
-            let mut commands = vec![];
 
             let mut temp = TempGameContext {
                 tran: Some(bullet_tran)
             };
 
-            let data = unsafe { &mut game_datas.get_unchecked(rayon::current_thread_index().unwrap()).lock().unwrap() };
             enemy_bullet.script.tick_function(data, script_manager, &mut temp, true);
             while let Some(x) = data.submit_command.pop() {
                 match x {
@@ -230,16 +221,14 @@ impl GameState for Gaming {
                         enemy_bullet.died = true;
                     }
                     crate::script::ScriptGameCommand::SummonBullet(..) => {
-                        commands.push(x);
+                        sender.send(x).unwrap();
                     }
                     _ => {
                         unimplemented!("Not ready");
                     }
                 }
             }
-
-            commands
-        }).collect::<Vec<_>>().into_iter().for_each(|x| x.into_iter().for_each(|x| sender.send(x).unwrap()));
+        });
         idx = 0;
         'el:
         loop {
