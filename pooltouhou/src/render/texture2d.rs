@@ -295,10 +295,7 @@ impl Texture2DRender {
                         sorted_obj[start_idx..end].par_chunks(chunk_size).enumerate().for_each(|(obj_idx, obj)| {
                             let mut data: Vec<u8> = Vec::with_capacity(VERTEX_DATA_SIZE << 8);
                             for x in obj {
-                                for x in &x.vertex {
-                                    data.extend_from_slice(bytemuck::cast_slice(&x.pos));
-                                    data.extend_from_slice(bytemuck::cast_slice(&x.coord));
-                                }
+                                data.extend_from_slice(bytemuck::cast_slice(&x.vertex));
                             }
                             state.queue.write_buffer(&self.vertex_buffer, (((drew_obj + (obj_idx * chunk_size)) << 2) * VERTEX_DATA_SIZE) as _, &data);
                         });
