@@ -251,6 +251,7 @@ impl Texture2DRender {
     }
 
     pub fn render<'a>(&'a self, state: &GlobalState, render_target: &TextureView, sorted_obj: &[Texture2DObject]) {
+        profiling::scope!("Render 2d");
         let mut iter = sorted_obj.iter().enumerate();
         if let Some((_, fst)) = iter.next() {
             let mut cur_tex = fst.tex;
@@ -262,6 +263,7 @@ impl Texture2DRender {
 
             'rp_loop:
             loop {
+                profiling::scope!("Render 2d new encoder");
                 let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("2D Render Encoder") });
                 let mut once_rp_offset = 0;
                 let mut rp = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -283,6 +285,7 @@ impl Texture2DRender {
 
                 let mut draw = |tex, start_idx, end_idx, drew_obj| -> usize {
                     if let Some(bind_group) = self.bind_groups.get(&tex) {
+                        profiling::scope!("Render 2d collect data");
                         let mut end = end_idx;
 
                         if end - start_idx + drew_obj > self.obj_count_in_buffer {
@@ -295,10 +298,7 @@ impl Texture2DRender {
                         sorted_obj[start_idx..end].par_chunks(chunk_size).enumerate().for_each(|(obj_idx, obj)| {
                             let mut data: Vec<u8> = Vec::with_capacity(VERTEX_DATA_SIZE << 8);
                             for x in obj {
-                                for x in &x.vertex {
-                                    data.extend_from_slice(bytemuck::cast_slice(&x.pos));
-                                    data.extend_from_slice(bytemuck::cast_slice(&x.coord));
-                                }
+                                data.extend_from_slice(bytemuck::cast_slice(&x.vertex));
                             }
                             state.queue.write_buffer(&self.vertex_buffer, (((drew_obj + (obj_idx * chunk_size)) << 2) * VERTEX_DATA_SIZE) as _, &data);
                         });

@@ -30,7 +30,7 @@ alto = "3.0.4"
 shaderc = { version = "0.7", features = ["build-from-source"] }
 pool_script = { path = "../pool_script" }
 nalgebra = { version = "0.28.0", features = ["convert-bytemuck"] }
-
+profiling = "1.0.3"
 
 #audio
 minimp3 = "0.5.1"
@@ -39,3 +39,4 @@ lewton = "0.10.2"
 
 [features]
 debug-game = []
+profile = ["profiling/profile-with-optick"]

@@ -137,6 +137,7 @@ impl GameState for Gaming {
 
 
     fn game_tick(&mut self, data: &mut StateData) -> Trans {
+        profiling::scope!("Game tick");
         log::trace!("gaming state ticking");
         let start = std::time::Instant::now();
         self.tick += 1;
@@ -195,6 +196,7 @@ impl GameState for Gaming {
             }
             break;
         }
+
 
 
         use rayon::iter::ParallelIterator;
@@ -344,6 +346,7 @@ impl GameState for Gaming {
     }
 
     fn render(&mut self, data: &mut StateData) -> Trans {
+        profiling::scope!("Game render task");
         self.obj.clear();
 
         self.obj.push(Texture2DObject::with_game_pos(self.player.pos, 100.0, 100.0, self.player.tex));
