@@ -128,16 +128,16 @@ impl CollideType {
 
 impl Default for Player {
     fn default() -> Self {
-        Self::new(5.0)
+        Self::new(10.0, 4.5)
     }
 }
 
 impl Player {
-    pub fn new(speed: f32) -> Self {
+    pub fn new(move_speed: f32, walk_speed: f32) -> Self {
         Self {
             pos: (0.0, -400.0, PLAYER_Z),
-            move_speed: speed,
-            walk_speed: speed * 0.6,
+            move_speed,
+            walk_speed,
             walking: false,
             radius: 5.0,
             shoot_cooldown: 0,
