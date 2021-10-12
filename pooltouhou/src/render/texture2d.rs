@@ -118,16 +118,10 @@ impl Ord for Texture2DObject {
             Ordering::Greater
         } else if self.z < other.z {
             Ordering::Less
+        } else if self.obj_id > other.obj_id {
+            Ordering::Less
         } else {
-            if self.tex > other.tex {
-                Ordering::Greater
-            } else if self.tex < other.tex {
-                Ordering::Less
-            } else if self.obj_id > other.obj_id {
-                Ordering::Less
-            } else {
-                Ordering::Greater
-            }
+            Ordering::Greater
         }
     }
 }
