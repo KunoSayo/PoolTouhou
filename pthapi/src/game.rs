@@ -30,7 +30,7 @@ pub struct Player {
     /// &lt; 0 is died and ticks for death
     ///
     pub death: isize,
-    pub tex: usize,
+    pub tex: usize
 }
 
 pub type PosType = (f32, f32, f32);

@@ -34,12 +34,15 @@ pub struct Texture2DObject {
     pub vertex: [Texture2DVertexData; 4],
     pub z: f32,
     pub tex: TexHandle,
+    pub obj_id: u64,
 }
 
 pub trait AsTexture2DObject {
     fn vertex(&self) -> &[Texture2DVertexData; 4];
     fn z(&self) -> f32;
     fn tex(&self) -> TexHandle;
+
+    fn obj_id(&self) -> u64;
 }
 
 impl AsTexture2DObject for Texture2DObject {
@@ -54,11 +57,15 @@ impl AsTexture2DObject for Texture2DObject {
     fn tex(&self) -> TexHandle {
         self.tex
     }
+
+    fn obj_id(&self) -> u64 {
+        self.obj_id
+    }
 }
 
 impl Texture2DObject {
     #[inline]
-    pub fn with_game_pos(mut center: PosType, width: f32, height: f32, tex: TexHandle) -> Self {
+    pub fn with_game_pos(mut center: PosType, width: f32, height: f32, tex: TexHandle, obj_id: u64) -> Self {
         center.0 += 800.0;
         center.1 += 450.0;
         let half_width = width / 2.0;
@@ -83,6 +90,7 @@ impl Texture2DObject {
                 }).collect::<Vec<_>>().try_into().unwrap(),
             z: center.2,
             tex,
+            obj_id: obj_id,
         }
     }
 }
@@ -115,8 +123,10 @@ impl Ord for Texture2DObject {
                 Ordering::Greater
             } else if self.tex < other.tex {
                 Ordering::Less
+            } else if self.obj_id > other.obj_id {
+                Ordering::Less
             } else {
-                Ordering::Equal
+                Ordering::Greater
             }
         }
     }

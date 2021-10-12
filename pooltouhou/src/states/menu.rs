@@ -83,6 +83,7 @@ impl GameState for MainMenu {
             }).collect::<Vec<_>>().try_into().unwrap(),
             z: 0.0,
             tex,
+            obj_id: 0
         });
 
         data.render.render2d.add_tex(data.global_state, tex);
