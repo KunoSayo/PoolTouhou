@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
@@ -166,6 +166,6 @@ impl CalcStack {
 #[derive(Debug, Clone, Default)]
 pub struct ScriptGameData {
     pub player_tran: PosType,
-    pub(crate) submit_command: Vec<ScriptGameCommand>,
+    pub(crate) submit_command: VecDeque<ScriptGameCommand>,
     pub calc_stack: CalcStack,
 }

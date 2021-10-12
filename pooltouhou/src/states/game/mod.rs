@@ -11,6 +11,7 @@ use crate::render::texture2d::Texture2DObject;
 use crate::script::{ON_DIE_FUNCTION, ScriptGameCommand, ScriptGameData, ScriptManager};
 use crate::script::script_context::{ScriptContext, TempGameContext};
 use crate::states::{GameState, StateData, Trans};
+use winit::event::VirtualKeyCode;
 
 pub mod anime;
 
@@ -59,6 +60,7 @@ pub struct Gaming {
     obj: Vec<Texture2DObject>,
     tick: u128,
     obj_id: std::cell::Cell<u64>,
+    pausing: bool,
 }
 
 impl Gaming {
@@ -82,6 +84,7 @@ impl Default for Gaming {
             obj: vec![],
             tick: 0,
             obj_id: std::cell::Cell::new(9),
+            pausing: false,
         }
     }
 }
@@ -91,7 +94,7 @@ impl GameState for Gaming {
         log::info!("Gaming state starting");
         let mut game = ScriptGameData {
             player_tran: self.player.pos,
-            submit_command: vec![],
+            submit_command: Default::default(),
             calc_stack: Default::default(),
         };
         self.player.pos.1 = -100.0;
@@ -146,7 +149,10 @@ impl GameState for Gaming {
         log::info!("Gaming state started.");
     }
 
-    fn update(&mut self, _: &mut StateData) -> (Trans, LoopState) {
+    fn update(&mut self, data: &mut StateData) -> (Trans, LoopState) {
+        if data.inputs.is_pressed(&[VirtualKeyCode::F5]) {
+            self.pausing = !self.pausing;
+        }
         (Trans::None, LoopState::POLL)
     }
 
@@ -154,8 +160,11 @@ impl GameState for Gaming {
     fn game_tick(&mut self, data: &mut StateData) -> Trans {
         profiling::scope!("Game tick");
         log::trace!("gaming state ticking");
-        let start = std::time::Instant::now();
         self.tick += 1;
+
+        if self.pausing && !data.inputs.is_pressed(&[VirtualKeyCode::F6]) {
+            return Trans::None;
+        }
 
         let input = &data.inputs.cur_game_input;
         self.player.walking = input.slow > 0;
@@ -171,7 +180,7 @@ impl GameState for Gaming {
 
         let mut game_data = ScriptGameData {
             player_tran: self.player.pos,
-            submit_command: Vec::with_capacity(4),
+            submit_command: Default::default(),
             calc_stack: Default::default(),
         };
 
@@ -228,7 +237,7 @@ impl GameState for Gaming {
             };
 
             enemy_bullet.script.tick_function(data, script_manager, &mut temp, true);
-            while let Some(x) = data.submit_command.pop() {
+            while let Some(x) = data.submit_command.pop_front() {
                 match x {
                     crate::script::ScriptGameCommand::Move(v) => {
                         bullet_tran.0 += enemy_bullet.rot.facing.0 * v;
@@ -265,7 +274,7 @@ impl GameState for Gaming {
                 };
                 enemy_bullet.script.tick_function(&mut game_data, &mut self.script_manager, &mut temp, false);
                 let mut killed = false;
-                while let Some(x) = game_data.submit_command.pop() {
+                while let Some(x) = game_data.submit_command.pop_front() {
                     match x {
                         crate::script::ScriptGameCommand::Move(v) => {
                             bullet_tran.0 += enemy_bullet.rot.facing.0 * v;
@@ -300,7 +309,7 @@ impl GameState for Gaming {
             };
             enemy.script.tick_function(&mut game_data, &mut self.script_manager, &mut temp, true);
 
-            while let Some(x) = game_data.submit_command.pop() {
+            while let Some(x) = game_data.submit_command.pop_front() {
                 match x {
                     ScriptGameCommand::SummonBullet(..) => {
                         self.commands.0.send(x).unwrap();
@@ -357,7 +366,6 @@ impl GameState for Gaming {
         if game_data.calc_stack.last_idx != -1 {
             log::warn!("Not balance");
         }
-        log::trace!("gaming state end tick in {}s", std::time::Instant::now().duration_since(start).as_secs_f32());
         Trans::None
     }
 
@@ -371,7 +379,6 @@ impl GameState for Gaming {
         self.obj.par_extend(self.enemy_bullets.par_iter().map(|x| Texture2DObject::with_game_pos(x.pos, 100.0 * x.scale, 100.0 * x.scale, x.tex, x.id)));
         self.obj.par_extend(self.enemies.par_iter().map(|x| Texture2DObject::with_game_pos(x.pos, 100.0, 100.0, x.tex, x.id)));
         self.obj.sort();
-
         if self.enemy_bullets.len() == 0 && self.enemies.len() == 0 {
             self.obj_id.set(9);
         }

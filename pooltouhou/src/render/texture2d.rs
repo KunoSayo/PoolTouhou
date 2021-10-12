@@ -90,7 +90,7 @@ impl Texture2DObject {
                 }).collect::<Vec<_>>().try_into().unwrap(),
             z: center.2,
             tex,
-            obj_id: obj_id,
+            obj_id,
         }
     }
 }
@@ -106,7 +106,7 @@ impl Eq for Texture2DObject {}
 impl PartialOrd for Texture2DObject {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.z.partial_cmp(&other.z).map(|x| match x {
-            Ordering::Equal => { self.tex.cmp(&other.tex) }
+            Ordering::Equal => { other.obj_id.cmp(&self.obj_id) }
             _ => x
         })
     }

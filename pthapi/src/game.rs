@@ -171,8 +171,7 @@ impl Rotation {
     }
 
     pub fn new(a: f32) -> Self {
-        let a = a * std::f32::consts::PI / 180.0;
-        let (sin, cos) = a.sin_cos();
+        let (sin, cos) = (a * std::f32::consts::PI / 180.0).sin_cos();
         Self {
             facing: (cos, sin),
             angle: a,
