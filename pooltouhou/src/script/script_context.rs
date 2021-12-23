@@ -193,7 +193,7 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                 }
                 10 => {
                     let v = self.read_f32();
-                    self.script_data.submit_command.push(ScriptGameCommand::Move(v.unwrap()));
+                    self.script_data.submit_command.push_back(ScriptGameCommand::Move(v.unwrap()));
                 }
                 11 => {
                     let name = self.read_str();
@@ -218,7 +218,7 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                     while let Some(arg) = self.read_f32() {
                         args.push(arg);
                     }
-                    self.script_data.submit_command.push(ScriptGameCommand::SummonEnemy(name, x, y, z, hp, collide, ai_name, args));
+                    self.script_data.submit_command.push_back(ScriptGameCommand::SummonEnemy(name, x, y, z, hp, collide, ai_name, args));
                 }
                 12 => {
                     let name = self.read_str();
@@ -242,10 +242,10 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                     while let Some(arg) = self.read_f32() {
                         args.push(arg);
                     }
-                    self.script_data.submit_command.push(ScriptGameCommand::SummonBullet(name, x, y, z, scale, angle, collide, ai_name, args));
+                    self.script_data.submit_command.push_back(ScriptGameCommand::SummonBullet(name, x, y, z, scale, angle, collide, ai_name, args));
                 }
                 16 => {
-                    self.script_data.submit_command.push(ScriptGameCommand::Kill)
+                    self.script_data.submit_command.push_back(ScriptGameCommand::Kill)
                 }
                 20 => {
                     let value = self.script_data.calc_stack.pop();

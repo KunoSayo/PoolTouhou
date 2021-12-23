@@ -11,6 +11,7 @@ use crate::render::texture2d::Texture2DObject;
 use crate::script::{ON_DIE_FUNCTION, ScriptGameCommand, ScriptGameData, ScriptManager};
 use crate::script::script_context::{ScriptContext, TempGameContext};
 use crate::states::{GameState, StateData, Trans};
+use winit::event::VirtualKeyCode;
 
 pub mod anime;
 
@@ -20,6 +21,7 @@ pub struct Enemy {
     pub collide: CollideType,
     pub script: ScriptContext,
     pub tex: TexHandle,
+    pub id: u64,
 }
 
 pub struct EnemyBullet {
@@ -30,16 +32,18 @@ pub struct EnemyBullet {
     pub collide: CollideType,
     pub script: ScriptContext,
     pub died: bool,
+    pub id: u64,
 }
 
 impl Enemy {
-    pub fn new(pos: PosType, hp: f32, collide: CollideType, script: ScriptContext, tex: TexHandle) -> Self {
+    pub fn new(pos: PosType, hp: f32, collide: CollideType, script: ScriptContext, tex: TexHandle, id: u64) -> Self {
         Self {
             pos,
             hp,
             collide,
             script,
             tex,
+            id,
         }
     }
 }
@@ -55,6 +59,16 @@ pub struct Gaming {
     commands: (Sender<ScriptGameCommand>, Receiver<ScriptGameCommand>),
     obj: Vec<Texture2DObject>,
     tick: u128,
+    obj_id: std::cell::Cell<u64>,
+    pausing: bool,
+}
+
+impl Gaming {
+    fn next_obj_id(&self) -> u64 {
+        let id = self.obj_id.get();
+        self.obj_id.set(id + 1);
+        id
+    }
 }
 
 impl Default for Gaming {
@@ -69,6 +83,8 @@ impl Default for Gaming {
             commands: std::sync::mpsc::channel(),
             obj: vec![],
             tick: 0,
+            obj_id: std::cell::Cell::new(9),
+            pausing: false,
         }
     }
 }
@@ -78,7 +94,7 @@ impl GameState for Gaming {
         log::info!("Gaming state starting");
         let mut game = ScriptGameData {
             player_tran: self.player.pos,
-            submit_command: vec![],
+            submit_command: Default::default(),
             calc_stack: Default::default(),
         };
         self.player.pos.1 = -100.0;
@@ -116,12 +132,14 @@ impl GameState for Gaming {
                         data.global_state.handles.texture_map.read().unwrap()[&name]
                     };
                     data.render.render2d.add_tex(data.global_state, tex);
+                    let id = self.next_obj_id();
                     self.enemies.push(Enemy {
                         pos: (x, y, z),
                         tex,
                         collide,
                         script: ScriptContext::new(script, args),
                         hp,
+                        id,
                     });
                 }
                 _ => panic!("没实现哪里来的命令（大声）")
@@ -131,15 +149,22 @@ impl GameState for Gaming {
         log::info!("Gaming state started.");
     }
 
-    fn update(&mut self, _: &mut StateData) -> (Trans, LoopState) {
+    fn update(&mut self, data: &mut StateData) -> (Trans, LoopState) {
+        if data.inputs.is_pressed(&[VirtualKeyCode::F5]) {
+            self.pausing = !self.pausing;
+        }
         (Trans::None, LoopState::POLL)
     }
 
 
     fn game_tick(&mut self, data: &mut StateData) -> Trans {
+        profiling::scope!("Game tick");
         log::trace!("gaming state ticking");
-        let start = std::time::Instant::now();
         self.tick += 1;
+
+        if self.pausing && !data.inputs.is_pressed(&[VirtualKeyCode::F6]) {
+            return Trans::None;
+        }
 
         let input = &data.inputs.cur_game_input;
         self.player.walking = input.slow > 0;
@@ -155,7 +180,7 @@ impl GameState for Gaming {
 
         let mut game_data = ScriptGameData {
             player_tran: self.player.pos,
-            submit_command: Vec::with_capacity(4),
+            submit_command: Default::default(),
             calc_stack: Default::default(),
         };
 
@@ -197,6 +222,7 @@ impl GameState for Gaming {
         }
 
 
+
         use rayon::iter::ParallelIterator;
         let script_manager = &mut self.script_manager;
         self.enemy_bullets.par_iter_mut().for_each_with((self.commands.0.clone(), ScriptGameData::default()), |(sender, ref mut data), enemy_bullet| {
@@ -211,7 +237,7 @@ impl GameState for Gaming {
             };
 
             enemy_bullet.script.tick_function(data, script_manager, &mut temp, true);
-            while let Some(x) = data.submit_command.pop() {
+            while let Some(x) = data.submit_command.pop_front() {
                 match x {
                     crate::script::ScriptGameCommand::Move(v) => {
                         bullet_tran.0 += enemy_bullet.rot.facing.0 * v;
@@ -248,7 +274,7 @@ impl GameState for Gaming {
                 };
                 enemy_bullet.script.tick_function(&mut game_data, &mut self.script_manager, &mut temp, false);
                 let mut killed = false;
-                while let Some(x) = game_data.submit_command.pop() {
+                while let Some(x) = game_data.submit_command.pop_front() {
                     match x {
                         crate::script::ScriptGameCommand::Move(v) => {
                             bullet_tran.0 += enemy_bullet.rot.facing.0 * v;
@@ -283,7 +309,7 @@ impl GameState for Gaming {
             };
             enemy.script.tick_function(&mut game_data, &mut self.script_manager, &mut temp, true);
 
-            while let Some(x) = game_data.submit_command.pop() {
+            while let Some(x) = game_data.submit_command.pop_front() {
                 match x {
                     ScriptGameCommand::SummonBullet(..) => {
                         self.commands.0.send(x).unwrap();
@@ -319,6 +345,7 @@ impl GameState for Gaming {
                         collide,
                         script: script_context,
                         died: false,
+                        id: self.next_obj_id(),
                     });
                 }
                 ScriptGameCommand::SummonEnemy(name, x, y, z, hp, collide, script, args) => {
@@ -339,19 +366,22 @@ impl GameState for Gaming {
         if game_data.calc_stack.last_idx != -1 {
             log::warn!("Not balance");
         }
-        log::trace!("gaming state end tick in {}s", std::time::Instant::now().duration_since(start).as_secs_f32());
         Trans::None
     }
 
     fn render(&mut self, data: &mut StateData) -> Trans {
+        profiling::scope!("Game render task");
         self.obj.clear();
 
-        self.obj.push(Texture2DObject::with_game_pos(self.player.pos, 100.0, 100.0, self.player.tex));
+        self.obj.push(Texture2DObject::with_game_pos(self.player.pos, 100.0, 100.0, self.player.tex, 0));
         use rayon::iter::ParallelIterator;
-        self.obj.par_extend(self.player_bullets.par_iter().map(|x| Texture2DObject::with_game_pos(x.pos, 20.0, 20.0, x.tex)));
-        self.obj.par_extend(self.enemy_bullets.par_iter().map(|x| Texture2DObject::with_game_pos(x.pos, 100.0 * x.scale, 100.0 * x.scale, x.tex)));
-        self.obj.par_extend(self.enemies.par_iter().map(|x| Texture2DObject::with_game_pos(x.pos, 100.0, 100.0, x.tex)));
+        self.obj.par_extend(self.player_bullets.par_iter().map(|x| Texture2DObject::with_game_pos(x.pos, 20.0, 20.0, x.tex, 1)));
+        self.obj.par_extend(self.enemy_bullets.par_iter().map(|x| Texture2DObject::with_game_pos(x.pos, 100.0 * x.scale, 100.0 * x.scale, x.tex, x.id)));
+        self.obj.par_extend(self.enemies.par_iter().map(|x| Texture2DObject::with_game_pos(x.pos, 100.0, 100.0, x.tex, x.id)));
         self.obj.sort();
+        if self.enemy_bullets.len() == 0 && self.enemies.len() == 0 {
+            self.obj_id.set(9);
+        }
 
         data.render.render2d.render(&data.global_state, &data.render.views.get_screen().view, &self.obj);
         #[cfg(feature = "debug-game")]

@@ -177,6 +177,7 @@ impl PthData {
     }
 
     fn loop_once(&mut self) -> LoopState {
+        profiling::scope!("Loop pth once");
         self.inputs.swap_frame();
         let mut loop_result = LoopState::WAIT_ALL;
         {
@@ -234,6 +235,7 @@ impl PthData {
     }
 
     fn render_once(&mut self) {
+        profiling::scope!("Render pth once");
         let render_now = std::time::Instant::now();
         let render_dur = render_now.duration_since(self.last_render_time);
         let dt = render_dur.as_secs_f32();
@@ -538,6 +540,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for arg in std::env::args_os() {
         log::info!("arg {:?}", arg);
     }
+
+    if config.parse_or_default("profile", "true") {
+        log::info!("Starting profiling");
+        profiling::register_thread!("Main Thread");
+    }
+
     if let Err(e) = config.save() {
         log::warn!("Save config file failed for {:?}", e);
     }
@@ -567,6 +575,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut game_draw_requested = false;
     event_loop.run(move |event, _, control_flow| {
         match event {
+            Event::NewEvents(_) => {
+                profiling::finish_frame!();
+            }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..

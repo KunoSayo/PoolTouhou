@@ -128,16 +128,16 @@ impl CollideType {
 
 impl Default for Player {
     fn default() -> Self {
-        Self::new(5.0)
+        Self::new(10.0, 4.5)
     }
 }
 
 impl Player {
-    pub fn new(speed: f32) -> Self {
+    pub fn new(move_speed: f32, walk_speed: f32) -> Self {
         Self {
             pos: (0.0, -400.0, PLAYER_Z),
-            move_speed: speed,
-            walk_speed: speed * 0.6,
+            move_speed,
+            walk_speed,
             walking: false,
             radius: 5.0,
             shoot_cooldown: 0,
@@ -171,8 +171,7 @@ impl Rotation {
     }
 
     pub fn new(a: f32) -> Self {
-        let a = a * std::f32::consts::PI / 180.0;
-        let (sin, cos) = a.sin_cos();
+        let (sin, cos) = (a * std::f32::consts::PI / 180.0).sin_cos();
         Self {
             facing: (cos, sin),
             angle: a,

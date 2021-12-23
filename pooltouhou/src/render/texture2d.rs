@@ -34,12 +34,15 @@ pub struct Texture2DObject {
     pub vertex: [Texture2DVertexData; 4],
     pub z: f32,
     pub tex: TexHandle,
+    pub obj_id: u64,
 }
 
 pub trait AsTexture2DObject {
     fn vertex(&self) -> &[Texture2DVertexData; 4];
     fn z(&self) -> f32;
     fn tex(&self) -> TexHandle;
+
+    fn obj_id(&self) -> u64;
 }
 
 impl AsTexture2DObject for Texture2DObject {
@@ -54,11 +57,15 @@ impl AsTexture2DObject for Texture2DObject {
     fn tex(&self) -> TexHandle {
         self.tex
     }
+
+    fn obj_id(&self) -> u64 {
+        self.obj_id
+    }
 }
 
 impl Texture2DObject {
     #[inline]
-    pub fn with_game_pos(mut center: PosType, width: f32, height: f32, tex: TexHandle) -> Self {
+    pub fn with_game_pos(mut center: PosType, width: f32, height: f32, tex: TexHandle, obj_id: u64) -> Self {
         center.0 += 800.0;
         center.1 += 450.0;
         let half_width = width / 2.0;
@@ -83,6 +90,7 @@ impl Texture2DObject {
                 }).collect::<Vec<_>>().try_into().unwrap(),
             z: center.2,
             tex,
+            obj_id,
         }
     }
 }
@@ -98,7 +106,7 @@ impl Eq for Texture2DObject {}
 impl PartialOrd for Texture2DObject {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.z.partial_cmp(&other.z).map(|x| match x {
-            Ordering::Equal => { self.tex.cmp(&other.tex) }
+            Ordering::Equal => { other.obj_id.cmp(&self.obj_id) }
             _ => x
         })
     }
@@ -110,14 +118,10 @@ impl Ord for Texture2DObject {
             Ordering::Greater
         } else if self.z < other.z {
             Ordering::Less
+        } else if self.obj_id > other.obj_id {
+            Ordering::Less
         } else {
-            if self.tex > other.tex {
-                Ordering::Greater
-            } else if self.tex < other.tex {
-                Ordering::Less
-            } else {
-                Ordering::Equal
-            }
+            Ordering::Greater
         }
     }
 }
@@ -251,6 +255,7 @@ impl Texture2DRender {
     }
 
     pub fn render<'a>(&'a self, state: &GlobalState, render_target: &TextureView, sorted_obj: &[Texture2DObject]) {
+        profiling::scope!("Render 2d");
         let mut iter = sorted_obj.iter().enumerate();
         if let Some((_, fst)) = iter.next() {
             let mut cur_tex = fst.tex;
@@ -262,6 +267,7 @@ impl Texture2DRender {
 
             'rp_loop:
             loop {
+                profiling::scope!("Render 2d new encoder");
                 let mut encoder = state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("2D Render Encoder") });
                 let mut once_rp_offset = 0;
                 let mut rp = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -283,6 +289,7 @@ impl Texture2DRender {
 
                 let mut draw = |tex, start_idx, end_idx, drew_obj| -> usize {
                     if let Some(bind_group) = self.bind_groups.get(&tex) {
+                        profiling::scope!("Render 2d collect data");
                         let mut end = end_idx;
 
                         if end - start_idx + drew_obj > self.obj_count_in_buffer {
