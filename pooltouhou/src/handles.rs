@@ -205,10 +205,10 @@ impl ResourcesHandles {
     pub fn load_texture(self: Arc<Self>, name: String, file_path: String,
                         state: &GlobalState, pools: &Pools, mut progress: impl ProgressTracker) {
         let state = unsafe { std::mem::transmute::<_, &'static GlobalState>(state) };
-        let target = self.assets_dir.join("texture").join(file_path);
+        let target = self.assets_dir.join("texture").join(&file_path);
         pools.io_pool.spawn_ok(async move {
             let image = image::load_from_memory(&std::fs::read(target)
-                .expect("read texture file failed"));
+                .expect(&format!("read texture file from {} failed", &file_path)));
 
             match image {
                 Ok(image) => {

@@ -15,10 +15,11 @@ use winit::window::Window;
 
 // use crate as root;
 use audio::OpenalData;
+use config::Config;
 use handles::ResourcesHandles;
-use pthapi::config::Config;
 use render::{GlobalState, MainRendererData, MainRenderViews};
 use states::{GameState, StateData, Trans};
+
 use crate::states::StateEvent;
 
 mod render;
@@ -29,6 +30,7 @@ mod input;
 mod handles;
 mod audio;
 mod script;
+pub mod config;
 
 pub struct Pools {
     pub io_pool: ThreadPool,
@@ -326,7 +328,6 @@ impl PthData {
             usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
             mapped_at_creation: false,
         });
-        use std::convert::TryInto;
         encoder.copy_texture_to_buffer(ImageCopyTexture {
             texture: &self.render.views.get_screen().texture,
             mip_level: 0,
@@ -526,7 +527,7 @@ async fn new_global(window: &Window, config: Config) -> GlobalState {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn window_main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = Config::read_from_path("opt.cfg")?;
     env_logger::Builder::default()
         .filter_module("wgpu_core::device", log::LevelFilter::Warn)

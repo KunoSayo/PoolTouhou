@@ -2,8 +2,9 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelExtend};
 use wgpu_glyph::{HorizontalAlign, Layout, VerticalAlign};
+use winit::event::VirtualKeyCode;
 
-use pthapi::{CollideType, GAME_MAX_X, GAME_MAX_Y, GAME_MIN_X, GAME_MIN_Y, Player, PlayerBullet, PosType, Rotation, SimpleEnemyBullet, TexHandle};
+use pthapi::{CollideType, GAME_MAX_X, GAME_MAX_Y, GAME_MIN_X, GAME_MIN_Y, GamePos, Player, PlayerBullet, Rotation, SimpleEnemyBullet, TexHandle};
 
 use crate::handles::{CounterProgress, Progress};
 use crate::LoopState;
@@ -11,12 +12,11 @@ use crate::render::texture2d::Texture2DObject;
 use crate::script::{ON_DIE_FUNCTION, ScriptGameCommand, ScriptGameData, ScriptManager};
 use crate::script::script_context::{ScriptContext, TempGameContext};
 use crate::states::{GameState, StateData, Trans};
-use winit::event::VirtualKeyCode;
 
 pub mod anime;
 
 pub struct Enemy {
-    pub pos: PosType,
+    pub pos: GamePos,
     pub hp: f32,
     pub collide: CollideType,
     pub script: ScriptContext,
@@ -25,7 +25,7 @@ pub struct Enemy {
 }
 
 pub struct EnemyBullet {
-    pub pos: PosType,
+    pub pos: GamePos,
     pub rot: Rotation,
     pub scale: f32,
     pub tex: TexHandle,
@@ -36,7 +36,7 @@ pub struct EnemyBullet {
 }
 
 impl Enemy {
-    pub fn new(pos: PosType, hp: f32, collide: CollideType, script: ScriptContext, tex: TexHandle, id: u64) -> Self {
+    pub fn new(pos: GamePos, hp: f32, collide: CollideType, script: ScriptContext, tex: TexHandle, id: u64) -> Self {
         Self {
             pos,
             hp,
@@ -97,7 +97,7 @@ impl GameState for Gaming {
             submit_command: Default::default(),
             calc_stack: Default::default(),
         };
-        self.player.pos.1 = -100.0;
+        self.player.pos.y = -100.0;
         self.player.tex = data.global_state.handles.texture_map.read().unwrap()["sheep"];
         data.render.render2d.add_tex(data.global_state, self.player.tex);
         self.script_manager.load_scripts();
@@ -134,7 +134,7 @@ impl GameState for Gaming {
                     data.render.render2d.add_tex(data.global_state, tex);
                     let id = self.next_obj_id();
                     self.enemies.push(Enemy {
-                        pos: (x, y, z),
+                        pos: (x, y, z).into(),
                         tex,
                         collide,
                         script: ScriptContext::new(script, args),
@@ -173,10 +173,10 @@ impl GameState for Gaming {
         } else {
             self.player.move_speed
         });
-        self.player.pos.0 += mov_x;
-        self.player.pos.1 += mov_y;
-        self.player.pos.0 = self.player.pos.0.min(pthapi::GAME_MAX_X).max(pthapi::GAME_MIN_X);
-        self.player.pos.1 = self.player.pos.1.min(pthapi::GAME_MAX_Y).max(pthapi::GAME_MIN_Y);
+        self.player.pos.x += mov_x;
+        self.player.pos.y += mov_y;
+        self.player.pos.x = self.player.pos.x.min(pthapi::GAME_MAX_X).max(pthapi::GAME_MIN_X);
+        self.player.pos.y = self.player.pos.y.min(pthapi::GAME_MAX_Y).max(pthapi::GAME_MIN_Y);
 
         let mut game_data = ScriptGameData {
             player_tran: self.player.pos,
@@ -211,7 +211,7 @@ impl GameState for Gaming {
                         }
                     }
                 }
-                bullet.pos.1 += 30.0;
+                bullet.pos.y += 30.0;
                 if is_out_of_game(&bullet.pos) {
                     self.player_bullets.swap_remove(idx);
                     continue 'bl;
@@ -240,8 +240,8 @@ impl GameState for Gaming {
             while let Some(x) = data.submit_command.pop_front() {
                 match x {
                     crate::script::ScriptGameCommand::Move(v) => {
-                        bullet_tran.0 += enemy_bullet.rot.facing.0 * v;
-                        bullet_tran.1 += enemy_bullet.rot.facing.1 * v;
+                        bullet_tran.x += enemy_bullet.rot.facing_x * v;
+                        bullet_tran.y += enemy_bullet.rot.facing_y * v;
                     }
                     crate::script::ScriptGameCommand::Kill => {
                         enemy_bullet.died = true;
@@ -277,8 +277,8 @@ impl GameState for Gaming {
                 while let Some(x) = game_data.submit_command.pop_front() {
                     match x {
                         crate::script::ScriptGameCommand::Move(v) => {
-                            bullet_tran.0 += enemy_bullet.rot.facing.0 * v;
-                            bullet_tran.1 += enemy_bullet.rot.facing.1 * v;
+                            bullet_tran.x += enemy_bullet.rot.facing_x * v;
+                            bullet_tran.y += enemy_bullet.rot.facing_y * v;
                         }
                         crate::script::ScriptGameCommand::Kill => {
                             if !killed {
@@ -338,7 +338,7 @@ impl GameState for Gaming {
                     data.render.render2d.add_tex(data.global_state, tex);
 
                     self.enemy_bullets.push(EnemyBullet {
-                        pos: (x, y, z),
+                        pos: (x, y, z).into(),
                         rot: Rotation::new(angle),
                         scale,
                         tex,
@@ -563,6 +563,6 @@ fn boss_die_anime<'a>(entities: &Entities<'a>,
 }
  */
 #[inline]
-pub fn is_out_of_game(tran: &PosType) -> bool {
-    tran.0 < GAME_MIN_X - 100.0 || tran.0 > GAME_MAX_X + 100.0 || tran.1 > GAME_MAX_Y + 100.0 || tran.1 < GAME_MIN_Y - 100.0
+pub fn is_out_of_game(tran: &GamePos) -> bool {
+    tran.x < GAME_MIN_X - 100.0 || tran.x > GAME_MAX_X + 100.0 || tran.y > GAME_MAX_Y + 100.0 || tran.y < GAME_MIN_Y - 100.0
 }

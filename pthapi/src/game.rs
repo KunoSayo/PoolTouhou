@@ -17,13 +17,12 @@ pub const GAME_MIN_X: f32 = -800.0;
 pub const GAME_MAX_Y: f32 = 450.0;
 pub const GAME_MIN_Y: f32 = -450.0;
 
+#[repr(C)]
 pub struct Player {
-    pub pos: PosType,
+    pub pos: GamePos,
     pub move_speed: f32,
     pub walk_speed: f32,
-    pub walking: bool,
     pub radius: f32,
-    pub shoot_cooldown: u8,
     ///
     /// zero is no death
     /// &gt; 0 is dying
@@ -31,10 +30,29 @@ pub struct Player {
     ///
     pub death: isize,
     pub tex: usize,
+    pub shoot_cooldown: u8,
+    pub walking: bool,
 }
 
-pub type PosType = (f32, f32, f32);
+#[repr(C)]
+#[derive(Default, Copy, Clone, Debug, PartialEq)]
+pub struct GamePos {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
 
+impl Into<GamePos> for (f32, f32, f32) {
+    fn into(self) -> GamePos {
+        GamePos {
+            x: self.0,
+            y: self.1,
+            z: self.2,
+        }
+    }
+}
+
+#[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub enum CollideType {
     Circle {
@@ -44,38 +62,38 @@ pub enum CollideType {
 }
 
 impl CollideType {
-    pub fn is_collide_with_point(self, me: &PosType, other: &PosType) -> bool {
+    pub extern "C" fn is_collide_with_point(self, me: &GamePos, other: &GamePos) -> bool {
         match self {
             Self::Circle {
                 radius: _,
                 radius_2: r_2
             } => {
-                let x_distance = me.0 - other.0;
-                let y_distance = me.1 - other.1;
+                let x_distance = me.x - other.x;
+                let y_distance = me.y - other.y;
                 x_distance * x_distance + y_distance * y_distance < r_2
             }
         }
     }
 
-    pub fn is_collide_with_point_up(self, me: &PosType, point: &PosType, up: f32) -> bool {
+    pub extern "C" fn is_collide_with_point_up(self, me: &GamePos, point: &GamePos, up: f32) -> bool {
         match self {
             Self::Circle {
                 radius: r,
                 radius_2: r_2
             } => {
-                let left = point.0 - r;
-                let right = point.0 + r;
-                let top = up + point.1;
-                if me.0 > left && me.0 < right && me.1 < top && me.1 > point.1 {
+                let left = point.x - r;
+                let right = point.x + r;
+                let top = up + point.y;
+                if me.x > left && me.x < right && me.y < top && me.y > point.y {
                     true
                 } else {
-                    let x_distance = me.0 - point.0;
-                    let y_distance = me.1 - point.1;
+                    let x_distance = me.x - point.x;
+                    let y_distance = me.y - point.y;
                     if x_distance * x_distance + y_distance * y_distance < r_2 {
                         true
                     } else {
-                        let x_distance = me.0 - point.0;
-                        let y_distance = me.1 - top;
+                        let x_distance = me.x - point.x;
+                        let y_distance = me.y - top;
                         x_distance * x_distance + y_distance * y_distance < r_2
                     }
                 }
@@ -83,7 +101,7 @@ impl CollideType {
         }
     }
 
-    pub fn is_collide_with(self, me: &PosType, other_collide: &CollideType, other: &PosType) -> bool {
+    pub extern "C" fn is_collide_with(self, me: &GamePos, other_collide: &CollideType, other: &GamePos) -> bool {
         match self {
             Self::Circle {
                 radius: _,
@@ -94,8 +112,8 @@ impl CollideType {
                         radius: _,
                         radius_2: o_r_2
                     } => {
-                        let center_x_distance = me.0 - other.0;
-                        let center_y_distance = me.1 - other.1;
+                        let center_x_distance = me.x - other.x;
+                        let center_y_distance = me.y - other.y;
                         let center_distance = center_x_distance * center_x_distance + center_y_distance * center_y_distance;
                         center_distance < r_2 + o_r_2
                     }
@@ -118,7 +136,7 @@ impl TryFrom<(u8, Vec<f32>)> for CollideType {
 
 impl CollideType {
     //noinspection RsSelfConvention
-    pub fn get_arg_count(byte: u8) -> usize {
+    pub extern "C" fn get_arg_count(byte: u8) -> usize {
         match byte {
             10 => 1,
             _ => panic!("Not collide byte: {}", byte)
@@ -133,9 +151,9 @@ impl Default for Player {
 }
 
 impl Player {
-    pub fn new(move_speed: f32, walk_speed: f32) -> Self {
+    pub extern "C" fn new(move_speed: f32, walk_speed: f32) -> Self {
         Self {
-            pos: (0.0, -400.0, PLAYER_Z),
+            pos: (0.0, -400.0, PLAYER_Z).into(),
             move_speed,
             walk_speed,
             walking: false,
@@ -147,40 +165,46 @@ impl Player {
     }
 }
 
+#[repr(C)]
 #[derive(Default)]
 pub struct PlayerBullet {
-    pub pos: PosType,
+    pub pos: GamePos,
     pub tex: TexHandle,
     pub damage: f32,
 }
 
+
+#[repr(C)]
 #[derive(Default)]
 pub struct Rotation {
-    pub facing: (f32, f32),
+    pub facing_x: f32,
+    pub facing_y: f32,
     pub angle: f32,
 }
 
 impl Rotation {
-    #[inline]
-    pub fn add_angle(&mut self, a: f32) {
+    pub extern "C" fn add_angle(&mut self, a: f32) {
         if a != 0.0 {
             self.angle += a;
             let (sin, cos) = (self.angle * std::f32::consts::PI / 180.0).sin_cos();
-            self.facing = (cos, sin);
+            self.facing_x = cos;
+            self.facing_y = sin;
         }
     }
 
-    pub fn new(a: f32) -> Self {
+    pub extern "C" fn new(a: f32) -> Self {
         let (sin, cos) = (a * std::f32::consts::PI / 180.0).sin_cos();
         Self {
-            facing: (cos, sin),
+            facing_x: cos,
+            facing_y: sin,
             angle: a,
         }
     }
 }
 
+#[repr(C)]
 pub struct SimpleEnemyBullet {
-    pub pos: PosType,
+    pub pos: GamePos,
     pub tex: TexHandle,
     pub collide: CollideType,
     pub speed: f32,
@@ -192,7 +216,7 @@ pub struct SimpleEnemyBullet {
 }
 
 impl SimpleEnemyBullet {
-    pub fn new(pos: PosType, tex: TexHandle, collide: CollideType, speed: f32, angle: f32) -> Self {
+    pub extern "C" fn new(pos: GamePos, tex: TexHandle, collide: CollideType, speed: f32, angle: f32) -> Self {
         let (sin, cos) = (angle * std::f32::consts::PI / 180.0).sin_cos();
         Self {
             pos,
@@ -200,8 +224,10 @@ impl SimpleEnemyBullet {
             collide,
             speed,
             rotation: Rotation {
-                facing: (cos, sin),
+                facing_x: cos,
+                facing_y: sin,
                 angle,
+
             },
             a: 0.0,
             a_delta: 0.0,
@@ -210,9 +236,9 @@ impl SimpleEnemyBullet {
         }
     }
 
-    pub fn tick(&mut self) {
-        self.pos.0 += self.speed * self.rotation.facing.0;
-        self.pos.1 += self.speed * self.rotation.facing.1;
+    pub extern "C" fn tick(&mut self) {
+        self.pos.x += self.speed * self.rotation.facing_x;
+        self.pos.y += self.speed * self.rotation.facing_y;
         self.speed += self.a;
         self.a += self.a_delta;
         self.rotation.add_angle(self.w);

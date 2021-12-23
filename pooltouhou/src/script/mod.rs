@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use pool_script::pool_script::FunctionDesc;
 use pool_script::PoolScriptBin;
-use pthapi::{CollideType, PosType};
+use pthapi::{CollideType, GamePos};
 
 pub mod script_context;
 
@@ -165,7 +165,7 @@ impl CalcStack {
 
 #[derive(Debug, Clone, Default)]
 pub struct ScriptGameData {
-    pub player_tran: PosType,
+    pub player_tran: GamePos,
     pub(crate) submit_command: VecDeque<ScriptGameCommand>,
     pub calc_stack: CalcStack,
 }

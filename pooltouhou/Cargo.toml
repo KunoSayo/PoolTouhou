@@ -10,9 +10,11 @@ edition = "2021"
 [[bin]]
 name = "pooltouhou"
 
+[lib]
+name = "pth"
+crate-type = ["dylib"]
+
 [dependencies]
-#api
-pthapi = { path = "../pthapi" }
 
 #mix
 env_logger = "*"
@@ -35,6 +37,9 @@ profiling = "1.0.3"
 #audio
 minimp3 = "0.5.1"
 lewton = "0.10.2"
+
+#api
+pthapi = { path = "../pthapi" }
 
 
 [features]

@@ -15,7 +15,7 @@ use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry,
            VertexAttribute, VertexBufferLayout, VertexFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
-use pthapi::{PosType, TexHandle};
+use pthapi::{GamePos, TexHandle};
 
 use crate::GlobalState;
 use crate::handles::ResourcesHandles;
@@ -65,19 +65,19 @@ impl AsTexture2DObject for Texture2DObject {
 
 impl Texture2DObject {
     #[inline]
-    pub fn with_game_pos(mut center: PosType, width: f32, height: f32, tex: TexHandle, obj_id: u64) -> Self {
-        center.0 += 800.0;
-        center.1 += 450.0;
+    pub fn with_game_pos(mut center: GamePos, width: f32, height: f32, tex: TexHandle, obj_id: u64) -> Self {
+        center.x += 800.0;
+        center.y += 450.0;
         let half_width = width / 2.0;
         let half_height = height / 2.0;
         Self {
             vertex: (0..4).map(|x|
                 Texture2DVertexData {
                     pos: match x {
-                        0 => [center.0 - half_width, center.1 + half_height],
-                        1 => [center.0 + half_width, center.1 + half_height],
-                        2 => [center.0 - half_width, center.1 - half_height],
-                        3 => [center.0 + half_width, center.1 - half_height],
+                        0 => [center.x - half_width, center.y + half_height],
+                        1 => [center.x + half_width, center.y + half_height],
+                        2 => [center.x - half_width, center.y - half_height],
+                        3 => [center.x + half_width, center.y - half_height],
                         _ => unreachable!()
                     },
                     coord: match x {
@@ -88,7 +88,7 @@ impl Texture2DObject {
                         _ => unreachable!()
                     },
                 }).collect::<Vec<_>>().try_into().unwrap(),
-            z: center.2,
+            z: center.z,
             tex,
             obj_id,
         }

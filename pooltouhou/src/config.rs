@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use std::io::{Read, Write};
 use std::str::FromStr;
 
+#[repr(C)]
 #[derive(Debug)]
 pub struct Config {
     path: String,
@@ -11,6 +12,7 @@ pub struct Config {
     dirty: bool,
 }
 
+#[repr(C)]
 #[derive(Debug)]
 enum LineType {
     KeyValue(String),

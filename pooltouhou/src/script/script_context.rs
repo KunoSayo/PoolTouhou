@@ -1,7 +1,7 @@
 use std::convert::{TryFrom, TryInto};
 
 use pool_script::Loop;
-use pthapi::{CollideType, PosType};
+use pthapi::{CollideType, GamePos};
 
 use crate::script::{FunctionDesc, ScriptDesc, ScriptGameCommand, ScriptGameData, ScriptManager};
 
@@ -13,7 +13,7 @@ pub struct ScriptContext {
 
 #[derive(Debug)]
 pub struct TempGameContext<'a> {
-    pub(crate) tran: Option<&'a mut PosType>,
+    pub(crate) tran: Option<&'a mut GamePos>,
 }
 
 impl ScriptContext {
@@ -343,29 +343,29 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                 match index {
                     0 => {
                         let tran = self.temp.tran.as_mut().unwrap();
-                        tran.0 = value;
+                        tran.x = value;
                     }
                     1 => {
                         let tran = self.temp.tran.as_mut().unwrap();
-                        tran.1 = value;
+                        tran.y = value;
                     }
                     2 => {
                         let tran = self.temp.tran.as_mut().unwrap();
-                        tran.2 = value;
+                        tran.z = value;
                     }
                     3 => {
                         let tran = &mut self.script_data.player_tran;
-                        tran.0 = value;
+                        tran.x = value;
                         // self.script_data.player_tran.replace(tran);
                     }
                     4 => {
                         let tran = &mut self.script_data.player_tran;
-                        tran.1 = value;
+                        tran.y = value;
                         // self.script_data.player_tran.replace(tran);
                     }
                     5 => {
                         let tran = &mut self.script_data.player_tran;
-                        tran.2 = value;
+                        tran.z = value;
                     }
                     _ => unreachable!("Unknown script_data data byte: {}", index)
                 };
@@ -393,10 +393,10 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                 let data = self.desc.code.get_unchecked(self.context.pointer + 1);
                 self.context.pointer += 2;
                 match data {
-                    0 => self.temp.tran.as_ref().unwrap().0,
-                    1 => self.temp.tran.as_ref().unwrap().1,
-                    3 => self.script_data.player_tran.0,
-                    4 => self.script_data.player_tran.1,
+                    0 => self.temp.tran.as_ref().unwrap().x,
+                    1 => self.temp.tran.as_ref().unwrap().y,
+                    3 => self.script_data.player_tran.x,
+                    4 => self.script_data.player_tran.y,
                     _ => unreachable!("Unknown script_data data byte: {}", data)
                 }
             }
@@ -431,10 +431,10 @@ impl<'a, 'b> FunctionRunner<'a, 'b> {
                 let data = self.desc.code[self.context.pointer + 1];
                 self.context.pointer += 2;
                 Some(match data {
-                    0 => self.temp.tran.as_ref().unwrap().0,
-                    1 => self.temp.tran.as_ref().unwrap().1,
-                    3 => self.script_data.player_tran.0,
-                    4 => self.script_data.player_tran.1,
+                    0 => self.temp.tran.as_ref().unwrap().x,
+                    1 => self.temp.tran.as_ref().unwrap().y,
+                    3 => self.script_data.player_tran.x,
+                    4 => self.script_data.player_tran.y,
                     _ => panic!("Unknown script_data data byte: {}", data)
                 })
             }
