@@ -12,7 +12,7 @@ name = "pooltouhou"
 
 [lib]
 name = "pth"
-crate-type = ["lib"]
+crate-type = ["dylib"]
 
 [dependencies]
 nalgebra = { version = "0.28.0", features = ["convert-bytemuck"] }
@@ -20,13 +20,13 @@ pool_script = { path = "../pool_script" }
 bytemuck = "*"
 image = "*"
 
-minimp3 = "0.5.1"
 lewton = "0.10.2"
 alto = "3.0.4"
 
 shaderc = { version = "0.7", features = ["build-from-source"] }
-wgpu = { version = "0.10.1", features = ["spirv"] }
-wgpu_glyph = "0.14.1"
+wgpu = { version = "0.12", features = ["spirv"] }
+wgpu_glyph = "0.16.0"
+winit = "0.26"
 
 rayon = "*"
 chrono = "*"
@@ -35,9 +35,12 @@ pollster = "0.2.3"
 futures = { version = "*", features = ["thread-pool"] }
 env_logger = "*"
 log = "*"
-winit = "0.24"
+
+minimp3 = "0.5.1"
+
 # api
 pthapi = { path = "../pthapi" }
+
 
 [features]
 debug-game = []

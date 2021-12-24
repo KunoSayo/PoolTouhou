@@ -6,16 +6,11 @@ use std::sync::Arc;
 
 use bytemuck::Pod;
 use bytemuck::Zeroable;
-use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry,
-           BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
-           BindingResource, BindingType, Buffer, BufferDescriptor, BufferUsages,
-           IndexFormat, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
-           RenderPipeline, ShaderStages, TextureSampleType, TextureView, TextureViewDimension,
-           VertexAttribute, VertexBufferLayout, VertexFormat};
+use rayon::prelude::*;
+use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferDescriptor, BufferUsages, IndexFormat, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, SamplerBindingType, ShaderStages, TextureSampleType, TextureView, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 use pthapi::{GamePos, TexHandle};
-use rayon::prelude::*;
 
 use crate::GlobalState;
 use crate::handles::ResourcesHandles;
@@ -153,10 +148,7 @@ impl Texture2DRender {
             }, BindGroupLayoutEntry {
                 binding: 1,
                 visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Sampler {
-                    filtering: true,
-                    comparison: false,
-                },
+                ty: BindingType::Sampler(SamplerBindingType::Filtering),
                 count: None,
             }],
         });
@@ -224,6 +216,7 @@ impl Texture2DRender {
             primitive: Default::default(),
             depth_stencil: None,
             multisample: Default::default(),
+            multiview: None
         });
 
         Self {

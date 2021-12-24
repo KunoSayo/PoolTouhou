@@ -1,11 +1,7 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
-use wgpu::{BindGroupLayout, BindGroupLayoutDescriptor,
-           BindGroupLayoutEntry, BindingType, Buffer,
-           BufferDescriptor, BufferUsages,
-           RenderPipeline, ShaderStages, TextureSampleType,
-           TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
+use wgpu::{BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, Buffer, BufferDescriptor, BufferUsages, RenderPipeline, SamplerBindingType, ShaderStages, TextureSampleType, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 use crate::GlobalState;
@@ -46,10 +42,7 @@ impl WaterWaveRender {
             }, BindGroupLayoutEntry {
                 binding: 1,
                 visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Sampler {
-                    filtering: true,
-                    comparison: false,
-                },
+                ty: BindingType::Sampler(SamplerBindingType::Filtering),
                 count: None,
             }],
         });
@@ -116,6 +109,7 @@ impl WaterWaveRender {
             primitive: Default::default(),
             depth_stencil: None,
             multisample: Default::default(),
+            multiview: None
         });
 
         Self {

@@ -2,23 +2,23 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use env_logger::Target;
+use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
+use futures::task::LocalSpawnExt;
 use image::{DynamicImage, ImageBuffer, ImageFormat};
+use shaderc::ShaderKind;
 use wgpu::{BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, Color, CommandEncoderDescriptor, Extent3d, ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, LoadOp, Maintain, MapMode, Operations, Origin3d, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, ShaderStages, TextureAspect, TextureFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
+use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
+use winit::event_loop::ControlFlow;
+use winit::window::Window;
 
 // use crate as root;
 use audio::OpenalData;
 use config::Config;
-use env_logger::Target;
-use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
-use futures::task::LocalSpawnExt;
 use handles::ResourcesHandles;
 use render::{GlobalState, MainRendererData, MainRenderViews};
-use shaderc::ShaderKind;
 use states::{GameState, StateData, Trans};
-use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
-use winit::event_loop::ControlFlow;
-use winit::window::Window;
 
 use crate::states::StateEvent;
 
@@ -243,8 +243,8 @@ impl PthData {
         let dt = render_dur.as_secs_f32();
 
         let swap_chain_frame
-            = self.global_state.surface.get_current_frame().expect("Failed to acquire next swap chain texture");
-        let surface_output = &swap_chain_frame.output;
+            = self.global_state.surface.get_current_texture().expect("Failed to acquire next swap chain texture");
+        let surface_output = &swap_chain_frame;
         {
             let mut encoder = self.global_state.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Clear Encoder") });
             let _ = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -314,6 +314,7 @@ impl PthData {
 
         self.pools.render_pool.try_run_one();
         self.last_render_time = render_now;
+        swap_chain_frame.present();
     }
 
     fn save_screen_shots(&mut self) {
@@ -432,6 +433,7 @@ async fn new_global(window: &Window, config: Config) -> GlobalState {
     let adapter = instance
         .request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::util::power_preference_from_env().unwrap_or(PowerPreference::HighPerformance),
+            force_fallback_adapter: false,
             compatible_surface: Some(&surface),
         })
         .await
