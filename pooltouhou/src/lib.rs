@@ -2,23 +2,23 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use env_logger::Target;
-use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
-use futures::task::LocalSpawnExt;
 use image::{DynamicImage, ImageBuffer, ImageFormat};
-use shaderc::ShaderKind;
 use wgpu::{BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, Color, CommandEncoderDescriptor, Extent3d, ImageCopyBuffer, ImageCopyTexture, ImageDataLayout, LoadOp, Maintain, MapMode, Operations, Origin3d, PowerPreference, RenderPassColorAttachment, RenderPassDescriptor, ShaderStages, TextureAspect, TextureFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
-use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
-use winit::event_loop::ControlFlow;
-use winit::window::Window;
 
 // use crate as root;
 use audio::OpenalData;
 use config::Config;
+use env_logger::Target;
+use futures::executor::{LocalPool, LocalSpawner, ThreadPool};
+use futures::task::LocalSpawnExt;
 use handles::ResourcesHandles;
 use render::{GlobalState, MainRendererData, MainRenderViews};
+use shaderc::ShaderKind;
 use states::{GameState, StateData, Trans};
+use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
+use winit::event_loop::ControlFlow;
+use winit::window::Window;
 
 use crate::states::StateEvent;
 

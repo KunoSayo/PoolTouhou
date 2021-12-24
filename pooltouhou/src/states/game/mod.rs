@@ -1,10 +1,10 @@
 use std::sync::mpsc::{Receiver, Sender};
 
-use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelExtend};
 use wgpu_glyph::{HorizontalAlign, Layout, VerticalAlign};
-use winit::event::VirtualKeyCode;
 
 use pthapi::{CollideType, GAME_MAX_X, GAME_MAX_Y, GAME_MIN_X, GAME_MIN_Y, GamePos, Player, PlayerBullet, Rotation, SimpleEnemyBullet, TexHandle};
+use rayon::iter::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelExtend};
+use winit::event::VirtualKeyCode;
 
 use crate::handles::{CounterProgress, Progress};
 use crate::LoopState;

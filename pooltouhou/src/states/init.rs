@@ -4,7 +4,6 @@ use std::time::{Duration, Instant};
 use crate::handles::{CounterProgress, Progress};
 use crate::LoopState;
 use crate::states::{GameState, StateData, Trans};
-
 use crate::states::menu::MainMenu;
 
 pub struct Loading {

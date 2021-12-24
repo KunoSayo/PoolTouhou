@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 use bytemuck::Pod;
 use bytemuck::Zeroable;
-use rayon::prelude::*;
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry,
            BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
            BindingResource, BindingType, Buffer, BufferDescriptor, BufferUsages,
@@ -16,6 +15,7 @@ use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry,
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 use pthapi::{GamePos, TexHandle};
+use rayon::prelude::*;
 
 use crate::GlobalState;
 use crate::handles::ResourcesHandles;

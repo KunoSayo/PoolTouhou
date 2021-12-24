@@ -2,11 +2,12 @@ use std::iter::FromIterator;
 use std::num::NonZeroUsize;
 use std::ops::Range;
 
-use crate::render::{GlobalState, MainRendererData};
 use wgpu;
-use wgpu_glyph::{HorizontalAlign, Layout, VerticalAlign, GlyphCruncher};
+use wgpu_glyph::{GlyphCruncher, HorizontalAlign, Layout, VerticalAlign};
 use wgpu_glyph;
-use wgpu_glyph::ab_glyph::{Rect, Point};
+use wgpu_glyph::ab_glyph::{Point, Rect};
+
+use crate::render::{GlobalState, MainRendererData};
 
 #[derive(Debug)]
 pub enum InputResult {
