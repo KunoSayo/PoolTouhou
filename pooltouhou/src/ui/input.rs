@@ -7,6 +7,8 @@ use wgpu_glyph::{GlyphCruncher, HorizontalAlign, Layout, VerticalAlign};
 use wgpu_glyph;
 use wgpu_glyph::ab_glyph::{Point, Rect};
 
+use pth_render_lib::*;
+
 use crate::render::{GlobalState, MainRendererData};
 
 #[derive(Debug)]

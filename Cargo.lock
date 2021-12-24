@@ -1521,10 +1521,10 @@ dependencies = [
  "pollster",
  "pool_script",
  "profiling",
+ "pth-render-lib",
  "pthapi",
  "rayon",
  "shaderc",
- "wgpu",
  "wgpu_glyph",
  "winit",
 ]
@@ -1578,6 +1578,13 @@ checksum = "b9dc92bed14cc1433694b0ee18dfb3c219bf182019b0daf7b017f7a9f1e280ac"
 dependencies = [
  "quote",
  "syn",
+]
+
+[[package]]
+name = "pth-render-lib"
+version = "0.1.0"
+dependencies = [
+ "wgpu",
 ]
 
 [[package]]

@@ -12,6 +12,7 @@ use shaderc::ShaderKind;
 use wgpu::{Extent3d, ImageCopyTexture, Origin3d, TextureAspect, TextureDimension, TextureFormat, TextureUsages};
 use wgpu_glyph::ab_glyph::FontArc;
 
+use pth_render_lib::*;
 use pthapi::TexHandle;
 
 use crate::Pools;

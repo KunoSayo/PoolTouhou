@@ -4,6 +4,7 @@ use std::sync::Arc;
 use wgpu::{BindGroup, BindGroupLayout, Extent3d, TextureDimension, TextureUsages};
 use wgpu::Buffer;
 
+use pth_render_lib::*;
 use root::audio::OpenalData;
 use root::handles::{ResourcesHandles, Texture};
 use root::render::texture2d::Texture2DRender;

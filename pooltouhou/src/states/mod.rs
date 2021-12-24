@@ -6,10 +6,6 @@ pub mod menu;
 pub mod load;
 mod game;
 
-
-pub const ARENA_WIDTH: f32 = 1600.0;
-pub const ARENA_HEIGHT: f32 = 900.0;
-
 pub enum StateEvent {
     Resize {
         width: u32,

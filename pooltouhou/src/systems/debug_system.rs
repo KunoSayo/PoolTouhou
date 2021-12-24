@@ -5,6 +5,8 @@ use wgpu;
 use wgpu_glyph;
 use wgpu_glyph::{HorizontalAlign, Layout, VerticalAlign};
 
+use pth_render_lib::*;
+
 use crate::{GlobalState, MainRendererData};
 
 pub struct DebugSystem {

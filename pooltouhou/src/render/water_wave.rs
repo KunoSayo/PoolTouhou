@@ -4,6 +4,8 @@ use std::sync::Arc;
 use wgpu::{BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, Buffer, BufferDescriptor, BufferUsages, RenderPipeline, SamplerBindingType, ShaderStages, TextureSampleType, TextureViewDimension, VertexAttribute, VertexBufferLayout, VertexFormat};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
+use pth_render_lib::*;
+
 use crate::GlobalState;
 use crate::handles::ResourcesHandles;
 

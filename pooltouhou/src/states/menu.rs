@@ -3,6 +3,8 @@ use std::time::Duration;
 
 use wgpu_glyph::Text;
 
+use pth_render_lib::*;
+
 use crate::LoopState;
 use crate::render::GlobalState;
 use crate::render::texture2d::{Texture2DObject, Texture2DVertexData};

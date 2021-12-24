@@ -17,6 +17,7 @@ use winit::window::Window;
 use audio::OpenalData;
 use config::Config;
 use handles::ResourcesHandles;
+use pth_render_lib::*;
 use render::{GlobalState, MainRendererData, MainRenderViews};
 use states::{GameState, StateData, Trans};
 

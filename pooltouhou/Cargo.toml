@@ -24,7 +24,6 @@ lewton = "0.10.2"
 alto = "3.0.4"
 
 shaderc = { version = "0.7", features = ["build-from-source"] }
-wgpu = { version = "0.12", features = ["spirv"] }
 wgpu_glyph = "0.16.0"
 winit = "0.26"
 
@@ -41,7 +40,8 @@ minimp3 = "0.5.1"
 # api
 pthapi = { path = "../pthapi" }
 
-
+# ...
+pth-render-lib = { path = "../pth-render-lib" }
 [features]
 debug-game = []
 profile = ["profiling/profile-with-optick"]
