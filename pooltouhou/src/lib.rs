@@ -389,7 +389,9 @@ struct LogTarget<Console: std::io::Write> {
 
 impl<Console: std::io::Write> LogTarget<Console> {
     fn new(c: Console) -> Self {
-        let log_file = std::fs::OpenOptions::new().read(true).write(true).truncate(true).create(true).open("latest.log");
+        let log_file = std::fs::OpenOptions::new()
+            .read(true).write(true).truncate(true).create(true)
+            .open("latest.log");
         if let Err(ref e) = log_file {
             eprintln!("Open log file failed for {}", e);
         }
@@ -420,7 +422,7 @@ impl<Console: std::io::Write> std::io::Write for LogTarget<Console> {
     }
 }
 
-async fn new_global(window: &Window, config: Config) -> GlobalState {
+async fn new_global(window: &Window, mut config: Config) -> GlobalState {
     log::info!("New graphics state");
     let mut res = ResourcesHandles::default();
     let size = window.inner_size();
@@ -507,6 +509,13 @@ async fn new_global(window: &Window, config: Config) -> GlobalState {
         }],
     });
 
+    let al = match OpenalData::new(&mut config) {
+        Ok(data) => Some(data),
+        Err(e) => {
+            log::warn!("Cannot create openal context for {:?}" , e);
+            None
+        }
+    };
     GlobalState {
         size_scale: [surface_cfg.width as f32 / 1600.0, surface_cfg.height as f32 / 900.0],
         surface,
@@ -520,13 +529,7 @@ async fn new_global(window: &Window, config: Config) -> GlobalState {
         screen_uni_bind,
         dyn_data: Default::default(),
         config,
-        al: match OpenalData::new() {
-            Ok(data) => Some(data),
-            Err(e) => {
-                log::warn!("Cannot create openal context for {:?}" , e);
-                None
-            }
-        },
+        al,
     }
 }
 

@@ -61,6 +61,8 @@ impl Config {
             .map_or(default, |x| T::from_str(x).unwrap())
     }
 
+
+    /// Parse a config-key and insert the default value to it if not present
     pub fn parse_or_default<T: FromStr>(&mut self, key: &str, default: &str) -> T
         where <T as FromStr>::Err: std::fmt::Debug
     {
